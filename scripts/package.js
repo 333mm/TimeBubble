@@ -35,4 +35,17 @@ for (const target of targets) {
   console.log(`✅ Packaged: ${zipPath}`);
 }
 
-console.log('\n🎉 All store packages created in release/ directory!');
+// AMO審査用ソースコードパッケージの作成
+const sourceZipPath = path.resolve(releaseDir, `source-code-v${versionStr}.zip`);
+if (fs.existsSync(sourceZipPath)) {
+  fs.unlinkSync(sourceZipPath);
+}
+console.log(`🗜️ Packaging Source Code -> ${sourceZipPath}`);
+const sourceItems = ['src', 'public', 'scripts', 'package.json', 'package-lock.json', 'tsconfig.json', 'manifest.base.json', 'README.md', '.gitignore']
+  .map(item => `'${path.resolve(rootDir, item)}'`)
+  .join(', ');
+const sourceCmd = `powershell -Command "Compress-Archive -Path ${sourceItems} -DestinationPath '${sourceZipPath}' -Force"`;
+execSync(sourceCmd, { stdio: 'inherit' });
+console.log(`✅ Packaged Source Code: ${sourceZipPath}`);
+
+console.log('\n🎉 All store packages and source code package created in release/ directory!');
