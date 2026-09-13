@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const iconsDir = path.resolve(rootDir, 'public/icons');
-const masterPath = path.resolve(iconsDir, 'logo-flat-master.jpg');
+const masterPath = path.resolve(iconsDir, 'logo-minimal-master.jpg');
 
 if (!fs.existsSync(iconsDir)) {
   fs.mkdirSync(iconsDir, { recursive: true });
@@ -24,11 +24,10 @@ $masterPath = "${masterPath.replace(/\\/g, '/')}"
 $iconsDir = "${iconsDir.replace(/\\/g, '/')}"
 $src = [System.Drawing.Bitmap]::FromFile($masterPath)
 
-# モダンフラットスクエア領域
-$cropX = 188
-$cropY = 200
-$cropW = 654
-$cropH = 654
+# ネオングラデーションのシンボル領域 (580x580, 中心 X: 511, Y: 468)
+$cropSize = 580
+$cropX = [int](511 - ($cropSize / 2))
+$cropY = [int](468 - ($cropSize / 2))
 
 $sizes = @(16, 32, 48, 128, 256, 512)
 
@@ -56,7 +55,7 @@ foreach ($s in $sizes) {
     $path = Get-SquirclePath 0.0 0.0 ([float]$s) ([float]$s) $r
     $g.SetClip($path)
 
-    $srcRect = New-Object System.Drawing.Rectangle $cropX, $cropY, $cropW, $cropH
+    $srcRect = New-Object System.Drawing.Rectangle $cropX, $cropY, $cropSize, $cropSize
     $destRect = New-Object System.Drawing.Rectangle 0, 0, $s, $s
     $g.DrawImage($src, $destRect, $srcRect, [System.Drawing.GraphicsUnit]::Pixel)
 
@@ -77,7 +76,7 @@ const tempPs1 = path.resolve(__dirname, 'temp_gen_icons.ps1');
 try {
   fs.writeFileSync(tempPs1, psScript, 'utf8');
   execSync(`powershell -ExecutionPolicy Bypass -File "${tempPs1}"`, { stdio: 'inherit' });
-  console.log('✅ Modern flat icons generated successfully!');
+  console.log('✅ Modern neon minimalist icons generated successfully!');
 } finally {
   if (fs.existsSync(tempPs1)) {
     fs.unlinkSync(tempPs1);

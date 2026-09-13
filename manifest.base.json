@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TimeBubble: YouTube Timestamp Comments",
-  "version": "1.2.1",
-  "version_name": "1.21",
+  "version": "1.2.2",
+  "version_name": "1.22",
   "description": "YouTubeのタイムスタンプ付きコメントを動画上に洗練されたグラスモーフィズムUIで表示し、クリックで全文字表示・いいね・返信ができる拡張機能",
   "homepage_url": "https://github.com/333mm/TimeBubble",
   "browser_specific_settings": {
