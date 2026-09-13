@@ -1,0 +1,26 @@
+{
+  "name": "yt-comment-overlay",
+  "version": "1.1.9",
+  "description": "TimeBubble: YouTube Timestamp Comments - タイムスタンプ付きコメントを動画上に洗練されたUIで表示する拡張機能",
+  "homepage": "https://github.com/333mm/TimeBubble",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/333mm/TimeBubble.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "generate-icons": "node scripts/generate-icons.js",
+    "build": "node scripts/generate-icons.js && node scripts/build.js all",
+    "build:chrome": "node scripts/generate-icons.js && node scripts/build.js chrome",
+    "build:firefox": "node scripts/generate-icons.js && node scripts/build.js firefox",
+    "package": "node scripts/package.js"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4"
+  }
+}

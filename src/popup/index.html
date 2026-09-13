@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TimeBubble Settings</title>
+  <link rel="stylesheet" href="./popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- ヘッダー -->
+    <header class="popup-header">
+      <div class="header-title-row">
+        <div class="header-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="10" r="2"></circle>
+          </svg>
+        </div>
+        <div class="header-text">
+          <h1 id="i18n-title">TimeBubble</h1>
+          <p id="i18n-subtitle">YouTube タイムスタンプコメント</p>
+        </div>
+        <div class="header-controls">
+          <!-- 言語切り替えセレクター -->
+          <div class="lang-select-wrapper">
+            <select id="lang-select" class="lang-select" title="Language">
+              <option value="ja">JP</option>
+              <option value="en">EN</option>
+              <option value="es">ES</option>
+              <option value="zh">ZH</option>
+            </select>
+          </div>
+          <!-- 有効/無効トグル -->
+          <label class="toggle-switch">
+            <input type="checkbox" id="enabled-toggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <main class="popup-body">
+      <!-- 表示位置セレクター -->
+      <section class="section">
+        <label class="section-label">
+          <span id="i18n-position">表示位置</span>
+        </label>
+        <div class="screen-preview-box">
+          <div class="screen-grid">
+            <button type="button" class="pos-btn" data-pos="top-left" title="左上">
+              <span class="pos-dot"></span>
+              <span class="pos-text" id="i18n-top-left">左上</span>
+            </button>
+            <button type="button" class="pos-btn" data-pos="top-right" title="右上">
+              <span class="pos-dot"></span>
+              <span class="pos-text" id="i18n-top-right">右上</span>
+            </button>
+            <div class="screen-center-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="6 3 20 12 6 21 6 3"></polygon>
+              </svg>
+            </div>
+            <button type="button" class="pos-btn" data-pos="bottom-left" title="左下">
+              <span class="pos-dot"></span>
+              <span class="pos-text" id="i18n-bottom-left">左下</span>
+            </button>
+            <button type="button" class="pos-btn" data-pos="bottom-right" title="右下">
+              <span class="pos-dot"></span>
+              <span class="pos-text" id="i18n-bottom-right">右下</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 表示サイズ -->
+      <section class="section">
+        <div class="slider-row">
+          <label class="section-label" id="i18n-size">表示サイズ</label>
+          <span class="slider-val" id="size-val">中</span>
+        </div>
+        <div class="size-btn-group">
+          <button type="button" class="size-btn" data-size="small" id="i18n-size-small">小</button>
+          <button type="button" class="size-btn active" data-size="medium" id="i18n-size-medium">中</button>
+          <button type="button" class="size-btn" data-size="large" id="i18n-size-large">大</button>
+        </div>
+      </section>
+
+      <!-- 表示時間スライダー -->
+      <section class="section">
+        <div class="slider-row">
+          <label for="duration-slider" class="section-label" id="i18n-duration">表示時間</label>
+          <span class="slider-val" id="duration-val">6秒</span>
+        </div>
+        <input type="range" id="duration-slider" min="3" max="15" step="1" value="6" class="range-input">
+      </section>
+
+      <!-- 最大スタック数 -->
+      <section class="section">
+        <div class="slider-row">
+          <label for="stack-slider" class="section-label" id="i18n-stack">最大スタック件数</label>
+          <span class="slider-val" id="stack-val">3件</span>
+        </div>
+        <input type="range" id="stack-slider" min="1" max="5" step="1" value="3" class="range-input">
+      </section>
+
+      <!-- 不透明度スライダー (デフォルト80%) -->
+      <section class="section">
+        <div class="slider-row">
+          <label for="opacity-slider" class="section-label" id="i18n-opacity">不透明度</label>
+          <span class="slider-val" id="opacity-val">80%</span>
+        </div>
+        <input type="range" id="opacity-slider" min="0" max="100" step="5" value="80" class="range-input">
+      </section>
+
+      <!-- 高評価コメントハイライト切り替え -->
+      <section class="section-toggle-row">
+        <div class="toggle-info">
+          <span class="toggle-title" id="i18n-highlight-title">高評価コメントをハイライト</span>
+          <span class="toggle-desc" id="i18n-highlight-desc">いいね数に応じてグラデーションと光彩を適用</span>
+        </div>
+        <label class="toggle-switch mini">
+          <input type="checkbox" id="highlight-toggle" checked>
+          <span class="slider"></span>
+        </label>
+      </section>
+
+      <!-- テスト表示ボタン -->
+      <section class="section">
+        <button type="button" id="test-comment-btn" class="test-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span id="i18n-test-btn">現在の画面にテスト吹き出しを表示</span>
+        </button>
+      </section>
+    </main>
+
+    <!-- フッター -->
+    <footer class="popup-footer">
+      <span class="status-indicator">
+        <span class="status-dot"></span>
+        <span id="save-status">設定は自動保存されます</span>
+      </span>
+      <a href="https://ko-fi.com/sanmiri" target="_blank" rel="noopener noreferrer" class="support-link" id="support-link" title="開発者をサポート (Ko-fi)">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <span id="i18n-support-dev">開発者をサポート</span>
+      </a>
+    </footer>
+  </div>
+
+  <script type="module" src="./popup.ts"></script>
+</body>
+</html>

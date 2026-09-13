@@ -1,0 +1,956 @@
+/* YouTube Comment Overlay - Global Styles */
+
+#yt-comment-overlay-container {
+  position: absolute !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  pointer-events: none !important;
+  z-index: 2147483647 !important;
+  max-width: 380px !important;
+  width: calc(100% - 32px) !important;
+  overflow: visible !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  box-sizing: border-box !important;
+  line-height: normal !important;
+}
+
+#yt-comment-overlay-container *,
+#yt-comment-overlay-container *::before,
+#yt-comment-overlay-container *::after {
+  box-sizing: border-box !important;
+}
+
+/* 4隅の位置配置 (競合防止に全プロパティを明示指定) */
+#yt-comment-overlay-container.pos-top-right {
+  top: 16px !important;
+  right: 16px !important;
+  bottom: auto !important;
+  left: auto !important;
+  align-items: flex-end !important;
+  flex-direction: column !important;
+}
+
+#yt-comment-overlay-container.pos-top-left {
+  top: 16px !important;
+  left: 16px !important;
+  bottom: auto !important;
+  right: auto !important;
+  align-items: flex-start !important;
+  flex-direction: column !important;
+}
+
+#yt-comment-overlay-container.pos-bottom-right {
+  bottom: 72px !important;
+  right: 16px !important;
+  top: auto !important;
+  left: auto !important;
+  align-items: flex-end !important;
+  flex-direction: column !important;
+}
+
+#yt-comment-overlay-container.pos-bottom-left {
+  bottom: 72px !important;
+  left: 16px !important;
+  top: auto !important;
+  right: auto !important;
+  align-items: flex-start !important;
+  flex-direction: column !important;
+}
+
+/* サイズ設定: 小 (small) */
+#yt-comment-overlay-container.size-small {
+  --bubble-gap: 8px;
+  max-width: 290px !important;
+  gap: 8px !important;
+  padding: 12px !important;
+}
+#yt-comment-overlay-container.size-small .yt-co-bubble:not(.is-exiting),
+.yt-co-bubble.yt-co-size-small:not(.is-exiting) {
+  padding: 8px 12px !important;
+  border-radius: 12px !important;
+  max-width: 290px !important;
+}
+#yt-comment-overlay-container.size-small .yt-co-avatar,
+#yt-comment-overlay-container.size-small .yt-co-avatar-fallback,
+.yt-co-size-small .yt-co-avatar,
+.yt-co-size-small .yt-co-avatar-fallback {
+  width: 22px !important;
+  height: 22px !important;
+  font-size: 10px !important;
+}
+#yt-comment-overlay-container.size-small .yt-co-author,
+.yt-co-size-small .yt-co-author {
+  font-size: 11px !important;
+}
+#yt-comment-overlay-container.size-small .yt-co-ts-badge,
+.yt-co-size-small .yt-co-ts-badge {
+  font-size: 10px !important;
+  padding: 1px 6px !important;
+  gap: 3px !important;
+  margin: 0 3px !important;
+  vertical-align: -1.5px !important;
+}
+#yt-comment-overlay-container.size-small .yt-co-ts-badge svg,
+.yt-co-size-small .yt-co-ts-badge svg {
+  width: 8px !important;
+  height: 8px !important;
+}
+#yt-comment-overlay-container.size-small .yt-co-likes-badge,
+.yt-co-size-small .yt-co-likes-badge {
+  font-size: 10px !important;
+}
+#yt-comment-overlay-container.size-small .yt-co-content,
+.yt-co-size-small .yt-co-content {
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  -webkit-line-clamp: 2 !important;
+}
+#yt-comment-overlay-container.size-small .yt-co-footer,
+.yt-co-size-small .yt-co-footer {
+  font-size: 9px !important;
+  margin-top: 4px !important;
+}
+
+/* サイズ設定: 中 (medium) */
+#yt-comment-overlay-container.size-medium {
+  --bubble-gap: 10px;
+  max-width: 370px !important;
+  gap: 10px !important;
+  padding: 16px !important;
+}
+#yt-comment-overlay-container.size-medium .yt-co-bubble:not(.is-exiting),
+.yt-co-bubble.yt-co-size-medium:not(.is-exiting) {
+  padding: 12px 16px !important;
+  border-radius: 16px !important;
+  max-width: 360px !important;
+}
+#yt-comment-overlay-container.size-medium .yt-co-avatar,
+#yt-comment-overlay-container.size-medium .yt-co-avatar-fallback,
+.yt-co-size-medium .yt-co-avatar,
+.yt-co-size-medium .yt-co-avatar-fallback {
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 13px !important;
+}
+#yt-comment-overlay-container.size-medium .yt-co-author,
+.yt-co-size-medium .yt-co-author {
+  font-size: 13px !important;
+}
+#yt-comment-overlay-container.size-medium .yt-co-ts-badge,
+.yt-co-size-medium .yt-co-ts-badge {
+  font-size: 11px !important;
+  padding: 2px 7px !important;
+  gap: 4px !important;
+  margin: 0 4px !important;
+  vertical-align: -2px !important;
+}
+#yt-comment-overlay-container.size-medium .yt-co-ts-badge svg,
+.yt-co-size-medium .yt-co-ts-badge svg {
+  width: 9px !important;
+  height: 9px !important;
+}
+#yt-comment-overlay-container.size-medium .yt-co-content,
+.yt-co-size-medium .yt-co-content {
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  -webkit-line-clamp: 3 !important;
+}
+
+/* サイズ設定: 大 (large) */
+#yt-comment-overlay-container.size-large {
+  --bubble-gap: 14px;
+  max-width: 460px !important;
+  gap: 14px !important;
+  padding: 20px !important;
+}
+#yt-comment-overlay-container.size-large .yt-co-bubble:not(.is-exiting),
+.yt-co-bubble.yt-co-size-large:not(.is-exiting) {
+  padding: 16px 20px !important;
+  border-radius: 18px !important;
+  max-width: 450px !important;
+}
+#yt-comment-overlay-container.size-large .yt-co-avatar,
+#yt-comment-overlay-container.size-large .yt-co-avatar-fallback,
+.yt-co-size-large .yt-co-avatar,
+.yt-co-size-large .yt-co-avatar-fallback {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 16px !important;
+}
+#yt-comment-overlay-container.size-large .yt-co-author,
+.yt-co-size-large .yt-co-author {
+  font-size: 15px !important;
+}
+#yt-comment-overlay-container.size-large .yt-co-ts-badge,
+.yt-co-size-large .yt-co-ts-badge {
+  font-size: 12px !important;
+  padding: 2px 8px !important;
+  gap: 4px !important;
+  margin: 0 4px !important;
+  vertical-align: -2px !important;
+}
+#yt-comment-overlay-container.size-large .yt-co-ts-badge svg,
+.yt-co-size-large .yt-co-ts-badge svg {
+  width: 10px !important;
+  height: 10px !important;
+}
+#yt-comment-overlay-container.size-large .yt-co-likes-badge,
+.yt-co-size-large .yt-co-likes-badge {
+  font-size: 12px !important;
+}
+#yt-comment-overlay-container.size-large .yt-co-content,
+.yt-co-size-large .yt-co-content {
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+  -webkit-line-clamp: 4 !important;
+}
+#yt-comment-overlay-container.size-large .yt-co-footer,
+.yt-co-size-large .yt-co-footer {
+  font-size: 11px !important;
+  margin-top: 8px !important;
+}
+
+/* コメントカード (Glassmorphism 吹き出し) */
+.yt-co-bubble {
+  position: relative !important;
+  background: rgba(18, 22, 34, var(--yt-co-bg-opacity, 0.8)) !important;
+  backdrop-filter: blur(calc(var(--yt-co-bg-opacity, 0.8) * 16px)) !important;
+  -webkit-backdrop-filter: blur(calc(var(--yt-co-bg-opacity, 0.8) * 16px)) !important;
+  border: 1px solid rgba(255, 255, 255, var(--yt-co-border-opacity, 0.18)) !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, calc(var(--yt-co-bg-opacity, 0.8) * 0.85)), 0 0 0 1px rgba(255, 255, 255, calc(var(--yt-co-border-opacity, 0.18) * 0.5)) inset !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  pointer-events: auto !important;
+  width: 100% !important;
+  opacity: 1; /* !important を解除して退場アニメーションの透明度変化を阻害しない */
+}
+
+/* ホバー時のみなめらかに変形 (退場アニメーションと競合させない) */
+.yt-co-bubble:not(.is-exiting) {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+              background 0.3s ease !important;
+}
+
+.yt-co-bubble:not(.is-exiting):hover {
+  transform: translateY(-2px) scale(1.015) !important;
+  background: rgba(28, 34, 52, calc(var(--yt-co-bg-opacity, 0.8) * 1.06)) !important;
+  border-color: rgba(255, 255, 255, calc(var(--yt-co-border-opacity, 0.18) * 1.5)) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.25) inset !important;
+}
+
+/* 横からのスライドインアニメーション (退場時は無効化して完全競合排除) */
+.pos-top-right .yt-co-bubble:not(.is-exiting),
+.pos-bottom-right .yt-co-bubble:not(.is-exiting) {
+  animation: ytCoSlideInRight 0.52s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+
+.pos-top-left .yt-co-bubble:not(.is-exiting),
+.pos-bottom-left .yt-co-bubble:not(.is-exiting) {
+  animation: ytCoSlideInLeft 0.52s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+
+/* 退場アニメーション専用クラス: 余計なトランジションのみ無効化（背景色や不透明度を急変させず自然にフェードアウト） */
+.yt-co-bubble.is-exiting {
+  pointer-events: none !important;
+  overflow: hidden !important;
+  transition: none !important;
+  will-change: transform, opacity, height, max-height, margin-bottom, padding-top, padding-bottom !important;
+}
+
+.yt-co-bubble.bubble-exit {
+  animation: ytCoFadeOutExit 0.6s forwards !important;
+}
+
+.yt-co-bubble.bubble-pushed-out {
+  animation: ytCoPushOutExit 0.6s forwards !important;
+}
+
+@keyframes ytCoSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(28px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes ytCoSlideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-28px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* 二段階フェードアウト: 前半(0%〜38%)で高さを維持し完全透明化、後半(38%〜100%)でcubic-bezier(0.25, 1, 0.5, 1)により高さをスーーッと収縮 */
+@keyframes ytCoFadeOutExit {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: var(--card-height, 120px);
+    height: var(--card-height, 120px);
+    padding-top: var(--card-pad-top, 12px);
+    padding-bottom: var(--card-pad-bottom, 12px);
+    margin-bottom: 0;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+  }
+  38% {
+    opacity: 0;
+    transform: translateX(calc(var(--exit-x, 24px) * 0.5));
+    max-height: var(--card-height, 120px);
+    height: var(--card-height, 120px);
+    padding-top: var(--card-pad-top, 12px);
+    padding-bottom: var(--card-pad-bottom, 12px);
+    margin-bottom: 0;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(var(--exit-x, 24px));
+    max-height: 0;
+    height: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: calc(-1 * var(--bubble-gap, 10px)) !important;
+    border-top-width: 0 !important;
+    border-bottom-width: 0 !important;
+  }
+}
+
+@keyframes ytCoPushOutExit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: var(--card-height, 120px);
+    height: var(--card-height, 120px);
+    padding-top: var(--card-pad-top, 12px);
+    padding-bottom: var(--card-pad-bottom, 12px);
+    margin-bottom: 0;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+  }
+  38% {
+    opacity: 0;
+    transform: translateY(-8px);
+    max-height: var(--card-height, 120px);
+    height: var(--card-height, 120px);
+    padding-top: var(--card-pad-top, 12px);
+    padding-bottom: var(--card-pad-bottom, 12px);
+    margin-bottom: 0;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px);
+    max-height: 0;
+    height: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: calc(-1 * var(--bubble-gap, 10px)) !important;
+    border-top-width: 0 !important;
+    border-bottom-width: 0 !important;
+  }
+}
+
+/* 人気コメントの微細グラデーション・ハイライト (不透明度連動) */
+.yt-co-bubble.is-popular {
+  border: 1px solid rgba(168, 85, 247, calc(var(--yt-co-border-opacity, 0.18) * 2.8)) !important;
+  background: linear-gradient(135deg, rgba(35, 26, 60, var(--yt-co-bg-opacity, 0.8)) 0%, rgba(20, 24, 44, calc(var(--yt-co-bg-opacity, 0.8) * 0.96)) 100%) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, calc(var(--yt-co-bg-opacity, 0.8) * 0.75)),
+              0 0 18px rgba(168, 85, 247, calc(var(--yt-co-bg-opacity, 0.8) * 0.35)),
+              0 0 0 1px rgba(192, 132, 252, calc(var(--yt-co-border-opacity, 0.18) * 1.5)) inset !important;
+}
+
+.yt-co-bubble.is-popular:hover {
+  background: linear-gradient(135deg, rgba(45, 34, 76, calc(var(--yt-co-bg-opacity, 0.8) * 1.05)) 0%, rgba(26, 30, 56, var(--yt-co-bg-opacity, 0.8)) 100%) !important;
+  border-color: rgba(192, 132, 252, calc(var(--yt-co-border-opacity, 0.18) * 3.5)) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.8),
+              0 0 28px rgba(168, 85, 247, calc(var(--yt-co-bg-opacity, 0.8) * 0.5)),
+              0 0 0 1px rgba(192, 132, 252, 0.45) inset !important;
+}
+
+/* 超人気コメント (Top-Tier) のゴールド/ネオングロー (不透明度連動) */
+.yt-co-bubble.is-toptier {
+  border: 1px solid rgba(245, 158, 11, calc(var(--yt-co-border-opacity, 0.18) * 3.2)) !important;
+  background: linear-gradient(135deg, rgba(55, 35, 18, var(--yt-co-bg-opacity, 0.8)) 0%, rgba(28, 22, 42, calc(var(--yt-co-bg-opacity, 0.8) * 0.96)) 100%) !important;
+  box-shadow: 0 10px 32px -5px rgba(0, 0, 0, calc(var(--yt-co-bg-opacity, 0.8) * 0.8)),
+              0 0 24px rgba(245, 158, 11, calc(var(--yt-co-bg-opacity, 0.8) * 0.4)),
+              0 0 0 1px rgba(251, 191, 36, calc(var(--yt-co-border-opacity, 0.18) * 2.0)) inset !important;
+}
+
+.yt-co-bubble.is-toptier:hover {
+  background: linear-gradient(135deg, rgba(70, 45, 24, calc(var(--yt-co-bg-opacity, 0.8) * 1.05)) 0%, rgba(36, 28, 54, var(--yt-co-bg-opacity, 0.8)) 100%) !important;
+  border-color: rgba(251, 191, 36, calc(var(--yt-co-border-opacity, 0.18) * 4.0)) !important;
+  box-shadow: 0 16px 38px -6px rgba(0, 0, 0, 0.85),
+              0 0 34px rgba(245, 158, 11, calc(var(--yt-co-bg-opacity, 0.8) * 0.6)),
+              0 0 0 1px rgba(251, 191, 36, 0.55) inset !important;
+}
+
+/* ヘッダー */
+.yt-co-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-bottom: 6px !important;
+}
+
+.yt-co-avatar {
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+  background: #334155 !important;
+}
+
+.yt-co-avatar-fallback {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+  text-transform: uppercase !important;
+  line-height: 1 !important;
+}
+
+.is-popular .yt-co-avatar,
+.is-popular .yt-co-avatar-fallback {
+  border-color: rgba(192, 132, 252, 0.8) !important;
+}
+
+.is-toptier .yt-co-avatar,
+.is-toptier .yt-co-avatar-fallback {
+  border-color: rgba(251, 191, 36, 0.95) !important;
+}
+
+.yt-co-meta {
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  gap: 6px !important;
+}
+
+.yt-co-author {
+  font-weight: 600 !important;
+  color: #f8fafc !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.yt-co-ts-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  background: rgba(59, 130, 246, 0.28) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(96, 165, 250, 0.5) !important;
+  font-weight: 600 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace !important;
+  border-radius: 9999px !important;
+  flex-shrink: 0 !important;
+  letter-spacing: 0.03em !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+  padding: 2px 7px !important;
+  font-size: 11px !important;
+  margin: 0 4px !important;
+  vertical-align: -2px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+  transition: all 0.15s ease !important;
+}
+
+.yt-co-ts-badge:hover {
+  background: rgba(59, 130, 246, 0.45) !important;
+  color: #93c5fd !important;
+  border-color: rgba(147, 197, 253, 0.8) !important;
+}
+
+.yt-co-ts-badge svg {
+  flex-shrink: 0 !important;
+  display: block !important;
+}
+
+.yt-co-chapter-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  background: rgba(16, 185, 129, 0.25) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.45) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  padding: 2px 7px !important;
+  line-height: 1 !important;
+  border-radius: 6px !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.yt-co-likes-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+}
+
+.is-popular .yt-co-likes-badge {
+  color: #c084fc !important;
+  font-weight: 600 !important;
+}
+
+.is-toptier .yt-co-likes-badge {
+  color: #fbbf24 !important;
+  font-weight: 700 !important;
+}
+
+.yt-co-likes-icon {
+  width: 12px !important;
+  height: 12px !important;
+  fill: currentColor !important;
+}
+
+.yt-co-content {
+  color: #e2e8f0 !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  word-break: break-word !important;
+}
+
+.yt-co-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  color: #64748b !important;
+  gap: 4px !important;
+  transition: color 0.2s ease !important;
+}
+
+.yt-co-bubble:hover .yt-co-footer {
+  color: #94a3b8 !important;
+}
+
+.yt-co-expand-icon {
+  width: 11px !important;
+  height: 11px !important;
+  stroke: currentColor !important;
+}
+
+/* ==========================================================================
+   拡張コメント詳細モーダル (Expanded Comment Card / Modal)
+   ========================================================================== */
+
+#yt-comment-overlay-modal-root {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: auto !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+.yt-co-modal-backdrop {
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  animation: ytCoFadeIn 0.2s ease-out both !important;
+}
+
+.yt-co-expanded-card {
+  position: relative !important;
+  width: min(500px, calc(100% - 36px)) !important;
+  max-height: 85% !important;
+  background: rgba(18, 22, 34, 0.96) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1) inset !important;
+  padding: 20px 22px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  color: #f8fafc !important;
+  box-sizing: border-box !important;
+  animation: ytCoModalZoomIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  overflow: hidden !important;
+}
+
+.yt-co-expanded-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.yt-co-expanded-avatar-link {
+  display: block !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  text-decoration: none !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease !important;
+  border-radius: 50% !important;
+}
+
+.yt-co-expanded-avatar-link:hover {
+  transform: scale(1.1) !important;
+  filter: brightness(1.15) !important;
+}
+
+.yt-co-expanded-author {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #f1f5f9 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.yt-co-expanded-author-link {
+  color: #f1f5f9 !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  transition: color 0.15s ease, text-decoration 0.15s ease !important;
+}
+
+.yt-co-expanded-author-link:hover {
+  color: #818cf8 !important;
+  text-decoration: underline !important;
+}
+
+.yt-co-expanded-time {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  font-weight: 400 !important;
+}
+
+.yt-co-modal-close-btn {
+  margin-left: auto !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 50% !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #94a3b8 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.yt-co-modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  transform: scale(1.08) !important;
+}
+
+.yt-co-expanded-body {
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+  color: #e2e8f0 !important;
+  overflow-y: auto !important;
+  max-height: 260px !important;
+  padding-right: 6px !important;
+  word-break: break-word !important;
+  user-select: text !important;
+}
+
+.yt-co-expanded-body::-webkit-scrollbar {
+  width: 5px !important;
+}
+
+.yt-co-expanded-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 4px !important;
+}
+
+.yt-co-expanded-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding-top: 12px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.yt-co-action-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 20px !important;
+  padding: 6px 14px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #cbd5e1 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.yt-co-action-btn:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+.yt-co-action-btn.is-liked {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.6) !important;
+  color: #f87171 !important;
+}
+
+.yt-co-action-btn.is-liked svg {
+  fill: #f87171 !important;
+  stroke: #f87171 !important;
+}
+
+.yt-co-action-btn.is-active {
+  background: rgba(99, 102, 241, 0.25) !important;
+  border-color: rgba(99, 102, 241, 0.6) !important;
+  color: #a5b4fc !important;
+}
+
+.yt-co-action-btn.yt-co-support-btn {
+  text-decoration: none !important;
+  color: #fb7185 !important;
+  background: rgba(244, 63, 94, 0.12) !important;
+  border-color: rgba(244, 63, 94, 0.28) !important;
+  transition: all 0.2s ease !important;
+}
+
+.yt-co-action-btn.yt-co-support-btn:hover {
+  color: #ffffff !important;
+  background: #f43f5e !important;
+  border-color: #f43f5e !important;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.45) !important;
+  transform: translateY(-1px) !important;
+}
+
+.yt-co-action-btn.yt-co-support-btn svg {
+  transition: transform 0.2s ease !important;
+}
+
+.yt-co-action-btn.yt-co-support-btn:hover svg {
+  transform: scale(1.18) !important;
+}
+
+.yt-co-reply-container {
+  display: none;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding-top: 8px !important;
+  animation: ytCoFadeIn 0.2s ease-out both !important;
+}
+
+.yt-co-reply-container.is-open {
+  display: flex !important;
+}
+
+.yt-co-reply-textarea {
+  width: 100% !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  color: #f1f5f9 !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  resize: vertical !important;
+  min-height: 64px !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  font-family: inherit !important;
+  transition: border-color 0.2s ease !important;
+}
+
+.yt-co-reply-textarea:focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.25) !important;
+}
+
+.yt-co-reply-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+}
+
+.yt-co-btn-secondary {
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  cursor: pointer !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.yt-co-btn-secondary:hover {
+  color: #f1f5f9 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.yt-co-btn-primary {
+  background: #6366f1 !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 6px 14px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.yt-co-btn-primary:hover {
+  background: #4f46e5 !important;
+  transform: translateY(-1px) !important;
+}
+
+.yt-co-reply-success {
+  color: #34d399 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  padding: 8px 0 !important;
+}
+
+@keyframes ytCoFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ytCoModalZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ==========================================================================
+   プレイヤー上クイックON/OFFトグルボタン
+   (YouTube操作パネル表示時/カーソルが動画上にあるときのみ小さく表示)
+   ========================================================================== */
+.yt-co-quick-toggle-btn {
+  position: absolute !important;
+  z-index: 2005 !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(15, 23, 42, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #c7d2fe !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.22s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* YouTube操作パネル表示時（.ytp-autohideがない時）またはプレイヤーホバー時に小さく表示 */
+#movie_player:hover .yt-co-quick-toggle-btn,
+.html5-video-player:hover .yt-co-quick-toggle-btn,
+#movie_player:not(.ytp-autohide) .yt-co-quick-toggle-btn,
+.html5-video-player:not(.ytp-autohide) .yt-co-quick-toggle-btn {
+  opacity: 0.85 !important;
+  pointer-events: auto !important;
+}
+
+.yt-co-quick-toggle-btn:hover {
+  opacity: 1 !important;
+  transform: scale(1.12) !important;
+  background: rgba(30, 41, 59, 0.95) !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4) !important;
+}
+
+.yt-co-quick-toggle-btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* 状態ごとのスタイル */
+.yt-co-quick-toggle-btn.is-enabled {
+  color: #818cf8 !important;
+}
+
+.yt-co-quick-toggle-btn.is-disabled {
+  color: #94a3b8 !important;
+  background: rgba(15, 23, 42, 0.65) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.yt-co-quick-toggle-btn.is-disabled:hover {
+  opacity: 1 !important;
+  color: #cbd5e1 !important;
+}
+
+/* 表示位置に連動した配置 */
+.yt-co-quick-toggle-btn.yt-co-quick-pos-top-right {
+  top: 14px !important;
+  right: 14px !important;
+}
+
+.yt-co-quick-toggle-btn.yt-co-quick-pos-top-left {
+  top: 14px !important;
+  left: 14px !important;
+}
+
+.yt-co-quick-toggle-btn.yt-co-quick-pos-bottom-right {
+  bottom: 56px !important;
+  right: 14px !important;
+}
+
+.yt-co-quick-toggle-btn.yt-co-quick-pos-bottom-left {
+  bottom: 56px !important;
+  left: 14px !important;
+}
+
+
