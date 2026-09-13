@@ -117,6 +117,9 @@ async function buildExtension(browserType) {
     };
     // Firefox互換性: content_scriptsからworld: MAINを削除（動的インジェクションで対応）
     manifest.content_scripts = manifest.content_scripts.filter(cs => cs.world !== 'MAIN');
+  } else {
+    // Chrome / Edge 向け: Firefox固有設定を除去
+    delete manifest.browser_specific_settings;
   }
 
   fs.writeFileSync(

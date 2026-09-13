@@ -18,16 +18,20 @@ execSync('node scripts/build.js all', { cwd: rootDir, stdio: 'inherit' });
 const baseManifest = JSON.parse(fs.readFileSync(path.resolve(rootDir, 'manifest.base.json'), 'utf8'));
 const versionStr = baseManifest.version_name || baseManifest.version;
 
-const targets = ['chrome', 'firefox'];
+const targets = [
+  { name: 'chrome', dist: 'dist/chrome' },
+  { name: 'firefox', dist: 'dist/firefox' },
+  { name: 'edge', dist: 'dist/chrome' },
+];
 for (const target of targets) {
-  const distDir = path.resolve(rootDir, `dist/${target}`);
-  const zipPath = path.resolve(releaseDir, `yt-comment-overlay-${target}-v${versionStr}.zip`);
+  const distDir = path.resolve(rootDir, target.dist);
+  const zipPath = path.resolve(releaseDir, `yt-comment-overlay-${target.name}-v${versionStr}.zip`);
 
   if (fs.existsSync(zipPath)) {
     fs.unlinkSync(zipPath);
   }
 
-  console.log(`🗜️ Packaging ${target} -> ${zipPath}`);
+  console.log(`🗜️ Packaging ${target.name} -> ${zipPath}`);
 
   // Windows PowerShell Compress-Archive を使用
   const cmd = `powershell -Command "Compress-Archive -Path '${distDir}\\*' -DestinationPath '${zipPath}' -Force"`;
