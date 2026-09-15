@@ -76,6 +76,14 @@
         "*://*.youtube.com/*",
         "https://youtube.com/*"
       ]
+    },
+    {
+      "resources": [
+        "icons/*.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

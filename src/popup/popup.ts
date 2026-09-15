@@ -168,8 +168,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const testCommentBtn = document.getElementById('test-comment-btn') as HTMLButtonElement | null;
   const saveStatus = document.getElementById('save-status') as HTMLElement | null;
 
+  // ロゴアイコンを chrome.runtime.getURL で正しく解決
+  const logoImg = document.querySelector<HTMLImageElement>('.header-logo-img');
+  if (logoImg && typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
+    logoImg.src = chrome.runtime.getURL('icons/icon-48.png');
+  }
+
   let currentSettings: OverlaySettings = { ...DEFAULT_SETTINGS };
   let currentLang: SupportedLang = 'ja';
+
 
   // 言語検出と適用
   function detectInitialLanguage(savedLang?: string): SupportedLang {
