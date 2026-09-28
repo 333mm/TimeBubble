@@ -1,5 +1,5 @@
 import { CommentData, ReplyData, TimestampOccurrence } from '../types';
-import { extractTimestamps } from './timestampParser';
+import { extractTimestamps, isIndexOrSummaryComment } from './timestampParser';
 
 
 export class CommentFetcher {
@@ -42,7 +42,13 @@ export class CommentFetcher {
   private registerComment(commentData: CommentData, newItems: CommentData[]) {
     if (!commentData || commentData.timestamps.length === 0) return;
 
+    // 目次・チャプター・まとめコメントの自動除外（概要欄公式チャプター以外）
+    if (!commentData.isDescription && isIndexOrSummaryComment(commentData.rawText, commentData.timestamps)) {
+      return;
+    }
+
     // 1. ID による重複チェック
+
     if (this.commentsMap.has(commentData.id)) {
       const existing = this.commentsMap.get(commentData.id)!;
       this.mergeCommentData(existing, commentData);

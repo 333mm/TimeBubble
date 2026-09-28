@@ -1,4 +1,4 @@
-import { TimestampOccurrence } from '../types';
+import type { TimestampOccurrence } from '../types';
 
 /**
  * タイムスタンプ文字列 (例: "01:23", "1:02:45", "0:08") を秒数に変換する
@@ -59,3 +59,31 @@ export function extractTimestamps(text: string): TimestampOccurrence[] {
   // 秒数昇順にソート
   return results.sort((a, b) => a.seconds - b.seconds);
 }
+
+/**
+ * 目次・チャプター・まとめ・トラックリスト等のインデックスコメントかどうかを判定する
+ */
+export function isIndexOrSummaryComment(rawText: string, timestamps: TimestampOccurrence[]): boolean {
+  // 1. タイムスタンプが5個以上ある場合は一律で目次・まとめコメントとみなす
+  if (timestamps.length >= 5) {
+    return true;
+  }
+
+  // 2. タイムスタンプが3個以上あり、かつ目次・チャプター・まとめ関連のキーワードが含まれている場合
+  if (timestamps.length >= 3) {
+    const summaryKeywordsRegex = /(まとめ|目次|チャプター|タイムスタンプ|タイムテーブル|トラックリスト|セトリ|セットリスト|曲目|chapters?|timestamps?|tracklist|index|setlist)/i;
+    if (summaryKeywordsRegex.test(rawText)) {
+      return true;
+    }
+  }
+
+  // 3. タイムスタンプ範囲表記 (例: "0:30-0:35", "0:30~0:35", "0:30〜0:35") が2箇所以上含まれている場合
+  const rangeRegex = /(?:(?:(?:\d{1,2}:)?[0-5]?\d:[0-5]\d)\s*[-~〜–—]\s*(?:(?:\d{1,2}:)?[0-5]?\d:[0-5]\d))/g;
+  const rangeMatches = rawText.match(rangeRegex);
+  if (rangeMatches && rangeMatches.length >= 2) {
+    return true;
+  }
+
+  return false;
+}
+
