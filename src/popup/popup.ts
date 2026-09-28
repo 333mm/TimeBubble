@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, OverlayPosition, OverlaySettings, OverlaySize } from '../types';
+import { DEFAULT_SETTINGS, DisplayMode, FlowSpeed, OverlayPosition, OverlaySettings, OverlaySize } from '../types';
 import { getSettings, saveSettings } from '../utils/storage';
 
 type SupportedLang = 'ja' | 'en' | 'es' | 'zh';
@@ -6,6 +6,8 @@ type SupportedLang = 'ja' | 'en' | 'es' | 'zh';
 interface I18nStrings {
   title: string;
   subtitle: string;
+  modeCard: string;
+  modeFlow: string;
   position: string;
   topLeft: string;
   topRight: string;
@@ -20,11 +22,16 @@ interface I18nStrings {
   stack: string;
   stackUnit: string;
   opacity: string;
+  flowSize: string;
+  flowSpeed: string;
+  flowOpacity: string;
+  speedSlow: string;
+  speedNormal: string;
+  speedFast: string;
   highlightTitle: string;
   highlightDesc: string;
-  flowTitle: string;
-  flowDesc: string;
-  testBtn: string;
+  testBtnCard: string;
+  testBtnFlow: string;
   savedText: string;
   savingText: string;
   testSending: string;
@@ -39,6 +46,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   ja: {
     title: 'TimeBubble',
     subtitle: 'YouTube タイムスタンプコメント',
+    modeCard: 'カード表示',
+    modeFlow: '流れるコメント',
     position: '表示位置',
     topLeft: '左上',
     topRight: '右上',
@@ -53,15 +62,20 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     stack: '最大スタック件数',
     stackUnit: '件',
     opacity: '不透明度',
+    flowSize: '文字サイズ',
+    flowSpeed: '流れる速度',
+    flowOpacity: '背景の不透明度',
+    speedSlow: '遅い',
+    speedNormal: '普通',
+    speedFast: '速い',
     highlightTitle: '高評価コメントをハイライト',
     highlightDesc: 'いいね数に応じてグラデーションと光彩を適用',
-    flowTitle: '流れるコメント (ニコニコ風)',
-    flowDesc: 'コメントが右から左へ流れるように表示',
-    testBtn: '現在の画面にテスト吹き出しを表示',
+    testBtnCard: '現在の画面にテスト吹き出しを表示',
+    testBtnFlow: '現在の画面にテスト流れるコメントを表示',
     savedText: '設定は自動保存されます',
     savingText: '設定を保存しました',
     testSending: '送信中...',
-    testSuccess: '現在の画面にテスト吹き出しを表示しました',
+    testSuccess: '現在の画面にテスト表示しました',
     testFallback: 'プレビューを表示しました',
     testCommentText: '01:23 ここが一番好きなシーン！何度見ても最高です✨',
     testAuthor: 'テスト視聴者',
@@ -70,6 +84,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   en: {
     title: 'TimeBubble',
     subtitle: 'YouTube Timestamp Comments',
+    modeCard: 'Card Overlay',
+    modeFlow: 'Flowing Comments',
     position: 'Position',
     topLeft: 'Top Left',
     topRight: 'Top Right',
@@ -84,11 +100,16 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     stack: 'Max Stack Count',
     stackUnit: '',
     opacity: 'Opacity',
+    flowSize: 'Font Size',
+    flowSpeed: 'Scroll Speed',
+    flowOpacity: 'Background Opacity',
+    speedSlow: 'Slow',
+    speedNormal: 'Normal',
+    speedFast: 'Fast',
     highlightTitle: 'Highlight Top Comments',
     highlightDesc: 'Apply gradient and glow based on likes',
-    flowTitle: 'Flowing Comments (Nico-style)',
-    flowDesc: 'Comments scroll from right to left across the screen',
-    testBtn: 'Show Test Comment on Screen',
+    testBtnCard: 'Show Test Comment on Screen',
+    testBtnFlow: 'Show Test Flowing Comment on Screen',
     savedText: 'Settings are saved automatically',
     savingText: 'Settings saved',
     testSending: 'Sending...',
@@ -101,6 +122,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   es: {
     title: 'TimeBubble',
     subtitle: 'Comentarios con Marca de Tiempo',
+    modeCard: 'Modo Tarjeta',
+    modeFlow: 'Comentarios en Flujo',
     position: 'Posición',
     topLeft: 'Arriba Izq.',
     topRight: 'Arriba Der.',
@@ -115,11 +138,16 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     stack: 'Pila Máxima',
     stackUnit: '',
     opacity: 'Opacidad',
+    flowSize: 'Tamaño de Letra',
+    flowSpeed: 'Velocidad',
+    flowOpacity: 'Opacidad del Fondo',
+    speedSlow: 'Lento',
+    speedNormal: 'Normal',
+    speedFast: 'Rápido',
     highlightTitle: 'Destacar Comentarios Populares',
     highlightDesc: 'Aplica brillo y degradado según los likes',
-    flowTitle: 'Comentarios en Flujo (estilo Nico)',
-    flowDesc: 'Los comentarios se desplazan de derecha a izquierda',
-    testBtn: 'Mostrar Comentario de Prueba',
+    testBtnCard: 'Mostrar Comentario de Prueba',
+    testBtnFlow: 'Mostrar Comentario Flotante de Prueba',
     savedText: 'Los ajustes se guardan automáticamente',
     savingText: 'Ajustes guardados',
     testSending: 'Enviando...',
@@ -132,6 +160,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   zh: {
     title: 'TimeBubble',
     subtitle: 'YouTube 时间戳评论',
+    modeCard: '卡片模式',
+    modeFlow: '弹幕模式',
     position: '显示位置',
     topLeft: '左上',
     topRight: '右上',
@@ -146,11 +176,16 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     stack: '最大叠加数量',
     stackUnit: '条',
     opacity: '不透明度',
+    flowSize: '字体大小',
+    flowSpeed: '滚动速度',
+    flowOpacity: '背景不透明度',
+    speedSlow: '慢速',
+    speedNormal: '标准',
+    speedFast: '快速',
     highlightTitle: '高赞评论高亮',
     highlightDesc: '根据点赞数应用渐变与光晕效果',
-    flowTitle: '弹幕模式（仿NicoNico）',
-    flowDesc: '评论从右向左滚动显示',
-    testBtn: '在当前屏幕显示测试气泡',
+    testBtnCard: '在当前屏幕显示测试气泡',
+    testBtnFlow: '在当前屏幕显示测试弹幕',
     savedText: '设置已自动保存',
     savingText: '设置已保存',
     testSending: '发送中...',
@@ -163,11 +198,20 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
 };
 
 
+
 document.addEventListener('DOMContentLoaded', async () => {
   const langSelect = document.getElementById('lang-select') as HTMLSelectElement | null;
   const enabledToggle = document.getElementById('enabled-toggle') as HTMLInputElement | null;
+  
+  // モード切り替えタブ
+  const modeCardBtn = document.getElementById('mode-card-btn') as HTMLButtonElement | null;
+  const modeFlowBtn = document.getElementById('mode-flow-btn') as HTMLButtonElement | null;
+  const cardModeOptions = document.getElementById('card-mode-options') as HTMLElement | null;
+  const flowModeOptions = document.getElementById('flow-mode-options') as HTMLElement | null;
+
+  // カード表示用コントロール
   const posButtons = document.querySelectorAll<HTMLButtonElement>('.pos-btn');
-  const sizeButtons = document.querySelectorAll<HTMLButtonElement>('.size-btn');
+  const sizeButtons = document.querySelectorAll<HTMLButtonElement>('#card-mode-options .size-btn');
   const sizeVal = document.getElementById('size-val') as HTMLElement | null;
   const durationSlider = document.getElementById('duration-slider') as HTMLInputElement | null;
   const durationVal = document.getElementById('duration-val') as HTMLElement | null;
@@ -175,8 +219,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const stackVal = document.getElementById('stack-val') as HTMLElement | null;
   const opacitySlider = document.getElementById('opacity-slider') as HTMLInputElement | null;
   const opacityVal = document.getElementById('opacity-val') as HTMLElement | null;
+
+  // 流れるコメント用コントロール
+  const flowSizeButtons = document.querySelectorAll<HTMLButtonElement>('.flow-size-btn');
+  const flowSizeVal = document.getElementById('flow-size-val') as HTMLElement | null;
+  const flowSpeedButtons = document.querySelectorAll<HTMLButtonElement>('.speed-btn');
+  const flowSpeedVal = document.getElementById('flow-speed-val') as HTMLElement | null;
+  const flowOpacitySlider = document.getElementById('flow-opacity-slider') as HTMLInputElement | null;
+  const flowOpacityVal = document.getElementById('flow-opacity-val') as HTMLElement | null;
+
+  // 共通コントロール
   const highlightToggle = document.getElementById('highlight-toggle') as HTMLInputElement | null;
-  const flowToggle = document.getElementById('flow-toggle') as HTMLInputElement | null;
   const testCommentBtn = document.getElementById('test-comment-btn') as HTMLButtonElement | null;
   const saveStatus = document.getElementById('save-status') as HTMLElement | null;
 
@@ -188,7 +241,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let currentSettings: OverlaySettings = { ...DEFAULT_SETTINGS };
   let currentLang: SupportedLang = 'ja';
-
 
   // 言語検出と適用
   function detectInitialLanguage(savedLang?: string): SupportedLang {
@@ -211,6 +263,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const elSubtitle = document.getElementById('i18n-subtitle');
     if (elSubtitle) elSubtitle.textContent = t.subtitle;
 
+    // モード切り替えタブ
+    const elModeCard = document.getElementById('i18n-mode-card');
+    if (elModeCard) elModeCard.textContent = t.modeCard;
+    const elModeFlow = document.getElementById('i18n-mode-flow');
+    if (elModeFlow) elModeFlow.textContent = t.modeFlow;
+
+    // カードオプション言語
     const elPos = document.getElementById('i18n-position');
     if (elPos) elPos.textContent = t.position;
 
@@ -239,19 +298,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     const elOpacity = document.getElementById('i18n-opacity');
     if (elOpacity) elOpacity.textContent = t.opacity;
 
+    // フローオプション言語
+    const elFlowSize = document.getElementById('i18n-flow-size');
+    if (elFlowSize) elFlowSize.textContent = t.flowSize;
+    const elFlowSizeSmall = document.getElementById('i18n-flow-size-small');
+    if (elFlowSizeSmall) elFlowSizeSmall.textContent = t.sizeSmall;
+    const elFlowSizeMed = document.getElementById('i18n-flow-size-medium');
+    if (elFlowSizeMed) elFlowSizeMed.textContent = t.sizeMedium;
+    const elFlowSizeLarge = document.getElementById('i18n-flow-size-large');
+    if (elFlowSizeLarge) elFlowSizeLarge.textContent = t.sizeLarge;
+
+    const elFlowSpeed = document.getElementById('i18n-flow-speed');
+    if (elFlowSpeed) elFlowSpeed.textContent = t.flowSpeed;
+    const elSpeedSlow = document.getElementById('i18n-speed-slow');
+    if (elSpeedSlow) elSpeedSlow.textContent = t.speedSlow;
+    const elSpeedNormal = document.getElementById('i18n-speed-normal');
+    if (elSpeedNormal) elSpeedNormal.textContent = t.speedNormal;
+    const elSpeedFast = document.getElementById('i18n-speed-fast');
+    if (elSpeedFast) elSpeedFast.textContent = t.speedFast;
+
+    const elFlowOpacity = document.getElementById('i18n-flow-opacity');
+    if (elFlowOpacity) elFlowOpacity.textContent = t.flowOpacity;
+
+    // 共通オプション言語
     const elHighlightTitle = document.getElementById('i18n-highlight-title');
     if (elHighlightTitle) elHighlightTitle.textContent = t.highlightTitle;
     const elHighlightDesc = document.getElementById('i18n-highlight-desc');
     if (elHighlightDesc) elHighlightDesc.textContent = t.highlightDesc;
-
-    const elFlowTitle = document.getElementById('i18n-flow-title');
-    if (elFlowTitle) elFlowTitle.textContent = t.flowTitle;
-    const elFlowDesc = document.getElementById('i18n-flow-desc');
-    if (elFlowDesc) elFlowDesc.textContent = t.flowDesc;
-
-    const elTestBtn = document.getElementById('i18n-test-btn');
-    if (elTestBtn) elTestBtn.textContent = t.testBtn;
-
 
     const elSupportDev = document.getElementById('i18n-support-dev');
     if (elSupportDev) elSupportDev.textContent = t.supportDev;
@@ -275,6 +348,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (stackVal) {
       stackVal.textContent = `${currentSettings.maxStackCount}${t.stackUnit}`;
     }
+
+    const fs = currentSettings.flowSize || 'medium';
+    if (flowSizeVal) {
+      flowSizeVal.textContent = fs === 'small' ? t.sizeSmall : fs === 'large' ? t.sizeLarge : t.sizeMedium;
+    }
+
+    const spd = currentSettings.flowSpeed || 'normal';
+    if (flowSpeedVal) {
+      flowSpeedVal.textContent = spd === 'slow' ? t.speedSlow : spd === 'fast' ? t.speedFast : t.speedNormal;
+    }
+
+    const elTestBtn = document.getElementById('i18n-test-btn');
+    if (elTestBtn) {
+      elTestBtn.textContent = currentSettings.displayMode === 'flow' ? t.testBtnFlow : t.testBtnCard;
+    }
   }
 
   function flashSaveStatus(text?: string, duration = 2500) {
@@ -289,6 +377,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. 設定ロード
   try {
     currentSettings = await getSettings();
+    if (!currentSettings.displayMode) {
+      currentSettings.displayMode = currentSettings.flowMode ? 'flow' : 'card';
+    }
     currentLang = detectInitialLanguage(currentSettings.language);
     applyLanguage(currentLang);
     applySettingsToUi(currentSettings);
@@ -299,7 +390,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   function applySettingsToUi(settings: OverlaySettings) {
     if (enabledToggle) enabledToggle.checked = settings.enabled;
 
-    // 位置
+    const mode: DisplayMode = settings.displayMode || (settings.flowMode ? 'flow' : 'card');
+    currentSettings.displayMode = mode;
+
+    // モードタブの切り替え
+    if (modeCardBtn) modeCardBtn.classList.toggle('active', mode === 'card');
+    if (modeFlowBtn) modeFlowBtn.classList.toggle('active', mode === 'flow');
+    if (cardModeOptions) cardModeOptions.style.display = mode === 'card' ? 'flex' : 'none';
+    if (flowModeOptions) flowModeOptions.style.display = mode === 'flow' ? 'flex' : 'none';
+
+    // カード: 位置
     posButtons.forEach((btn) => {
       const pos = btn.getAttribute('data-pos');
       if (pos === settings.position) {
@@ -309,7 +409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // サイズ
+    // カード: サイズ
     const currentSize = settings.size || 'medium';
     sizeButtons.forEach((btn) => {
       const s = btn.getAttribute('data-size');
@@ -320,22 +420,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // スライダー群
+    // カード: スライダー群
     if (durationSlider) durationSlider.value = settings.displayDuration.toString();
     if (stackSlider) stackSlider.value = settings.maxStackCount.toString();
     if (opacitySlider) opacitySlider.value = settings.opacity.toString();
     if (opacityVal) opacityVal.textContent = `${settings.opacity}%`;
 
+    // フロー: サイズ
+    const currentFlowSize = settings.flowSize || 'medium';
+    flowSizeButtons.forEach((btn) => {
+      const s = btn.getAttribute('data-size');
+      if (s === currentFlowSize) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // フロー: 速度
+    const currentFlowSpeed = settings.flowSpeed || 'normal';
+    flowSpeedButtons.forEach((btn) => {
+      const spd = btn.getAttribute('data-speed');
+      if (spd === currentFlowSpeed) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // フロー: 不透明度
+    const currentFlowOpacity = settings.flowOpacity ?? 65;
+    if (flowOpacitySlider) flowOpacitySlider.value = currentFlowOpacity.toString();
+    if (flowOpacityVal) flowOpacityVal.textContent = `${currentFlowOpacity}%`;
+
+    // 共通: ハイライト
     if (highlightToggle) {
       highlightToggle.checked = settings.highlightPopular;
     }
 
-    if (flowToggle) {
-      flowToggle.checked = !!settings.flowMode;
-    }
-
     updateDynamicLabels();
   }
+
 
 
   /**
@@ -704,6 +829,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     flashSaveStatus();
   }
 
+  // モード切り替えタブ
+  function setMode(mode: DisplayMode) {
+    currentSettings.displayMode = mode;
+    currentSettings.flowMode = mode === 'flow';
+    applySettingsToUi(currentSettings);
+    updateSetting('displayMode', mode);
+    updateSetting('flowMode', mode === 'flow');
+  }
+
+  modeCardBtn?.addEventListener('click', () => setMode('card'));
+  modeFlowBtn?.addEventListener('click', () => setMode('flow'));
+
   // 言語選択セレクター
   langSelect?.addEventListener('change', () => {
     const selected = langSelect.value as SupportedLang;
@@ -728,7 +865,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // サイズボタン
+  // カードサイズボタン
   sizeButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const s = btn.getAttribute('data-size') as OverlaySize | null;
@@ -742,7 +879,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // スライダー群
+  // カードスライダー群
   durationSlider?.addEventListener('input', () => {
     const val = parseInt(durationSlider.value, 10);
     currentSettings.displayDuration = val;
@@ -773,13 +910,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSetting('opacity', val);
   });
 
+  // フローサイズボタン
+  flowSizeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const s = btn.getAttribute('data-size') as OverlaySize | null;
+      if (!s) return;
+      flowSizeButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.flowSize = s;
+      updateDynamicLabels();
+      updateSetting('flowSize', s);
+    });
+  });
+
+  // フロー速度ボタン
+  flowSpeedButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const spd = btn.getAttribute('data-speed') as FlowSpeed | null;
+      if (!spd) return;
+      flowSpeedButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.flowSpeed = spd;
+      updateDynamicLabels();
+      updateSetting('flowSpeed', spd);
+    });
+  });
+
+  // フロー不透明度スライダー
+  flowOpacitySlider?.addEventListener('input', () => {
+    const val = parseInt(flowOpacitySlider.value, 10);
+    currentSettings.flowOpacity = val;
+    if (flowOpacityVal) flowOpacityVal.textContent = `${val}%`;
+  });
+  flowOpacitySlider?.addEventListener('change', () => {
+    const val = parseInt(flowOpacitySlider.value, 10);
+    updateSetting('flowOpacity', val);
+  });
+
   highlightToggle?.addEventListener('change', () => {
     updateSetting('highlightPopular', highlightToggle.checked);
   });
 
-  flowToggle?.addEventListener('change', () => {
-    updateSetting('flowMode', flowToggle.checked);
-  });
 
   // テスト吹き出し表示ボタン
   testCommentBtn?.addEventListener('click', async () => {

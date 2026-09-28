@@ -6,7 +6,9 @@ export class PlayerSync {
   private overlayUi: OverlayUi;
   private triggersBySecond = new Map<number, TimestampCommentTrigger[]>();
   private lastCheckedSecond = -1;
+  private triggeredFlowCommentIds = new Set<string>();
   private timeUpdateListener: (() => void) | null = null;
+
   private seekingListener: (() => void) | null = null;
   private seekedListener: (() => void) | null = null;
   private currentVideoId: string = '';
@@ -105,9 +107,11 @@ export class PlayerSync {
 
   public clear() {
     this.triggersBySecond.clear();
+    this.triggeredFlowCommentIds.clear();
     this.lastCheckedSecond = -1;
     this.overlayUi.clearAll();
   }
+
 
   public detach() {
     this.clear();
@@ -136,55 +140,70 @@ export class PlayerSync {
     // シーク中はオーバーレイをクリアし、チェック済み秒数をリセット
     this.overlayUi.clearAll();
     this.lastCheckedSecond = -1;
+    this.triggeredFlowCommentIds.clear();
   }
 
   private handleSeeked() {
     if (!this.videoEl) return;
-    const currentSecond = Math.floor(this.videoEl.currentTime);
-    // シーク完了直後、シーク先秒数をチェック
-    this.checkAndTriggerSecond(currentSecond);
+    const currentTime = this.videoEl.currentTime;
+    const currentSecond = Math.floor(currentTime);
+
+    this.triggeredFlowCommentIds.clear();
+
+    if (this.overlayUi.isFlowModeEnabled()) {
+      // フローモード時: シーク先時間で現在画面内に流れているべきコメントを復元
+      this.syncFlowCommentsOnSeek(currentTime);
+    } else {
+      // カードモード時: シーク先秒数をチェック
+      this.checkAndTriggerSecond(currentSecond);
+    }
     this.lastCheckedSecond = currentSecond;
   }
 
   private handleTimeUpdate() {
     if (!this.videoEl) return;
-    const currentSecond = Math.floor(this.videoEl.currentTime);
-
-    // まだ未チェックまたはシーク直後
-    if (this.lastCheckedSecond === -1) {
-      this.checkAndTriggerSecond(currentSecond);
-      this.lastCheckedSecond = currentSecond;
-      return;
-    }
-
-    if (currentSecond === this.lastCheckedSecond) {
-      return;
-    }
+    const currentTime = this.videoEl.currentTime;
+    const currentSecond = Math.floor(currentTime);
 
     // 巻き戻しを検知した場合
-    if (currentSecond < this.lastCheckedSecond) {
+    if (this.lastCheckedSecond !== -1 && currentSecond < this.lastCheckedSecond) {
       this.overlayUi.clearAll();
-      this.checkAndTriggerSecond(currentSecond);
+      this.triggeredFlowCommentIds.clear();
+      if (this.overlayUi.isFlowModeEnabled()) {
+        this.syncFlowCommentsOnSeek(currentTime);
+      } else {
+        this.checkAndTriggerSecond(currentSecond);
+      }
       this.lastCheckedSecond = currentSecond;
       return;
     }
 
-    // 通常再生の進捗 (進んだ秒数を順にチェック)
-    const startSec = this.lastCheckedSecond + 1;
-    const endSec = currentSecond;
-
-    // 飛びすぎている場合 (3秒以上) は現在秒のみ
-    if (endSec - startSec > 2) {
-      this.checkAndTriggerSecond(endSec);
+    if (this.overlayUi.isFlowModeEnabled()) {
+      // フローモード: タイムスタンプ秒のタイミングで画面中央手前に到達するよう先行発火
+      this.checkAndTriggerFlowComments(currentTime);
     } else {
-      for (let sec = startSec; sec <= endSec; sec++) {
-        this.checkAndTriggerSecond(sec);
+      // カードモード: タイムスタンプ秒でカード表示
+      if (this.lastCheckedSecond === -1) {
+        this.checkAndTriggerSecond(currentSecond);
+      } else if (currentSecond !== this.lastCheckedSecond) {
+        const startSec = this.lastCheckedSecond + 1;
+        const endSec = currentSecond;
+        if (endSec - startSec > 2) {
+          this.checkAndTriggerSecond(endSec);
+        } else {
+          for (let sec = startSec; sec <= endSec; sec++) {
+            this.checkAndTriggerSecond(sec);
+          }
+        }
       }
     }
 
     this.lastCheckedSecond = currentSecond;
   }
 
+  /**
+   * カード表示モード用: 該当秒数のコメントをバブルカードで表示
+   */
   private checkAndTriggerSecond(sec: number) {
     const triggers = this.triggersBySecond.get(sec);
     if (!triggers || triggers.length === 0) return;
@@ -208,13 +227,83 @@ export class PlayerSync {
         if (this.currentVideoId && trigger.comment.videoId && trigger.comment.videoId !== this.currentVideoId) {
           return;
         }
-        // フローモード: 流れるコメントを表示（通常モードのバブル表示と両立）
-        this.overlayUi.showFlowComment(trigger);
-        // 通常バブルモードでも表示（flowMode=trueでもバブルはOFF）
-        if (!this.overlayUi.isFlowModeEnabled()) {
-          this.overlayUi.showComment(trigger);
-        }
+        this.overlayUi.showComment(trigger);
       }, idx * 120);
     });
   }
+
+  /**
+   * フローモード用: タイムスタンプ秒のタイミングで画面中央手前付近(約40%地点)に位置するよう先行発火
+   */
+  private checkAndTriggerFlowComments(currentTime: number) {
+    const leadTimeSec = this.overlayUi.getFlowLeadTimeSeconds();
+    const durationMs = this.overlayUi.getFlowDuration();
+    const durationSec = durationMs / 1000;
+
+    // 発火予定時刻 T_start = S - leadTimeSec
+    // したがって、現在時刻 currentTime において発火すべきタイムスタンプ秒 S は:
+    // S ≈ currentTime + leadTimeSec
+    const targetTimestampSec = Math.round(currentTime + leadTimeSec);
+
+    // 直近前後1秒を探索（timeupdateの間隔や小数の丸め誤差を吸収）
+    for (let s = targetTimestampSec - 1; s <= targetTimestampSec + 1; s++) {
+      const triggers = this.triggersBySecond.get(s);
+      if (!triggers || triggers.length === 0) continue;
+
+      for (const trigger of triggers) {
+        if (this.currentVideoId && trigger.comment.videoId && trigger.comment.videoId !== this.currentVideoId) {
+          continue;
+        }
+        if (this.triggeredFlowCommentIds.has(trigger.id)) {
+          continue;
+        }
+
+        const triggerStartTime = trigger.timestamp.seconds - leadTimeSec;
+        // 開始時刻を通過しており、かつまだ画面外に出ていないか
+        if (currentTime >= triggerStartTime && currentTime < triggerStartTime + durationSec) {
+          this.triggeredFlowCommentIds.add(trigger.id);
+          const offsetMs = Math.max(0, Math.round((currentTime - triggerStartTime) * 1000));
+          this.overlayUi.showFlowComment(trigger, offsetMs);
+        }
+      }
+    }
+
+    // 古くなった発火済みIDをSetから適宜掃除 (メモリリーク防止)
+    if (this.triggeredFlowCommentIds.size > 200) {
+      this.triggeredFlowCommentIds.clear();
+    }
+  }
+
+  /**
+   * シーク完了時: シーク先時間で現在画面内に流れている最中であるべきコメントを復元
+   */
+  private syncFlowCommentsOnSeek(currentTime: number) {
+    const leadTimeSec = this.overlayUi.getFlowLeadTimeSeconds();
+    const durationMs = this.overlayUi.getFlowDuration();
+    const durationSec = durationMs / 1000;
+
+    // シーク先で画面内にいる可能性があるタイムスタンプ秒 S の範囲:
+    // S - leadTimeSec <= currentTime < S - leadTimeSec + durationSec
+    // => currentTime + leadTimeSec - durationSec < S <= currentTime + leadTimeSec
+    const minS = Math.floor(currentTime + leadTimeSec - durationSec);
+    const maxS = Math.ceil(currentTime + leadTimeSec);
+
+    for (let s = minS; s <= maxS; s++) {
+      const triggers = this.triggersBySecond.get(s);
+      if (!triggers || triggers.length === 0) continue;
+
+      for (const trigger of triggers) {
+        if (this.currentVideoId && trigger.comment.videoId && trigger.comment.videoId !== this.currentVideoId) {
+          continue;
+        }
+        const triggerStartTime = trigger.timestamp.seconds - leadTimeSec;
+        if (currentTime >= triggerStartTime && currentTime < triggerStartTime + durationSec) {
+          this.triggeredFlowCommentIds.add(trigger.id);
+          const offsetMs = Math.max(0, Math.round((currentTime - triggerStartTime) * 1000));
+          this.overlayUi.showFlowComment(trigger, offsetMs);
+        }
+      }
+    }
+  }
 }
+

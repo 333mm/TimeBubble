@@ -974,8 +974,8 @@
   gap: 6px !important;
   padding: 3px 10px 3px 5px !important;
   border-radius: 20px !important;
-  background: rgba(0, 0, 0, 0.55) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  background: rgba(0, 0, 0, var(--yt-co-flow-bg-alpha, 0.65)) !important;
+  border: 1px solid rgba(255, 255, 255, calc(var(--yt-co-flow-bg-alpha, 0.65) * 0.28)) !important;
   color: #ffffff !important;
   font-size: 14px !important;
   font-weight: 500 !important;
@@ -984,24 +984,63 @@
   pointer-events: auto !important;
   cursor: pointer !important;
   z-index: 2100 !important;
-  animation: ytCoFlowLeft var(--yt-co-flow-duration, 7000ms) linear forwards !important;
+  animation: ytCoFlowLeft var(--yt-co-flow-duration, 6500ms) linear forwards !important;
   will-change: transform !important;
   line-height: 1.4 !important;
   max-width: none !important;
 }
 
+/* フローサイズ設定: 小 (small) */
+.yt-co-flow-comment.size-small {
+  font-size: 12px !important;
+  padding: 2px 8px 2px 4px !important;
+  gap: 5px !important;
+  border-radius: 16px !important;
+}
+.yt-co-flow-comment.size-small .yt-co-flow-avatar {
+  width: 16px !important;
+  height: 16px !important;
+  font-size: 8px !important;
+}
+
+/* フローサイズ設定: 中 (medium) */
+.yt-co-flow-comment.size-medium {
+  font-size: 14px !important;
+  padding: 3px 10px 3px 5px !important;
+  gap: 6px !important;
+  border-radius: 20px !important;
+}
+.yt-co-flow-comment.size-medium .yt-co-flow-avatar {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 9px !important;
+}
+
+/* フローサイズ設定: 大 (large) */
+.yt-co-flow-comment.size-large {
+  font-size: 17px !important;
+  padding: 5px 14px 5px 6px !important;
+  gap: 8px !important;
+  border-radius: 24px !important;
+}
+.yt-co-flow-comment.size-large .yt-co-flow-avatar {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 11px !important;
+}
+
 .yt-co-flow-comment:hover {
-  background: rgba(30, 41, 59, 0.85) !important;
+  background: rgba(30, 41, 59, 0.9) !important;
   border-color: rgba(99, 102, 241, 0.6) !important;
 }
 
 .yt-co-flow-comment.is-popular {
-  background: rgba(99, 102, 241, 0.55) !important;
+  background: rgba(99, 102, 241, var(--yt-co-flow-bg-alpha, 0.65)) !important;
   border-color: rgba(129, 140, 248, 0.7) !important;
 }
 
 .yt-co-flow-comment.is-toptier {
-  background: rgba(245, 158, 11, 0.55) !important;
+  background: rgba(245, 158, 11, var(--yt-co-flow-bg-alpha, 0.65)) !important;
   border-color: rgba(251, 191, 36, 0.7) !important;
   font-weight: 700 !important;
   text-shadow: 0 0 8px rgba(251, 191, 36, 0.6) !important;
@@ -1018,6 +1057,7 @@
 .yt-co-flow-text {
   pointer-events: none !important;
 }
+
 
 /* ==========================================================================
    詳細モーダル - 返信セクション

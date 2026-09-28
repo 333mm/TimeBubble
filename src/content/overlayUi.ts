@@ -34,7 +34,23 @@ export class OverlayUi {
 
   /** フローモードが有効かどうかを返す */
   public isFlowModeEnabled(): boolean {
-    return !!this.settings.flowMode;
+    return !!(this.settings.flowMode || this.settings.displayMode === 'flow');
+  }
+
+  /** フローコメントの画面横断所要時間(ms)を計算 */
+  public getFlowDuration(playerWidth?: number): number {
+    const width = playerWidth || this.playerElement?.clientWidth || 640;
+    const speed = this.settings.flowSpeed || 'normal';
+    const base = speed === 'slow' ? 9000 : speed === 'fast' ? 4500 : 6500;
+    const scale = Math.max(0.85, Math.min(1.25, width / 960));
+    return Math.round(base * scale);
+  }
+
+  /** タイムスタンプ秒の瞬間に画面中央手前付近(約40%地点)へ到達するための先行秒数を計算 */
+  public getFlowLeadTimeSeconds(playerWidth?: number): number {
+    const durationMs = this.getFlowDuration(playerWidth);
+    // 画面中央手前（右端から40%移動した地点）に達するまでの時間（秒）
+    return (durationMs * 0.40) / 1000;
   }
 
   constructor() {
@@ -217,8 +233,8 @@ export class OverlayUi {
   }
 
   /**
-   * テスト用吹き出し表示 (ポップアップから要求時、YouTube外の一般ページでも確実に表示)
-   * 設定された最大スタック件数・サイズ・不透明度・位置・表示時間を視覚的に確認できるよう複数件スタック投入
+   * テスト用吹き出し・流れるコメント表示 (ポップアップから要求時)
+   * 選択中のモード（カード表示 / 流れるコメント）に応じて適切なプレビューを表示
    */
   public showTestComment() {
     console.log('[TimeBubble] showTestComment executing...');
@@ -238,12 +254,6 @@ export class OverlayUi {
       }
     }
 
-    if (this.containerEl) {
-      this.containerEl.style.display = 'flex';
-      this.containerEl.style.opacity = '1';
-      this.applySettingsToContainer();
-    }
-
     const testSamples = [
       { text: '01:23 ここが一番好きなシーン！何度見ても最高です✨', author: 'テスト視聴者A', likes: 350, time: '01:23' },
       { text: 'この演出鳥肌立った…神回すぎる！🔥 02:45', author: 'テスト視聴者B', likes: 1200, time: '02:45' },
@@ -251,6 +261,41 @@ export class OverlayUi {
       { text: 'ここ伏線回収だったのか！すごすぎる…！ 04:05', author: 'テスト視聴者D', likes: 540, time: '04:05' },
       { text: '05:30 作画のクオリティが映画レベルで圧倒される🎬', author: 'テスト視聴者E', likes: 210, time: '05:30' },
     ];
+
+    if (this.isFlowModeEnabled()) {
+      // 流れるコメントモードのテスト表示
+      const count = 4;
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+          this.testCommentCounter += 1;
+          const sample = testSamples[i % testSamples.length];
+          const testTrigger: TimestampCommentTrigger = {
+            id: `test_trigger_flow_${Date.now()}_${i}_${this.testCommentCounter}`,
+            comment: {
+              id: `test_comment_${this.testCommentCounter}`,
+              authorName: sample.author,
+              authorAvatarUrl: '',
+              authorChannelUrl: 'https://www.youtube.com',
+              contentHtml: sample.text,
+              rawText: sample.text,
+              likeCount: sample.likes,
+              formattedLikeCount: String(sample.likes),
+              publishedTimeText: '数分前',
+              timestamps: [{ seconds: 0, formatted: sample.time }],
+            },
+            timestamp: { seconds: 0, formatted: sample.time },
+          };
+          this.showFlowComment(testTrigger, 0, true);
+        }, i * 350);
+      }
+      return;
+    }
+
+    if (this.containerEl) {
+      this.containerEl.style.display = 'flex';
+      this.containerEl.style.opacity = '1';
+      this.applySettingsToContainer();
+    }
 
     const stackCount = Math.max(1, Math.min(this.settings.maxStackCount || 3, testSamples.length));
     for (let i = 0; i < stackCount; i++) {
@@ -279,6 +324,7 @@ export class OverlayUi {
       }, i * 220);
     }
   }
+
 
   /**
    * コメント吹き出しをスタックに追加して表示
@@ -1179,9 +1225,13 @@ export class OverlayUi {
 
   /**
    * ニコニコ動画風の流れるコメントを表示する
+   * @param trigger タイムスタンプコメント
+   * @param timeOffsetMs シーク時等に既に経過している時間 (ミリ秒)
+   * @param force 設定の有効無効チェックをバイパスするか (テスト用)
    */
-  public showFlowComment(trigger: TimestampCommentTrigger) {
-    if (!this.settings.enabled || !this.settings.flowMode) return;
+  public showFlowComment(trigger: TimestampCommentTrigger, timeOffsetMs = 0, force = false) {
+    if (!this.settings.enabled && !force) return;
+    if (!this.isFlowModeEnabled() && !force) return;
 
     const playerEl = this.playerElement ||
       document.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
@@ -1212,7 +1262,13 @@ export class OverlayUi {
     }
 
     const flowEl = document.createElement('div');
-    flowEl.className = 'yt-co-flow-comment';
+    const size = this.settings.flowSize || 'medium';
+    flowEl.className = `yt-co-flow-comment size-${size}`;
+
+    // フロー背景不透明度の適用
+    const rawOpacity = typeof this.settings.flowOpacity === 'number' ? this.settings.flowOpacity : 65;
+    const bgAlpha = Math.max(0, Math.min(1, rawOpacity / 100));
+    flowEl.style.setProperty('--yt-co-flow-bg-alpha', bgAlpha.toString());
 
     // 人気コメントのカラー
     if (this.settings.highlightPopular) {
@@ -1242,22 +1298,28 @@ export class OverlayUi {
 
     playerEl.appendChild(flowEl);
 
-    // アニメーション開始 - 右端から左端へ
+    // アニメーション時間（flowSpeed設定に対応）
     const playerWidth = playerEl.clientWidth || 640;
-    const duration = Math.max(5000, playerWidth * 8); // 幅に比例した時間
+    const duration = this.getFlowDuration(playerWidth);
     flowEl.style.setProperty('--yt-co-flow-duration', `${duration}ms`);
     flowEl.style.setProperty('--yt-co-flow-start-x', `${playerWidth}px`);
 
-    // レーン解放予定時刻を更新（テキスト幅の半分移動した時点）
-    const halfwayTime = (duration * 0.5);
-    this.flowLanes[laneIndex] = now + halfwayTime;
+    // シーク時等、既に時間が経過している場合はマイナスdelayで途中位置から即時再生
+    if (timeOffsetMs > 0 && timeOffsetMs < duration) {
+      flowEl.style.animationDelay = `-${timeOffsetMs}ms`;
+    }
 
-    // アニメーション終了後にDOMから削除
+    // レーン解放予定時刻を更新（テキスト幅の半分移動した時点）
+    const halfwayTime = duration * 0.45;
+    this.flowLanes[laneIndex] = now + Math.max(0, halfwayTime - timeOffsetMs);
+
+    // アニメーション終了後にDOMから安全に削除
+    const remainingDuration = Math.max(200, duration - timeOffsetMs);
     setTimeout(() => {
       if (flowEl.parentElement) {
         flowEl.parentElement.removeChild(flowEl);
       }
-    }, duration + 200);
+    }, remainingDuration + 200);
 
     // クリックで詳細表示
     flowEl.addEventListener('click', (e) => {
@@ -1265,6 +1327,7 @@ export class OverlayUi {
       this.openExpandedComment(trigger);
     });
   }
+
 
   /**
    * 投稿者のYouTubeチャンネルURLを解決
