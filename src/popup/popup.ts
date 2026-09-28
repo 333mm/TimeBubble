@@ -808,9 +808,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  async function updateSetting<K extends keyof OverlaySettings>(key: K, value: OverlaySettings[K]) {
-    currentSettings[key] = value;
-    const updated = await saveSettings({ [key]: value });
+  async function updateSettings(partial: Partial<OverlaySettings>) {
+    Object.assign(currentSettings, partial);
+    const updated = await saveSettings(partial);
 
     // 開かれている全タブに設定変更を通知（storage.onChangedでも自動同期される）
     if (typeof chrome !== 'undefined' && chrome.tabs) {
@@ -829,17 +829,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     flashSaveStatus();
   }
 
+  async function updateSetting<K extends keyof OverlaySettings>(key: K, value: OverlaySettings[K]) {
+    await updateSettings({ [key]: value } as Partial<OverlaySettings>);
+  }
+
   // モード切り替えタブ
-  function setMode(mode: DisplayMode) {
+  async function setMode(mode: DisplayMode) {
     currentSettings.displayMode = mode;
     currentSettings.flowMode = mode === 'flow';
     applySettingsToUi(currentSettings);
-    updateSetting('displayMode', mode);
-    updateSetting('flowMode', mode === 'flow');
+    await updateSettings({
+      displayMode: mode,
+      flowMode: mode === 'flow',
+    });
   }
 
   modeCardBtn?.addEventListener('click', () => setMode('card'));
   modeFlowBtn?.addEventListener('click', () => setMode('flow'));
+
 
   // 言語選択セレクター
   langSelect?.addEventListener('change', () => {

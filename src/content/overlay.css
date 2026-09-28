@@ -1034,6 +1034,12 @@
   border-color: rgba(99, 102, 241, 0.6) !important;
 }
 
+/* 動画停止時のアニメーション一時停止 */
+.yt-co-flow-comment.is-paused {
+  animation-play-state: paused !important;
+}
+
+
 .yt-co-flow-comment.is-popular {
   background: rgba(99, 102, 241, var(--yt-co-flow-bg-alpha, 0.65)) !important;
   border-color: rgba(129, 140, 248, 0.7) !important;

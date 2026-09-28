@@ -8,9 +8,11 @@ export class PlayerSync {
   private lastCheckedSecond = -1;
   private triggeredFlowCommentIds = new Set<string>();
   private timeUpdateListener: (() => void) | null = null;
-
   private seekingListener: (() => void) | null = null;
   private seekedListener: (() => void) | null = null;
+  private pauseListener: (() => void) | null = null;
+  private playListener: (() => void) | null = null;
+  private endedListener: (() => void) | null = null;
   private currentVideoId: string = '';
 
   private readonly syncToken = `sync_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -100,9 +102,43 @@ export class PlayerSync {
       this.handleSeeked();
     };
 
+    this.pauseListener = () => {
+      if (video.getAttribute('data-yt-overlay-active-token') !== this.syncToken) {
+        this.detach();
+        return;
+      }
+      this.overlayUi.pausePlayback();
+    };
+
+    this.playListener = () => {
+      if (video.getAttribute('data-yt-overlay-active-token') !== this.syncToken) {
+        this.detach();
+        return;
+      }
+      this.overlayUi.resumePlayback();
+    };
+
+    this.endedListener = () => {
+      if (video.getAttribute('data-yt-overlay-active-token') !== this.syncToken) {
+        this.detach();
+        return;
+      }
+      this.overlayUi.pausePlayback();
+    };
+
     this.videoEl.addEventListener('timeupdate', this.timeUpdateListener);
     this.videoEl.addEventListener('seeking', this.seekingListener);
     this.videoEl.addEventListener('seeked', this.seekedListener);
+    this.videoEl.addEventListener('pause', this.pauseListener);
+    this.videoEl.addEventListener('play', this.playListener);
+    this.videoEl.addEventListener('ended', this.endedListener);
+
+    // 初期状態の同期
+    if (this.videoEl.paused) {
+      this.overlayUi.pausePlayback();
+    } else {
+      this.overlayUi.resumePlayback();
+    }
   }
 
   public clear() {
@@ -111,7 +147,6 @@ export class PlayerSync {
     this.lastCheckedSecond = -1;
     this.overlayUi.clearAll();
   }
-
 
   public detach() {
     this.clear();
@@ -128,11 +163,23 @@ export class PlayerSync {
       if (this.seekedListener) {
         this.videoEl.removeEventListener('seeked', this.seekedListener);
       }
+      if (this.pauseListener) {
+        this.videoEl.removeEventListener('pause', this.pauseListener);
+      }
+      if (this.playListener) {
+        this.videoEl.removeEventListener('play', this.playListener);
+      }
+      if (this.endedListener) {
+        this.videoEl.removeEventListener('ended', this.endedListener);
+      }
       this.videoEl = null;
     }
     this.timeUpdateListener = null;
     this.seekingListener = null;
     this.seekedListener = null;
+    this.pauseListener = null;
+    this.playListener = null;
+    this.endedListener = null;
     this.lastCheckedSecond = -1;
   }
 
@@ -158,7 +205,15 @@ export class PlayerSync {
       this.checkAndTriggerSecond(currentSecond);
     }
     this.lastCheckedSecond = currentSecond;
+
+    // シーク完了時の動画停止状態をOverlayUiに反映
+    if (this.videoEl.paused) {
+      this.overlayUi.pausePlayback();
+    } else {
+      this.overlayUi.resumePlayback();
+    }
   }
+
 
   private handleTimeUpdate() {
     if (!this.videoEl) return;

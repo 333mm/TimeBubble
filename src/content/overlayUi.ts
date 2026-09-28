@@ -20,7 +20,18 @@ export class OverlayUi {
   private quickToggleBtnEl: HTMLElement | null = null;
   private likedCommentIds = new Set<string>();
   private settings: OverlaySettings = DEFAULT_SETTINGS;
-  private activeCards = new Map<string, { el: HTMLElement; timerId: number }>();
+  private activeCards = new Map<string, {
+    el: HTMLElement;
+    timerId: number | null;
+    remainingMs: number;
+    startedAt: number;
+  }>();
+  private activeFlowItems = new Map<HTMLElement, {
+    timerId: number | null;
+    remainingMs: number;
+    startedAt: number;
+  }>();
+  private isPlaybackPaused = false;
   private exitingElements = new Set<HTMLElement>();
   private testCommentCounter = 0;
   private fetchRepliesCallback: ((comment: CommentData) => Promise<ReplyData[]>) | null = null;
@@ -52,6 +63,70 @@ export class OverlayUi {
     // 画面中央手前（右端から40%移動した地点）に達するまでの時間（秒）
     return (durationMs * 0.40) / 1000;
   }
+
+  /**
+   * 動画再生一時停止時: コメントの流れとカードの表示残りカウントを一時停止
+   */
+  public pausePlayback() {
+    if (this.isPlaybackPaused) return;
+    this.isPlaybackPaused = true;
+    const now = Date.now();
+
+    // 1. カード表示のタイマー停止と残り時間の記録
+    for (const item of this.activeCards.values()) {
+      if (item.timerId !== null) {
+        window.clearTimeout(item.timerId);
+        item.timerId = null;
+        const elapsed = now - item.startedAt;
+        item.remainingMs = Math.max(0, item.remainingMs - elapsed);
+      }
+    }
+
+    // 2. 流れるコメントのアニメーション一時停止と削除タイマー停止
+    for (const [flowEl, item] of this.activeFlowItems.entries()) {
+      flowEl.classList.add('is-paused');
+      if (item.timerId !== null) {
+        window.clearTimeout(item.timerId);
+        item.timerId = null;
+        const elapsed = now - item.startedAt;
+        item.remainingMs = Math.max(0, item.remainingMs - elapsed);
+      }
+    }
+  }
+
+  /**
+   * 動画再生再開時: コメントの流れとカードの表示残りカウントを再開
+   */
+  public resumePlayback() {
+    if (!this.isPlaybackPaused) return;
+    this.isPlaybackPaused = false;
+    const now = Date.now();
+
+    // 1. カード表示の残りタイマーを再開
+    for (const [key, item] of this.activeCards.entries()) {
+      if (item.timerId === null && item.remainingMs > 0) {
+        item.startedAt = now;
+        item.timerId = window.setTimeout(() => {
+          this.dismissCard(key);
+        }, item.remainingMs);
+      }
+    }
+
+    // 2. 流れるコメントのアニメーション再開と削除タイマー再開
+    for (const [flowEl, item] of this.activeFlowItems.entries()) {
+      flowEl.classList.remove('is-paused');
+      if (item.timerId === null && item.remainingMs > 0) {
+        item.startedAt = now;
+        item.timerId = window.setTimeout(() => {
+          this.activeFlowItems.delete(flowEl);
+          if (flowEl.parentElement) {
+            flowEl.parentElement.removeChild(flowEl);
+          }
+        }, item.remainingMs);
+      }
+    }
+  }
+
 
   constructor() {
     this.ensureGlobalStyles();
@@ -146,7 +221,9 @@ export class OverlayUi {
   public clearAll() {
     this.closeExpandedComment();
     for (const item of this.activeCards.values()) {
-      clearTimeout(item.timerId);
+      if (item.timerId !== null) {
+        clearTimeout(item.timerId);
+      }
       if (item.el.parentElement) {
         item.el.parentElement.removeChild(item.el);
       }
@@ -159,7 +236,18 @@ export class OverlayUi {
       }
     }
     this.exitingElements.clear();
+
+    for (const [el, item] of this.activeFlowItems.entries()) {
+      if (item.timerId !== null) {
+        clearTimeout(item.timerId);
+      }
+      if (el.parentElement) {
+        el.parentElement.removeChild(el);
+      }
+    }
+    this.activeFlowItems.clear();
   }
+
 
   private applySettingsToContainer() {
     // ページ上に重複コンテナがあれば1つを残して削除
@@ -356,13 +444,24 @@ export class OverlayUi {
       this.containerEl.style.opacity = '1';
     }
 
+    const now = Date.now();
+    const durationMs = this.settings.displayDuration * 1000;
+
     const key = trigger.id;
     if (this.activeCards.has(key)) {
       const existing = this.activeCards.get(key)!;
-      clearTimeout(existing.timerId);
-      existing.timerId = window.setTimeout(() => {
-        this.dismissCard(key);
-      }, this.settings.displayDuration * 1000);
+      if (existing.timerId !== null) {
+        clearTimeout(existing.timerId);
+      }
+      existing.remainingMs = durationMs;
+      existing.startedAt = now;
+      if (!this.isPlaybackPaused) {
+        existing.timerId = window.setTimeout(() => {
+          this.dismissCard(key);
+        }, durationMs);
+      } else {
+        existing.timerId = null;
+      }
       return;
     }
 
@@ -376,10 +475,18 @@ export class OverlayUi {
           (cleanNewText.length > 6 && existingText.includes(cleanNewText)) ||
           (existingText.length > 6 && cleanNewText.includes(existingText)))
       ) {
-        clearTimeout(item.timerId);
-        item.timerId = window.setTimeout(() => {
-          this.dismissCard(activeKey);
-        }, this.settings.displayDuration * 1000);
+        if (item.timerId !== null) {
+          clearTimeout(item.timerId);
+        }
+        item.remainingMs = durationMs;
+        item.startedAt = now;
+        if (!this.isPlaybackPaused) {
+          item.timerId = window.setTimeout(() => {
+            this.dismissCard(activeKey);
+          }, durationMs);
+        } else {
+          item.timerId = null;
+        }
         return;
       }
     }
@@ -398,11 +505,19 @@ export class OverlayUi {
     this.containerEl.appendChild(bubble);
     console.log('🎉 [YT-Comment-Overlay] Comment bubble added to DOM:', key);
 
-    const timerId = window.setTimeout(() => {
-      this.dismissCard(key);
-    }, this.settings.displayDuration * 1000);
+    let timerId: number | null = null;
+    if (!this.isPlaybackPaused) {
+      timerId = window.setTimeout(() => {
+        this.dismissCard(key);
+      }, durationMs);
+    }
 
-    this.activeCards.set(key, { el: bubble, timerId });
+    this.activeCards.set(key, {
+      el: bubble,
+      timerId,
+      remainingMs: durationMs,
+      startedAt: now,
+    });
   }
 
   /**
@@ -412,8 +527,11 @@ export class OverlayUi {
     const item = this.activeCards.get(key);
     if (!item) return;
 
-    clearTimeout(item.timerId);
+    if (item.timerId !== null) {
+      clearTimeout(item.timerId);
+    }
     this.activeCards.delete(key);
+
 
     const el = item.el;
     this.exitingElements.add(el);
@@ -512,8 +630,11 @@ export class OverlayUi {
     const item = this.activeCards.get(key);
     if (!item) return;
 
-    clearTimeout(item.timerId);
+    if (item.timerId !== null) {
+      clearTimeout(item.timerId);
+    }
     this.activeCards.delete(key);
+
 
     const el = item.el;
     if (immediate) {
@@ -1309,23 +1430,39 @@ export class OverlayUi {
       flowEl.style.animationDelay = `-${timeOffsetMs}ms`;
     }
 
+    // 動画が一時停止中の場合はアニメーションも一時停止
+    if (this.isPlaybackPaused) {
+      flowEl.classList.add('is-paused');
+    }
+
     // レーン解放予定時刻を更新（テキスト幅の半分移動した時点）
     const halfwayTime = duration * 0.45;
     this.flowLanes[laneIndex] = now + Math.max(0, halfwayTime - timeOffsetMs);
 
-    // アニメーション終了後にDOMから安全に削除
-    const remainingDuration = Math.max(200, duration - timeOffsetMs);
-    setTimeout(() => {
-      if (flowEl.parentElement) {
-        flowEl.parentElement.removeChild(flowEl);
-      }
-    }, remainingDuration + 200);
+    // アニメーション終了後にDOMから安全に削除するタイマー管理
+    const totalRemaining = Math.max(200, duration - timeOffsetMs) + 200;
+    let flowTimerId: number | null = null;
+    if (!this.isPlaybackPaused) {
+      flowTimerId = window.setTimeout(() => {
+        this.activeFlowItems.delete(flowEl);
+        if (flowEl.parentElement) {
+          flowEl.parentElement.removeChild(flowEl);
+        }
+      }, totalRemaining);
+    }
+
+    this.activeFlowItems.set(flowEl, {
+      timerId: flowTimerId,
+      remainingMs: totalRemaining,
+      startedAt: now,
+    });
 
     // クリックで詳細表示
     flowEl.addEventListener('click', (e) => {
       e.stopPropagation();
       this.openExpandedComment(trigger);
     });
+
   }
 
 
