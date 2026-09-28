@@ -526,6 +526,20 @@
     return foundToken;
   }
 
+  function extractCommentIdFromThread(ctr: any): string {
+    if (!ctr || typeof ctr !== 'object') return '';
+    const targetId = ctr.replies?.commentRepliesRenderer?.targetId || ctr.targetId;
+    if (typeof targetId === 'string' && targetId.includes('comment-replies-item-')) {
+      return targetId.replace(/^comment-replies-item-/, '').trim();
+    }
+    const cvm = ctr.commentViewModel?.commentViewModel || ctr.commentViewModel || ctr.comment?.commentViewModel;
+    if (cvm?.commentId) return String(cvm.commentId).trim();
+    const cr = ctr.comment?.commentRenderer || ctr.commentRenderer;
+    if (cr?.commentId) return String(cr.commentId).trim();
+    if (ctr.commentId) return String(ctr.commentId).trim();
+    return '';
+  }
+
   function extractAllCommentTokens(json: any) {
     if (!json || typeof json !== 'object') return;
     const walk = (node: any) => {
@@ -534,20 +548,10 @@
       // 1. commentThreadRenderer
       if ('commentThreadRenderer' in node) {
         const ctr = node.commentThreadRenderer;
-        let cId = '';
-        const cObj = ctr?.comment;
-        if (cObj?.commentViewModel?.commentId) cId = String(cObj.commentViewModel.commentId);
-        else if (cObj?.commentRenderer?.commentId) cId = String(cObj.commentRenderer.commentId);
-        else if (ctr?.commentId) cId = String(ctr.commentId);
+        const cId = extractCommentIdFromThread(ctr);
 
-        let token = '';
         const repliesObj = ctr?.replies?.commentRepliesRenderer || ctr?.replies;
-        if (repliesObj) {
-          token = findTokenInReplies(repliesObj) || '';
-        }
-        if (!token) {
-          token = findTokenInReplies(ctr) || '';
-        }
+        const token = findTokenInReplies(repliesObj) || findTokenInReplies(ctr) || '';
 
         if (cId && token) {
           commentTokenCache.set(cId, token);
@@ -822,9 +826,7 @@
 
       if ('commentThreadRenderer' in node) {
         const ctr = node.commentThreadRenderer;
-        const cId = ctr?.comment?.commentViewModel?.commentId ||
-          ctr?.comment?.commentRenderer?.commentId ||
-          ctr?.commentId || '';
+        const cId = extractCommentIdFromThread(ctr);
 
         if (!commentId || (cId && (cId === commentId || commentId.includes(cId) || cId.includes(commentId)))) {
           const t = findTokenInReplies(ctr.replies) || findTokenInReplies(ctr);
@@ -860,6 +862,12 @@
           foundToken = t;
           return;
         }
+      }
+
+      // continuationCommand 直下
+      if (node.continuationCommand && typeof node.continuationCommand.token === 'string' && node.continuationCommand.token.length > 20) {
+        foundToken = node.continuationCommand.token;
+        return;
       }
 
       for (const k of Object.keys(node)) {

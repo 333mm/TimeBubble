@@ -708,8 +708,9 @@ export class CommentFetcher {
 
     el.setAttribute('data-yt-overlay-comment-id', commentId);
 
-    // 返信件数の抽出（DOMから）
+    // 返信件数および返信トークンの抽出（DOMから）
     let replyCount = 0;
+    let replyContinuationToken: string | undefined;
     const threadEl = el.closest('ytd-comment-thread-renderer') || el;
     threadEl.setAttribute('data-yt-overlay-comment-id', commentId);
     const repliesContainer = threadEl.querySelector('#replies, ytd-comment-replies-renderer');
@@ -719,6 +720,18 @@ export class CommentFetcher {
       const replyMatch = replyBtnText.match(/(\d+)/);
       if (replyMatch) {
         replyCount = parseInt(replyMatch[1], 10);
+      }
+      const rawThread = (threadEl as any).wrappedJSObject || threadEl;
+      const td = rawThread.data || rawThread.__data;
+      if (td) {
+        replyContinuationToken = this.findTokenInRepliesObject(td) ?? undefined;
+      }
+      if (!replyContinuationToken) {
+        const rawReplies = (repliesContainer as any).wrappedJSObject || repliesContainer;
+        const rd = rawReplies.data || rawReplies.__data;
+        if (rd) {
+          replyContinuationToken = this.findTokenInRepliesObject(rd) ?? undefined;
+        }
       }
     }
 
@@ -735,6 +748,7 @@ export class CommentFetcher {
       timestamps,
       videoId: activeVid,
       replyCount: replyCount || undefined,
+      replyContinuationToken,
     };
   }
 
@@ -1331,6 +1345,24 @@ export class CommentFetcher {
     }
   }
 
+  private extractCommentIdFromThread(ctr: any): string {
+    if (!ctr || typeof ctr !== 'object') return '';
+    // 1. targetId からの抽出 (最確実・最新YouTube仕様: "comment-replies-item-UgzlBeDC5rC9XtiFF5R4AaABAg")
+    const targetId = ctr.replies?.commentRepliesRenderer?.targetId || ctr.targetId;
+    if (typeof targetId === 'string' && targetId.includes('comment-replies-item-')) {
+      return targetId.replace(/^comment-replies-item-/, '').trim();
+    }
+    // 2. commentViewModel の二重ネスト / 単一ネスト
+    const cvm = ctr.commentViewModel?.commentViewModel || ctr.commentViewModel || ctr.comment?.commentViewModel;
+    if (cvm?.commentId) return String(cvm.commentId).trim();
+    // 3. 従来型 commentRenderer
+    const cr = ctr.comment?.commentRenderer || ctr.commentRenderer;
+    if (cr?.commentId) return String(cr.commentId).trim();
+    // 4. ctr 直下
+    if (ctr.commentId) return String(ctr.commentId).trim();
+    return '';
+  }
+
   private parseInitialDataJson(data: unknown) {
     if (!data || typeof data !== 'object') return;
     const newItems: CommentData[] = [];
@@ -1344,9 +1376,7 @@ export class CommentFetcher {
 
       if ('commentThreadRenderer' in obj) {
         const ctr = obj.commentThreadRenderer;
-        const cId = ctr?.comment?.commentViewModel?.commentId ||
-          ctr?.comment?.commentRenderer?.commentId ||
-          ctr?.commentId || '';
+        const cId = this.extractCommentIdFromThread(ctr);
 
         const repliesObj = ctr?.replies?.commentRepliesRenderer || ctr?.replies;
         const token = this.findTokenInRepliesObject(repliesObj) || this.findTokenInRepliesObject(ctr);
@@ -1435,12 +1465,13 @@ export class CommentFetcher {
           }
         }
 
-        const commentObj = ctr.comment;
+        const cvm = ctr.commentViewModel?.commentViewModel || ctr.commentViewModel || ctr.comment?.commentViewModel;
+        const cr = ctr.comment?.commentRenderer || ctr.commentRenderer;
         let commentData: CommentData | null = null;
-        if (commentObj?.commentViewModel) {
-          commentData = this.parseCommentViewModelJson(commentObj.commentViewModel);
-        } else if (commentObj?.commentRenderer) {
-          commentData = this.parseCommentRendererJson(commentObj.commentRenderer);
+        if (cvm) {
+          commentData = this.parseCommentViewModelJson(cvm);
+        } else if (cr) {
+          commentData = this.parseCommentRendererJson(cr);
         }
 
         if (commentData && commentData.timestamps.length > 0) {
@@ -2382,6 +2413,15 @@ export class CommentFetcher {
         if (attrId && attrId !== commentId) continue;
         const rawEl = (el as any).wrappedJSObject || el;
         const data = rawEl.data || rawEl.__data;
+        if (data) {
+          const threadId = this.extractCommentIdFromThread(data?.commentThreadRenderer || data);
+          if (threadId && threadId !== commentId && !commentId.includes(threadId) && !threadId.includes(commentId)) {
+            continue;
+          }
+          const t = this.findTokenInRepliesObject(data);
+          if (t) return t;
+        }
+
         const repliesRenderer = data?.comment?.commentRenderer?.replies?.commentRepliesRenderer ||
           data?.replies?.commentRepliesRenderer;
         const contList = repliesRenderer?.continuations || repliesRenderer?.contents;
