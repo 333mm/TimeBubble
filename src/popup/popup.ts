@@ -22,6 +22,8 @@ interface I18nStrings {
   opacity: string;
   highlightTitle: string;
   highlightDesc: string;
+  flowTitle: string;
+  flowDesc: string;
   testBtn: string;
   savedText: string;
   savingText: string;
@@ -53,6 +55,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     opacity: '不透明度',
     highlightTitle: '高評価コメントをハイライト',
     highlightDesc: 'いいね数に応じてグラデーションと光彩を適用',
+    flowTitle: '流れるコメント (ニコニコ風)',
+    flowDesc: 'コメントが右から左へ流れるように表示',
     testBtn: '現在の画面にテスト吹き出しを表示',
     savedText: '設定は自動保存されます',
     savingText: '設定を保存しました',
@@ -82,6 +86,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     opacity: 'Opacity',
     highlightTitle: 'Highlight Top Comments',
     highlightDesc: 'Apply gradient and glow based on likes',
+    flowTitle: 'Flowing Comments (Nico-style)',
+    flowDesc: 'Comments scroll from right to left across the screen',
     testBtn: 'Show Test Comment on Screen',
     savedText: 'Settings are saved automatically',
     savingText: 'Settings saved',
@@ -111,6 +117,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     opacity: 'Opacidad',
     highlightTitle: 'Destacar Comentarios Populares',
     highlightDesc: 'Aplica brillo y degradado según los likes',
+    flowTitle: 'Comentarios en Flujo (estilo Nico)',
+    flowDesc: 'Los comentarios se desplazan de derecha a izquierda',
     testBtn: 'Mostrar Comentario de Prueba',
     savedText: 'Los ajustes se guardan automáticamente',
     savingText: 'Ajustes guardados',
@@ -140,6 +148,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     opacity: '不透明度',
     highlightTitle: '高赞评论高亮',
     highlightDesc: '根据点赞数应用渐变与光晕效果',
+    flowTitle: '弹幕模式（仿NicoNico）',
+    flowDesc: '评论从右向左滚动显示',
     testBtn: '在当前屏幕显示测试气泡',
     savedText: '设置已自动保存',
     savingText: '设置已保存',
@@ -151,6 +161,7 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     supportDev: '支持开发者',
   },
 };
+
 
 document.addEventListener('DOMContentLoaded', async () => {
   const langSelect = document.getElementById('lang-select') as HTMLSelectElement | null;
@@ -165,6 +176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const opacitySlider = document.getElementById('opacity-slider') as HTMLInputElement | null;
   const opacityVal = document.getElementById('opacity-val') as HTMLElement | null;
   const highlightToggle = document.getElementById('highlight-toggle') as HTMLInputElement | null;
+  const flowToggle = document.getElementById('flow-toggle') as HTMLInputElement | null;
   const testCommentBtn = document.getElementById('test-comment-btn') as HTMLButtonElement | null;
   const saveStatus = document.getElementById('save-status') as HTMLElement | null;
 
@@ -232,8 +244,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const elHighlightDesc = document.getElementById('i18n-highlight-desc');
     if (elHighlightDesc) elHighlightDesc.textContent = t.highlightDesc;
 
+    const elFlowTitle = document.getElementById('i18n-flow-title');
+    if (elFlowTitle) elFlowTitle.textContent = t.flowTitle;
+    const elFlowDesc = document.getElementById('i18n-flow-desc');
+    if (elFlowDesc) elFlowDesc.textContent = t.flowDesc;
+
     const elTestBtn = document.getElementById('i18n-test-btn');
     if (elTestBtn) elTestBtn.textContent = t.testBtn;
+
 
     const elSupportDev = document.getElementById('i18n-support-dev');
     if (elSupportDev) elSupportDev.textContent = t.supportDev;
@@ -312,8 +330,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       highlightToggle.checked = settings.highlightPopular;
     }
 
+    if (flowToggle) {
+      flowToggle.checked = !!settings.flowMode;
+    }
+
     updateDynamicLabels();
   }
+
 
   /**
    * 現在アクティブなタブを取得
@@ -752,6 +775,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   highlightToggle?.addEventListener('change', () => {
     updateSetting('highlightPopular', highlightToggle.checked);
+  });
+
+  flowToggle?.addEventListener('change', () => {
+    updateSetting('flowMode', flowToggle.checked);
   });
 
   // テスト吹き出し表示ボタン

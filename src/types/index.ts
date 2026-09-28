@@ -12,6 +12,7 @@ export interface OverlaySettings {
   popularThreshold: number; // 人気判定のいいね数しきい値 (例: 50)
   topTierThreshold: number; // 超人気判定のいいね数しきい値 (例: 300)
   language?: string; // UI表示言語 ('ja' | 'en' | 'es' | 'zh')
+  flowMode: boolean; // ニコニコ風流れるコメント表示モード
 }
 
 export const DEFAULT_SETTINGS: OverlaySettings = {
@@ -25,11 +26,23 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   popularThreshold: 50,
   topTierThreshold: 300,
   language: 'ja',
+  flowMode: false,
 };
 
 export interface TimestampOccurrence {
   seconds: number;
   formatted: string;
+}
+
+export interface ReplyData {
+  id: string;
+  authorName: string;
+  authorAvatarUrl: string;
+  authorChannelUrl?: string;
+  rawText: string;
+  likeCount: number;
+  formattedLikeCount: string;
+  publishedTimeText: string;
 }
 
 export interface CommentData {
@@ -45,6 +58,8 @@ export interface CommentData {
   timestamps: TimestampOccurrence[];
   isDescription?: boolean; // 概要欄チャプターからの場合
   videoId?: string; // 所属動画ID
+  replyCount?: number; // 返信件数
+  replyContinuationToken?: string; // 返信取得用トークン
 }
 
 export interface TimestampCommentTrigger {
@@ -52,3 +67,4 @@ export interface TimestampCommentTrigger {
   timestamp: TimestampOccurrence;
   id: string; // 一意識別子 (comment.id + seconds)
 }
+

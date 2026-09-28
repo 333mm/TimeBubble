@@ -179,6 +179,9 @@ class YtCommentOverlayApp {
     this.playerSync.setVideoId(this.currentVideoId || '');
     this.commentFetcher.setVideoId(this.currentVideoId || '');
 
+    // 返信フェッチコールバックを OverlayUi に接続
+    this.overlayUi.setFetchRepliesCallback((comment) => this.commentFetcher.fetchRepliesAsync(comment));
+
     // オーバーレイUIのマウント
     this.overlayUi.mount(playerEl);
 
@@ -188,6 +191,7 @@ class YtCommentOverlayApp {
     // コメント・チャプターフェッチャーの開始
     this.commentFetcher.start();
   }
+
 
   public cleanup() {
     if (this.checkInterval) {

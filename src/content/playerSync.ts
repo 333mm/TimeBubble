@@ -208,7 +208,12 @@ export class PlayerSync {
         if (this.currentVideoId && trigger.comment.videoId && trigger.comment.videoId !== this.currentVideoId) {
           return;
         }
-        this.overlayUi.showComment(trigger);
+        // フローモード: 流れるコメントを表示（通常モードのバブル表示と両立）
+        this.overlayUi.showFlowComment(trigger);
+        // 通常バブルモードでも表示（flowMode=trueでもバブルはOFF）
+        if (!this.overlayUi.isFlowModeEnabled()) {
+          this.overlayUi.showComment(trigger);
+        }
       }, idx * 120);
     });
   }

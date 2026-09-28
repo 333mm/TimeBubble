@@ -1,4 +1,4 @@
-import { CommentData, DEFAULT_SETTINGS, OverlayPosition, OverlaySettings, TimestampCommentTrigger } from '../types';
+import { CommentData, DEFAULT_SETTINGS, OverlayPosition, OverlaySettings, ReplyData, TimestampCommentTrigger } from '../types';
 import { timeStringToSeconds } from './timestampParser';
 import { saveSettings } from '../utils/storage';
 import overlayCssRaw from './overlay.css?raw';
@@ -23,6 +23,19 @@ export class OverlayUi {
   private activeCards = new Map<string, { el: HTMLElement; timerId: number }>();
   private exitingElements = new Set<HTMLElement>();
   private testCommentCounter = 0;
+  private fetchRepliesCallback: ((comment: CommentData) => Promise<ReplyData[]>) | null = null;
+  // フローモード用: アクティブな流れるコメント要素
+  private flowLanes: Array<number> = []; // 各レーンの使用解除タイムスタンプ (ms)
+
+  /** 返信フェッチ用コールバックを設定 */
+  public setFetchRepliesCallback(cb: (comment: CommentData) => Promise<ReplyData[]>) {
+    this.fetchRepliesCallback = cb;
+  }
+
+  /** フローモードが有効かどうかを返す */
+  public isFlowModeEnabled(): boolean {
+    return !!this.settings.flowMode;
+  }
 
   constructor() {
     this.ensureGlobalStyles();
@@ -1038,9 +1051,63 @@ export class OverlayUi {
       }
     });
 
+    // 5. 返信表示セクション
+    const repliesSection = document.createElement('div');
+    repliesSection.className = 'yt-co-replies-section';
+
+    // 返信を読み込むボタン（返信がある場合のみ表示）
+    const hasReplies = (comment.replyCount ?? 0) > 0 || !!comment.replyContinuationToken;
+    if (hasReplies || !comment.isDescription) {
+      const loadRepliesBtn = document.createElement('button');
+      loadRepliesBtn.className = 'yt-co-load-replies-btn';
+      const repliesIcon = this.createSvgElement('0 0 24 24', 13, 13);
+      repliesIcon.setAttribute('stroke', 'currentColor');
+      repliesIcon.setAttribute('stroke-width', '2');
+      repliesIcon.setAttribute('fill', 'none');
+      const repliesPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      repliesPath.setAttribute('d', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z');
+      repliesIcon.appendChild(repliesPath);
+      const repliesLabel = document.createElement('span');
+      repliesLabel.textContent = comment.replyCount
+        ? `返信を表示 (${comment.replyCount}件)`
+        : '返信を表示';
+      loadRepliesBtn.appendChild(repliesIcon);
+      loadRepliesBtn.appendChild(repliesLabel);
+      loadRepliesBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        loadRepliesBtn.style.display = 'none';
+        const loadingEl = document.createElement('div');
+        loadingEl.className = 'yt-co-replies-loading';
+        loadingEl.textContent = '返信を読み込み中...';
+        repliesSection.appendChild(loadingEl);
+
+        let replies: ReplyData[] = [];
+        if (this.fetchRepliesCallback) {
+          replies = await this.fetchRepliesCallback(comment);
+        }
+
+        repliesSection.removeChild(loadingEl);
+
+        if (replies.length === 0) {
+          const emptyEl = document.createElement('div');
+          emptyEl.className = 'yt-co-replies-empty';
+          emptyEl.textContent = '返信はありません';
+          repliesSection.appendChild(emptyEl);
+          return;
+        }
+
+        for (const reply of replies) {
+          const replyEl = this.createReplyElement(reply);
+          repliesSection.appendChild(replyEl);
+        }
+      });
+      repliesSection.appendChild(loadRepliesBtn);
+    }
+
     card.appendChild(header);
     card.appendChild(body);
     card.appendChild(actions);
+    card.appendChild(repliesSection);
     card.appendChild(replyContainer);
 
     modalRoot.appendChild(backdrop);
@@ -1050,11 +1117,153 @@ export class OverlayUi {
     this.modalRootEl = modalRoot;
   }
 
+
   public closeExpandedComment() {
     if (this.modalRootEl && this.modalRootEl.parentElement) {
       this.modalRootEl.parentElement.removeChild(this.modalRootEl);
       this.modalRootEl = null;
     }
+  }
+
+  /** 返信1件のDOM要素を生成 */
+  private createReplyElement(reply: ReplyData): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'yt-co-reply-item';
+
+    const avatar = this.createAvatarElement(reply.authorName, reply.authorAvatarUrl);
+    avatar.classList.add('yt-co-reply-avatar');
+
+    const content = document.createElement('div');
+    content.className = 'yt-co-reply-content';
+
+    const authorEl = document.createElement('span');
+    authorEl.className = 'yt-co-reply-author';
+    if (reply.authorChannelUrl) {
+      const link = document.createElement('a');
+      link.href = reply.authorChannelUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = reply.authorName;
+      link.addEventListener('click', (e) => e.stopPropagation());
+      authorEl.appendChild(link);
+    } else {
+      authorEl.textContent = reply.authorName;
+    }
+
+    const textEl = document.createElement('div');
+    textEl.className = 'yt-co-reply-text';
+    textEl.textContent = reply.rawText;
+
+    const metaEl = document.createElement('div');
+    metaEl.className = 'yt-co-reply-meta';
+    if (reply.publishedTimeText) {
+      const timeSpan = document.createElement('span');
+      timeSpan.textContent = reply.publishedTimeText;
+      metaEl.appendChild(timeSpan);
+    }
+    if (reply.likeCount > 0) {
+      const likesSpan = document.createElement('span');
+      likesSpan.className = 'yt-co-reply-likes';
+      likesSpan.textContent = `♥ ${reply.formattedLikeCount}`;
+      metaEl.appendChild(likesSpan);
+    }
+
+    content.appendChild(authorEl);
+    content.appendChild(textEl);
+    content.appendChild(metaEl);
+
+    el.appendChild(avatar);
+    el.appendChild(content);
+    return el;
+  }
+
+  /**
+   * ニコニコ動画風の流れるコメントを表示する
+   */
+  public showFlowComment(trigger: TimestampCommentTrigger) {
+    if (!this.settings.enabled || !this.settings.flowMode) return;
+
+    const playerEl = this.playerElement ||
+      document.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
+      document.body;
+    if (!playerEl) return;
+
+    const { comment } = trigger;
+    const LANE_COUNT = 6;
+    const now = Date.now();
+
+    // レーン初期化
+    if (this.flowLanes.length < LANE_COUNT) {
+      this.flowLanes = Array(LANE_COUNT).fill(0);
+    }
+
+    // 空きレーンを選択 (使用解除時刻が最も古いものを使用)
+    let laneIndex = 0;
+    let minTime = Infinity;
+    for (let i = 0; i < LANE_COUNT; i++) {
+      if (this.flowLanes[i] <= now) {
+        laneIndex = i;
+        break;
+      }
+      if (this.flowLanes[i] < minTime) {
+        minTime = this.flowLanes[i];
+        laneIndex = i;
+      }
+    }
+
+    const flowEl = document.createElement('div');
+    flowEl.className = 'yt-co-flow-comment';
+
+    // 人気コメントのカラー
+    if (this.settings.highlightPopular) {
+      if (comment.likeCount >= this.settings.topTierThreshold) {
+        flowEl.classList.add('is-toptier');
+      } else if (comment.likeCount >= this.settings.popularThreshold) {
+        flowEl.classList.add('is-popular');
+      }
+    }
+
+    // アバター + テキスト
+    const avatar = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
+    avatar.classList.add('yt-co-flow-avatar');
+
+    const textEl = document.createElement('span');
+    textEl.className = 'yt-co-flow-text';
+    textEl.textContent = comment.rawText.replace(/\n/g, ' ');
+
+    flowEl.appendChild(avatar);
+    flowEl.appendChild(textEl);
+
+    // レーン位置（プレイヤー高さの均等分割）
+    const playerHeight = playerEl.clientHeight || 360;
+    const laneHeight = Math.floor(playerHeight / LANE_COUNT);
+    const topPx = laneIndex * laneHeight + Math.floor(laneHeight * 0.15);
+    flowEl.style.top = `${topPx}px`;
+
+    playerEl.appendChild(flowEl);
+
+    // アニメーション開始 - 右端から左端へ
+    const playerWidth = playerEl.clientWidth || 640;
+    const duration = Math.max(5000, playerWidth * 8); // 幅に比例した時間
+    flowEl.style.setProperty('--yt-co-flow-duration', `${duration}ms`);
+    flowEl.style.setProperty('--yt-co-flow-start-x', `${playerWidth}px`);
+
+    // レーン解放予定時刻を更新（テキスト幅の半分移動した時点）
+    const halfwayTime = (duration * 0.5);
+    this.flowLanes[laneIndex] = now + halfwayTime;
+
+    // アニメーション終了後にDOMから削除
+    setTimeout(() => {
+      if (flowEl.parentElement) {
+        flowEl.parentElement.removeChild(flowEl);
+      }
+    }, duration + 200);
+
+    // クリックで詳細表示
+    flowEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openExpandedComment(trigger);
+    });
   }
 
   /**

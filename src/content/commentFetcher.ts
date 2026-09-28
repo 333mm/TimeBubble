@@ -1,5 +1,6 @@
-import { CommentData, TimestampOccurrence } from '../types';
+import { CommentData, ReplyData, TimestampOccurrence } from '../types';
 import { extractTimestamps } from './timestampParser';
+
 
 export class CommentFetcher {
   private commentsMap = new Map<string, CommentData>();
@@ -1570,6 +1571,20 @@ export class CommentFetcher {
       const publishedTimeObj = cr.publishedTimeText as { runs?: { text: string }[] } | undefined;
       const publishedTimeText = publishedTimeObj?.runs?.map((r) => r.text).join('') || '';
 
+      // 返信件数・返信トークン
+      const replyCount = Number((cr as any).replyCount || 0);
+      let replyContinuationToken: string | undefined;
+      const repliesObj = (cr as any).replies as Record<string, any> | undefined;
+      const repliesRenderer = repliesObj?.commentRepliesRenderer;
+      if (repliesRenderer) {
+        const contList = repliesRenderer.continuations as any[] | undefined;
+        if (Array.isArray(contList) && contList.length > 0) {
+          replyContinuationToken =
+            contList[0]?.nextContinuationData?.continuation ||
+            contList[0]?.continuationEndpoint?.continuationCommand?.token;
+        }
+      }
+
       return {
         id: commentId || `comment_${authorName}_${timestamps[0].seconds}`,
         authorName,
@@ -1582,9 +1597,186 @@ export class CommentFetcher {
         publishedTimeText,
         timestamps,
         videoId: this.getVideoId(),
+        replyCount: replyCount || undefined,
+        replyContinuationToken,
       };
     } catch {
       return null;
     }
   }
+
+  /**
+   * 指定コメントの返信一覧を InnerTube API から取得する
+   */
+  public async fetchRepliesAsync(comment: CommentData): Promise<ReplyData[]> {
+    try {
+      let token = comment.replyContinuationToken;
+
+      // トークンが無い場合はDOMから探索
+      if (!token && comment.id) {
+        token = this.findReplyTokenFromDom(comment.id) ?? undefined;
+      }
+
+      if (!token) return [];
+
+      let apiKey = this.bridgeApiKey;
+      let clientVersion = this.bridgeClientVersion;
+      if (!apiKey) {
+        const config = this.extractInnertubeConfig();
+        if (config) {
+          apiKey = config.apiKey;
+          clientVersion = config.clientVersion;
+        }
+      }
+      if (!apiKey) return [];
+
+      const url = `https://www.youtube.com/youtubei/v1/next?key=${encodeURIComponent(apiKey)}&prettyPrint=false`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-YouTube-Client-Name': '1',
+        'X-YouTube-Client-Version': clientVersion || '2.20240101.00.00',
+      };
+      if (this.bridgeVisitorData) {
+        headers['X-Goog-Visitor-Id'] = this.bridgeVisitorData;
+      }
+
+      const payload = {
+        context: {
+          client: {
+            hl: navigator.language || 'ja',
+            gl: 'JP',
+            clientName: this.bridgeClientName || 'WEB',
+            clientVersion: clientVersion || '2.20240101.00.00',
+            visitorData: this.bridgeVisitorData || undefined,
+          },
+        },
+        continuation: token,
+      };
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'same-origin',
+      });
+
+      if (!res.ok) return [];
+      const data = await res.json();
+      return this.parseRepliesFromResponse(data);
+    } catch {
+      return [];
+    }
+  }
+
+  /** 返信APIレスポンスからReplyData[]を抽出 */
+  private parseRepliesFromResponse(data: unknown): ReplyData[] {
+    const replies: ReplyData[] = [];
+    if (!data || typeof data !== 'object') return replies;
+
+    const walk = (node: unknown): void => {
+      if (!node || typeof node !== 'object') return;
+      const obj = node as Record<string, unknown>;
+
+      // commentEntityPayload (最新仕様)
+      if ('commentEntityPayload' in obj) {
+        const r = this.parseReplyEntityPayload(obj.commentEntityPayload as Record<string, any>);
+        if (r) replies.push(r);
+      }
+      // commentRenderer (旧仕様)
+      if ('commentRenderer' in obj) {
+        const r = this.parseReplyFromRenderer(obj.commentRenderer as Record<string, any>);
+        if (r) replies.push(r);
+      }
+
+      for (const key of Object.keys(obj)) {
+        if (key === 'replies' || key === 'secondaryResults') continue;
+        walk(obj[key]);
+      }
+    };
+
+    walk(data);
+    return replies;
+  }
+
+  /** commentEntityPayload から ReplyData を生成 */
+  private parseReplyEntityPayload(cep: Record<string, any>): ReplyData | null {
+    try {
+      if (!cep || typeof cep !== 'object') return null;
+      let rawText = '';
+      const propContent = cep.properties?.content;
+      if (typeof propContent?.content === 'string') rawText = propContent.content;
+      else if (Array.isArray(propContent?.runs)) rawText = propContent.runs.map((r: any) => r.text || '').join('');
+      else if (typeof cep.content?.content === 'string') rawText = cep.content.content;
+      if (!rawText) return null;
+
+      const authorName = cep.author?.displayName || cep.author?.channelTitle || 'ユーザー';
+      let authorAvatarUrl = cep.author?.avatarThumbnailUrl || '';
+      if (!authorAvatarUrl && Array.isArray(cep.author?.avatar?.image?.sources)) {
+        const srcs = cep.author.avatar.image.sources;
+        authorAvatarUrl = srcs[srcs.length - 1]?.url || '';
+      }
+
+      let authorChannelUrl = '';
+      const be = cep.author?.channelCommand?.innertubeCommand?.browseEndpoint ||
+        cep.author?.command?.innertubeCommand?.browseEndpoint;
+      if (be?.canonicalBaseUrl) authorChannelUrl = `https://www.youtube.com${be.canonicalBaseUrl}`;
+      else if (be?.browseId) authorChannelUrl = `https://www.youtube.com/channel/${be.browseId}`;
+      else if (typeof cep.author?.channelId === 'string') authorChannelUrl = `https://www.youtube.com/channel/${cep.author.channelId}`;
+
+      const likeText = String(cep.toolbar?.likeCountNotliked || cep.toolbar?.likeCount || '0');
+      const likeCount = this.parseLikeCount(likeText);
+      const publishedTimeText = typeof cep.properties?.publishedTime === 'string' ? cep.properties.publishedTime : '';
+      const id = String(cep.properties?.commentId || cep.commentId || `reply_${authorName}_${Date.now()}`);
+
+      return { id, authorName, authorAvatarUrl, authorChannelUrl, rawText, likeCount, formattedLikeCount: likeText, publishedTimeText };
+    } catch {
+      return null;
+    }
+  }
+
+  /** commentRenderer から ReplyData を生成 */
+  private parseReplyFromRenderer(cr: Record<string, any>): ReplyData | null {
+    try {
+      const rawText = cr.contentText?.runs?.map((r: any) => r.text).join('') || '';
+      if (!rawText) return null;
+      const authorName = cr.authorText?.simpleText || 'ユーザー';
+      const thumbs = cr.authorThumbnail?.thumbnails as { url: string }[] | undefined;
+      const authorAvatarUrl = thumbs && thumbs.length > 0 ? thumbs[thumbs.length - 1].url : '';
+      const be = cr.authorEndpoint?.browseEndpoint;
+      let authorChannelUrl = '';
+      if (be?.canonicalBaseUrl) authorChannelUrl = `https://www.youtube.com${be.canonicalBaseUrl}`;
+      else if (be?.browseId) authorChannelUrl = `https://www.youtube.com/channel/${be.browseId}`;
+      const likeCount = Number(cr.likeCount || 0);
+      const formattedLikeCount = cr.voteCount?.simpleText || String(likeCount);
+      const publishedTimeText = cr.publishedTimeText?.runs?.map((r: any) => r.text).join('') || '';
+      const id = String(cr.commentId || `reply_${authorName}_${Date.now()}`);
+      return { id, authorName, authorAvatarUrl, authorChannelUrl, rawText, likeCount, formattedLikeCount, publishedTimeText };
+    } catch {
+      return null;
+    }
+  }
+
+  /** DOMからコメントの返信continuationTokenを探索 */
+  private findReplyTokenFromDom(commentId: string): string | null {
+    try {
+      const commentEls = document.querySelectorAll(
+        `ytd-comment-thread-renderer[comment-id="${commentId}"], ytd-comment-thread-renderer`
+      );
+      for (const el of Array.from(commentEls)) {
+        const attrId = el.getAttribute('comment-id') || el.getAttribute('data-comment-id') || '';
+        if (attrId && attrId !== commentId) continue;
+        const rawEl = (el as any).wrappedJSObject || el;
+        const data = rawEl.data || rawEl.__data;
+        const contList = data?.comment?.commentRenderer?.replies?.commentRepliesRenderer?.continuations;
+        if (Array.isArray(contList) && contList.length > 0) {
+          return contList[0]?.nextContinuationData?.continuation ||
+            contList[0]?.continuationEndpoint?.continuationCommand?.token || null;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
 }
+
