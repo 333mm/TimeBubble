@@ -813,11 +813,72 @@
     return replies;
   }
 
+  function findReplyTokenForCommentInJson(json: any, commentId: string): string | null {
+    if (!json || typeof json !== 'object') return null;
+    let foundToken: string | null = null;
+
+    const walk = (node: any) => {
+      if (foundToken || !node || typeof node !== 'object') return;
+
+      if ('commentThreadRenderer' in node) {
+        const ctr = node.commentThreadRenderer;
+        const cId = ctr?.comment?.commentViewModel?.commentId ||
+          ctr?.comment?.commentRenderer?.commentId ||
+          ctr?.commentId || '';
+
+        if (!commentId || (cId && (cId === commentId || commentId.includes(cId) || cId.includes(commentId)))) {
+          const t = findTokenInReplies(ctr.replies) || findTokenInReplies(ctr);
+          if (t) {
+            foundToken = t;
+            return;
+          }
+        }
+      }
+
+      for (const k of Object.keys(node)) {
+        if (k === 'secondaryResults' || k === 'relatedVideos' || k === 'watchNextEndScreenRenderer') continue;
+        walk(node[k]);
+        if (foundToken) return;
+      }
+    };
+
+    walk(json);
+    return foundToken;
+  }
+
+  function findAnyReplyToken(json: any): string | null {
+    if (!json || typeof json !== 'object') return null;
+    let foundToken: string | null = null;
+
+    const walk = (node: any) => {
+      if (foundToken || !node || typeof node !== 'object') return;
+
+      if ('commentRepliesRenderer' in node || 'replies' in node) {
+        const target = node.commentRepliesRenderer || node.replies;
+        const t = findTokenInReplies(target);
+        if (t) {
+          foundToken = t;
+          return;
+        }
+      }
+
+      for (const k of Object.keys(node)) {
+        if (k === 'secondaryResults' || k === 'relatedVideos' || k === 'watchNextEndScreenRenderer') continue;
+        walk(node[k]);
+        if (foundToken) return;
+      }
+    };
+
+    walk(json);
+    return foundToken;
+  }
+
   async function fetchRepliesViaLinkedComment(
     config: any,
     videoId: string,
     commentId: string,
-    rawText?: string
+    rawText?: string,
+    debugLog?: string[]
   ): Promise<any[]> {
     try {
       const url = `/youtubei/v1/next?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`;
@@ -842,6 +903,7 @@
         linkedCommentId: commentId,
       };
 
+      debugLog?.push('linkedCommentId API要求送信');
       const res = await fetch(url, {
         method: 'POST',
         headers,
@@ -849,15 +911,61 @@
         credentials: 'same-origin',
       });
 
-      if (res.ok) {
-        const json = await res.json();
-        // 新たなトークンをキャッシュに登録
-        extractAllCommentTokens(json);
-        const replies = parseRepliesFromJson(json, commentId, rawText);
-        if (replies.length > 0) return replies;
+      if (!res.ok) {
+        debugLog?.push(`linkedCommentId HTTPエラー ${res.status}`);
+        return [];
       }
-    } catch {
-      // ignore
+
+      const json = await res.json();
+      extractAllCommentTokens(json);
+
+      // 1. レスポンス内にすでに返信アイテムが存在するかチェック
+      const directReplies = parseRepliesFromJson(json, commentId, rawText);
+      if (directReplies.length > 0) {
+        debugLog?.push(`linkedCommentId直接応答から返信検出 (${directReplies.length}件)`);
+        return directReplies;
+      }
+
+      // 2. 返信が直接入っていない場合: 返信展開用 Continuation Token を探索
+      let replyToken: string | null | undefined = commentTokenCache.get(commentId);
+      if (!replyToken) {
+        replyToken = findReplyTokenForCommentInJson(json, commentId);
+      }
+      if (!replyToken) {
+        replyToken = findAnyReplyToken(json);
+      }
+
+      if (replyToken) {
+        debugLog?.push(`linkedCommentId応答から返信トークン検出 -> 2ndフェッチ実行`);
+        const replyPayload = {
+          context: payload.context,
+          continuation: replyToken,
+        };
+
+        const replyRes = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(replyPayload),
+          credentials: 'same-origin',
+        });
+
+        if (replyRes.ok) {
+          const replyJson = await replyRes.json();
+          const nestedReplies = parseRepliesFromJson(replyJson, commentId, rawText);
+          if (nestedReplies.length > 0) {
+            debugLog?.push(`返信Continuationより返信取得成功 (${nestedReplies.length}件)`);
+            return nestedReplies;
+          } else {
+            debugLog?.push('返信Continuation応答200だが返信0件');
+          }
+        } else {
+          debugLog?.push(`返信Continuation HTTPエラー ${replyRes.status}`);
+        }
+      } else {
+        debugLog?.push('linkedCommentId応答内に返信Token未検出');
+      }
+    } catch (err: any) {
+      debugLog?.push(`linkedCommentId例外: ${err?.message || err}`);
     }
     return [];
   }
@@ -1003,7 +1111,7 @@
       // 4. トークンが無い、またはトークン取得で返信0件の場合: linkedCommentId による API 直接フェッチ！
       if (commentId && config?.apiKey) {
         debugLog.push('linkedCommentId APIフェッチ試行');
-        const linkedReplies = await fetchRepliesViaLinkedComment(config, videoId, commentId, rawText);
+        const linkedReplies = await fetchRepliesViaLinkedComment(config, videoId, commentId, rawText, debugLog);
         if (linkedReplies && linkedReplies.length > 0) {
           debugLog.push(`linkedCommentIdより返信取得成功 (${linkedReplies.length}件)`);
           writeToEl(REPLY_RES_EL_ID, { reqId, replies: linkedReplies, errCode: 'OK', debug: debugLog.join(' > ') });
