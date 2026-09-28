@@ -98,6 +98,14 @@ export class CommentFetcher {
       existing.formattedLikeCount = incoming.formattedLikeCount;
       updated = true;
     }
+    if (!existing.replyCount && incoming.replyCount) {
+      existing.replyCount = incoming.replyCount;
+      updated = true;
+    }
+    if (!existing.replyContinuationToken && incoming.replyContinuationToken) {
+      existing.replyContinuationToken = incoming.replyContinuationToken;
+      updated = true;
+    }
     if (updated) {
       this.commentsMap.set(existing.id, { ...existing });
     }
@@ -703,6 +711,7 @@ export class CommentFetcher {
     // 返信件数の抽出（DOMから）
     let replyCount = 0;
     const threadEl = el.closest('ytd-comment-thread-renderer') || el;
+    threadEl.setAttribute('data-yt-overlay-comment-id', commentId);
     const repliesContainer = threadEl.querySelector('#replies, ytd-comment-replies-renderer');
     if (repliesContainer) {
       const replyBtn = repliesContainer.querySelector('ytd-button-renderer, button, tp-yt-paper-button');
@@ -1351,28 +1360,29 @@ export class CommentFetcher {
         let replyContinuationToken: string | undefined;
         let replyCount = 0;
 
-        const repliesObj = ctr.replies?.commentRepliesRenderer;
+        const repliesObj = ctr.replies?.commentRepliesRenderer || ctr.replies;
         if (repliesObj) {
-          const contList = repliesObj.continuations || repliesObj.contents;
-          if (Array.isArray(contList) && contList.length > 0) {
-            for (const item of contList) {
-              const token =
-                item?.nextContinuationData?.continuation ||
-                item?.continuationEndpoint?.continuationCommand?.token ||
-                item?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
-              if (token) {
-                replyContinuationToken = token;
+          replyContinuationToken = this.findTokenInRepliesObject(repliesObj) ?? undefined;
+
+          // 返信件数テキスト (例: "1 件の返信", "返信 2 件" など) の網羅的抽出
+          const replyTextCandidates = [
+            repliesObj.viewReplies?.buttonRenderer?.text?.runs?.[0]?.text,
+            repliesObj.viewReplies?.buttonRenderer?.buttonText?.runs?.[0]?.text,
+            repliesObj.viewReplies?.buttonRenderer?.text?.simpleText,
+            (ctr as any).replyCount,
+          ];
+          for (const cand of replyTextCandidates) {
+            if (typeof cand === 'number' && cand > 0) {
+              replyCount = cand;
+              break;
+            }
+            if (typeof cand === 'string') {
+              const m = cand.match(/(\d+)/);
+              if (m) {
+                replyCount = parseInt(m[1], 10);
                 break;
               }
             }
-          }
-
-          const btnText =
-            repliesObj.viewReplies?.buttonRenderer?.text?.runs?.[0]?.text ||
-            repliesObj.viewReplies?.buttonRenderer?.buttonText?.runs?.[0]?.text;
-          if (btnText) {
-            const m = String(btnText).match(/(\d+)/);
-            if (m) replyCount = parseInt(m[1], 10);
           }
         }
 
@@ -1693,26 +1703,71 @@ export class CommentFetcher {
     }
   }
 
+  /** replies オブジェクト内から continuationCommand.token または continuation を再帰探索 */
+  private findTokenInRepliesObject(repliesObj: unknown): string | null {
+    if (!repliesObj || typeof repliesObj !== 'object') return null;
+    let foundToken: string | null = null;
+    const walkToken = (node: unknown): void => {
+      if (foundToken || !node || typeof node !== 'object') return;
+      const obj = node as Record<string, unknown>;
+      if (typeof obj.token === 'string' && obj.token.length > 10) {
+        foundToken = obj.token;
+        return;
+      }
+      if (typeof obj.continuation === 'string' && obj.continuation.length > 10) {
+        foundToken = obj.continuation;
+        return;
+      }
+      for (const k of Object.keys(obj)) {
+        walkToken(obj[k]);
+        if (foundToken) return;
+      }
+    };
+    walkToken(repliesObj);
+    return foundToken;
+  }
+
   /**
    * 指定コメントの返信一覧を InnerTube API または DOM から取得する
    */
   public async fetchRepliesAsync(comment: CommentData): Promise<ReplyData[]> {
     try {
+      // 最新のキャッシュ情報でコメントデータを補完（トークンや正式ID）
+      const cached =
+        this.commentsMap.get(comment.id) ||
+        (this.commentFingerprints.has(this.getCommentFingerprint(comment))
+          ? this.commentsMap.get(this.commentFingerprints.get(this.getCommentFingerprint(comment))!)
+          : null);
+
+      const activeComment: CommentData = {
+        ...comment,
+        id: cached?.id || comment.id,
+        replyCount: cached?.replyCount || comment.replyCount,
+        replyContinuationToken: cached?.replyContinuationToken || comment.replyContinuationToken,
+      };
+
       // 1. DOM上のスレッド要素を特定
-      const threadEl = this.findCommentThreadEl(comment);
+      const threadEl = this.findCommentThreadEl(activeComment);
 
       // 2. すでにDOM上に返信が展開されている場合は、DOMから即座に抽出
       if (threadEl) {
-        const existingDomReplies = this.extractRepliesFromDomThread(threadEl, comment.id);
+        const existingDomReplies = this.extractRepliesFromDomThread(threadEl, activeComment.id);
         if (existingDomReplies.length > 0) {
           return existingDomReplies;
         }
       }
 
       // 3. InnerTube API による返信取得を試みる
-      let token = comment.replyContinuationToken;
-      if (!token && comment.id) {
-        token = this.findReplyTokenFromDom(comment.id) ?? undefined;
+      let token = activeComment.replyContinuationToken;
+      if (!token && activeComment.id) {
+        token = this.findReplyTokenFromDom(activeComment.id) ?? undefined;
+      }
+      if (!token && threadEl) {
+        const rawEl = (threadEl as any).wrappedJSObject || threadEl;
+        const data = rawEl.data || rawEl.__data;
+        if (data) {
+          token = this.findTokenInRepliesObject(data) ?? undefined;
+        }
       }
 
       if (token) {
@@ -1759,7 +1814,7 @@ export class CommentFetcher {
 
           if (res.ok) {
             const data = await res.json();
-            const replies = this.parseRepliesFromResponse(data, comment.id);
+            const replies = this.parseRepliesFromResponse(data, activeComment.id);
             if (replies.length > 0) {
               return replies;
             }
@@ -1767,9 +1822,9 @@ export class CommentFetcher {
         }
       }
 
-      // 4. APIで取得できなかった場合のフォールバック: DOM上の「返信を表示」ボタンをクリックしてDOMから抽出
+      // 4. APIで取得できなかった場合のフォールバック: DOM上の「返信を表示」ボタンをクリックしてポーリングでDOMから抽出
       if (threadEl) {
-        const expandedReplies = await this.expandAndExtractRepliesFromDom(threadEl, comment.id);
+        const expandedReplies = await this.expandAndExtractRepliesFromDom(threadEl, activeComment.id);
         if (expandedReplies.length > 0) {
           return expandedReplies;
         }
@@ -1796,15 +1851,25 @@ export class CommentFetcher {
         }
       }
 
-      // 2. 本文冒頭のテキスト一致でDOMスレッドを検索
+      // 2. comment-id 属性で検索
+      if (comment.id && !comment.id.startsWith('comment_')) {
+        const byCommentId = document.querySelector(
+          `ytd-comment-thread-renderer[comment-id="${comment.id}"], [comment-id="${comment.id}"]`
+        );
+        if (byCommentId) {
+          return byCommentId.closest('ytd-comment-thread-renderer') || byCommentId;
+        }
+      }
+
+      // 3. 本文テキスト一致でDOMスレッドを検索
       const cleanTarget = comment.rawText.trim().replace(/\s+/g, ' ');
-      if (cleanTarget.length >= 5) {
-        const prefix = cleanTarget.slice(0, 30);
+      if (cleanTarget.length >= 4) {
+        const prefix = cleanTarget.slice(0, 25);
         const allThreads = document.querySelectorAll('ytd-comment-thread-renderer');
         for (const thread of Array.from(allThreads)) {
           const contentEl = thread.querySelector('#content-text, .yt-core-attributed-string');
           const threadText = (contentEl?.textContent || '').trim().replace(/\s+/g, ' ');
-          if (threadText.includes(prefix) || prefix.includes(threadText.slice(0, 30))) {
+          if (threadText.includes(prefix) || prefix.includes(threadText.slice(0, 25))) {
             return thread;
           }
         }
@@ -1825,25 +1890,24 @@ export class CommentFetcher {
       if (!repliesContainer) return replies;
 
       const replyItems = repliesContainer.querySelectorAll(
-        'ytd-comment-view-model, ytd-comment-renderer'
+        'ytd-comment-view-model, ytd-comment-renderer, #expander-contents ytd-comment-view-model, #expander-contents ytd-comment-renderer'
       );
 
       for (const item of Array.from(replyItems)) {
-        // 親コメント自体の要素であれば除外
         const itemId = item.getAttribute('comment-id') || item.getAttribute('data-comment-id') || '';
         if (itemId && itemId === parentCommentId) continue;
 
-        const contentEl = item.querySelector('#content-text, .yt-core-attributed-string');
+        const contentEl = item.querySelector('#content-text, yt-attributed-string#content-text, .yt-core-attributed-string');
         const rawText = contentEl?.textContent?.trim() || '';
         if (!rawText) continue;
 
-        const authorEl = item.querySelector('#author-text span, #author-text');
+        const authorEl = item.querySelector('#author-text span, #author-text, #header-author span');
         const authorName = authorEl?.textContent?.trim() || 'ユーザー';
 
         const authorAvatarUrl = this.extractAvatarFromCommentElement(item);
 
         const authorAnchor = item.querySelector<HTMLAnchorElement>(
-          'a#author-text, #author-text a, a#author-thumbnail, #author-thumbnail a, a.yt-simple-endpoint[href*="/@"]'
+          'a#author-text, #author-text a, a#author-thumbnail, #author-thumbnail a, a.yt-simple-endpoint[href*="/@"], a.yt-simple-endpoint[href*="/channel/"]'
         );
         let authorChannelUrl = '';
         const anchorHref = authorAnchor?.getAttribute('href') || '';
@@ -1878,7 +1942,7 @@ export class CommentFetcher {
   }
 
   /**
-   * DOM上の返信展開ボタンをクリックし、展開された返信を取得
+   * DOM上の返信展開ボタンをクリックし、ポーリングで展開された返信を取得
    */
   private async expandAndExtractRepliesFromDom(threadEl: Element, parentCommentId: string): Promise<ReplyData[]> {
     try {
@@ -1886,13 +1950,21 @@ export class CommentFetcher {
       if (!repliesContainer) return [];
 
       const expandBtn = repliesContainer.querySelector<HTMLElement>(
-        'ytd-button-renderer button, button#button, tp-yt-paper-button, .yt-spec-button-shape-next'
+        'ytd-button-renderer button, button#button, tp-yt-paper-button, .yt-spec-button-shape-next, ytd-button-renderer'
       );
       if (expandBtn) {
         expandBtn.click();
-        // DOMのレンダリング待機
-        await new Promise((resolve) => setTimeout(resolve, 750));
-        return this.extractRepliesFromDomThread(threadEl, parentCommentId);
+        const innerBtn = expandBtn.querySelector('button') || expandBtn;
+        innerBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        // 最大4秒間、200msごとにポーリング待機して返信出現を検知
+        for (let i = 0; i < 20; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          const replies = this.extractRepliesFromDomThread(threadEl, parentCommentId);
+          if (replies.length > 0) {
+            return replies;
+          }
+        }
       }
     } catch {
       // ignore
