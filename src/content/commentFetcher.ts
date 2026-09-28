@@ -1,4 +1,4 @@
-import { CommentData, ReplyData, TimestampOccurrence } from '../types';
+import { CommentData, ReplyData, ReplyFetchResult, TimestampOccurrence } from '../types';
 import { extractTimestamps, isIndexOrSummaryComment } from './timestampParser';
 
 
@@ -1520,6 +1520,9 @@ export class CommentFetcher {
       // 7. 返信件数
       let replyCount = Number(cep.toolbar?.replyCount || cep.properties?.replyCount || 0);
 
+      // 7.5. 返信トークン
+      const replyContinuationToken: string | undefined = this.findTokenInRepliesObject(cep) ?? undefined;
+
       // 8. コメントID
       const commentId = String(
         cep.properties?.commentId ||
@@ -1542,6 +1545,7 @@ export class CommentFetcher {
         timestamps,
         videoId: activeVid,
         replyCount: replyCount || undefined,
+        replyContinuationToken,
       };
     } catch {
       return null;
@@ -1612,6 +1616,9 @@ export class CommentFetcher {
       const continuationCmd = rendererContext?.commandContext?.onTap?.innertubeCommand?.continuationCommand;
       if (continuationCmd?.token) {
         replyContinuationToken = continuationCmd.token;
+      }
+      if (!replyContinuationToken) {
+        replyContinuationToken = this.findTokenInRepliesObject(cvm) ?? undefined;
       }
 
       return {
@@ -1735,7 +1742,7 @@ export class CommentFetcher {
     commentId: string,
     rawText: string,
     token?: string
-  ): Promise<ReplyData[]> {
+  ): Promise<ReplyFetchResult> {
     return new Promise((resolve) => {
       const REPLY_REQ_EL_ID = 'yt-co-bridge-reply-req';
       const REPLY_RES_EL_ID = 'yt-co-bridge-reply-res';
@@ -1756,10 +1763,14 @@ export class CommentFetcher {
           const resEl = document.getElementById(REPLY_RES_EL_ID);
           if (resEl && resEl.textContent) {
             const res = JSON.parse(resEl.textContent);
-            if (res && res.reqId === reqId && Array.isArray(res.replies)) {
+            if (res && res.reqId === reqId) {
               resolved = true;
               cleanup();
-              resolve(res.replies as ReplyData[]);
+              resolve({
+                replies: Array.isArray(res.replies) ? res.replies : [],
+                errorCode: res.errCode || (Array.isArray(res.replies) && res.replies.length > 0 ? undefined : 'E-101:NO_REPLIES_FOUND'),
+                debugMessage: res.debug || '',
+              });
               return;
             }
           }
@@ -1786,9 +1797,13 @@ export class CommentFetcher {
         reqEl.setAttribute('data-seq', String(Date.now()));
 
         window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_FETCH_REPLIES'));
-      } catch {
+      } catch (err: any) {
         cleanup();
-        resolve([]);
+        resolve({
+          replies: [],
+          errorCode: 'E-202:BRIDGE_DISPATCH_FAILED',
+          debugMessage: `Bridgeイベント送信失敗: ${err?.message || err}`,
+        });
         return;
       }
 
@@ -1799,7 +1814,11 @@ export class CommentFetcher {
           resolved = true;
           cleanup();
           checkResponse();
-          resolve([]);
+          resolve({
+            replies: [],
+            errorCode: 'E-201:BRIDGE_TIMEOUT',
+            debugMessage: 'Main World Bridgeからの応答待機が4.2秒でタイムアウトしました(Bridge未動作またはCSP制限)',
+          });
         }
       }, 4200);
     });
@@ -1808,7 +1827,8 @@ export class CommentFetcher {
   /**
    * 指定コメントの返信一覧を InnerTube API または DOM から取得する
    */
-  public async fetchRepliesAsync(comment: CommentData): Promise<ReplyData[]> {
+  public async fetchRepliesAsync(comment: CommentData): Promise<ReplyFetchResult> {
+    const traceSteps: string[] = [];
     try {
       // 最新のキャッシュ情報でコメントデータを補完（トークンや正式ID）
       const cached =
@@ -1824,44 +1844,55 @@ export class CommentFetcher {
         replyContinuationToken: cached?.replyContinuationToken || comment.replyContinuationToken,
       };
 
+      traceSteps.push(`開始 (ID:${activeComment.id.slice(0, 15)}, 件数:${activeComment.replyCount ?? '不明'}, Token:${activeComment.replyContinuationToken ? '有' : '無'})`);
+
       // 1. DOM上のスレッド要素を特定
       const threadEl = this.findCommentThreadEl(activeComment);
-
-      // 2. すでにDOM上に返信が展開されている場合は、DOMから即座に抽出
       if (threadEl) {
+        traceSteps.push('ContentScript: DOMスレッド要素検出');
+        // 2. すでにDOM上に返信が展開されている場合は、DOMから即座に抽出
         const existingDomReplies = this.extractRepliesFromDomThread(threadEl, activeComment.id);
         if (existingDomReplies.length > 0) {
-          return existingDomReplies;
+          traceSteps.push(`ContentScript: 展開済み返信取得 (${existingDomReplies.length}件)`);
+          return { replies: existingDomReplies };
         }
+      } else {
+        traceSteps.push('ContentScript: DOMスレッド要素未検出');
       }
 
       // トークンの特定
       let token = activeComment.replyContinuationToken;
       if (!token && activeComment.id) {
         token = this.findReplyTokenFromDom(activeComment.id) ?? undefined;
+        if (token) traceSteps.push('DOM属性からToken検出');
       }
       if (!token && threadEl) {
         const rawEl = (threadEl as any).wrappedJSObject || threadEl;
         const data = rawEl.data || rawEl.__data;
         if (data) {
           token = this.findTokenInRepliesObject(data) ?? undefined;
+          if (token) traceSteps.push('スレッド内部データからToken検出');
         }
       }
 
       // 3. Main World Bridge 経由での取得を最優先実行 (ページのネイティブCookie/認証/イベントで実行)
       const reqId = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const bridgeReplies = await this.fetchRepliesViaMainWorldBridge(
+      traceSteps.push(`Bridge要求開始 (reqId: ${reqId})`);
+      const bridgeResult = await this.fetchRepliesViaMainWorldBridge(
         reqId,
         activeComment.id,
         activeComment.rawText,
         token
       );
-      if (bridgeReplies && bridgeReplies.length > 0) {
-        return bridgeReplies;
+      if (bridgeResult.replies.length > 0) {
+        traceSteps.push(`Bridge成功 (${bridgeResult.replies.length}件)`);
+        return bridgeResult;
       }
+      traceSteps.push(`Bridge応答返信0件 (コード: ${bridgeResult.errorCode || '不明'}, 詳細: ${bridgeResult.debugMessage || 'なし'})`);
 
       // 4. フォールバック: Content Script 側での InnerTube API 直接フェッチ
       if (token) {
+        traceSteps.push('フォールバック: ContentScript直接APIフェッチ試行');
         let apiKey = this.bridgeApiKey;
         let clientVersion = this.bridgeClientVersion;
         if (!apiKey) {
@@ -1908,26 +1939,52 @@ export class CommentFetcher {
               const data = await res.json();
               const replies = this.parseRepliesFromResponse(data, activeComment.id);
               if (replies.length > 0) {
-                return replies;
+                traceSteps.push(`ContentScript直接API成功 (${replies.length}件)`);
+                return { replies };
+              } else {
+                traceSteps.push('ContentScript直接API応答200だが返信0件');
               }
+            } else {
+              traceSteps.push(`ContentScript直接API HTTP ${res.status}`);
             }
-          } catch {
-            // ignore
+          } catch (e: any) {
+            traceSteps.push(`ContentScript直接API例外: ${e?.message || e}`);
           }
+        } else {
+          traceSteps.push('ContentScript直接API: APIキーなし');
         }
       }
 
       // 5. 最終フォールバック: DOM上の「返信を表示」ボタンをクリックしてポーリングでDOMから抽出
       if (threadEl) {
+        traceSteps.push('フォールバック: ContentScript側DOM展開ボタンクリック試行');
         const expandedReplies = await this.expandAndExtractRepliesFromDom(threadEl, activeComment.id);
         if (expandedReplies.length > 0) {
-          return expandedReplies;
+          traceSteps.push(`ContentScript側DOM展開成功 (${expandedReplies.length}件)`);
+          return { replies: expandedReplies };
         }
+        traceSteps.push('ContentScript側DOM展開タイムアウト');
       }
 
-      return [];
-    } catch {
-      return [];
+      // 最終的に取得できなかった場合
+      const finalErrorCode = bridgeResult.errorCode || (token ? 'E-208:API_FAILED_AND_NO_DOM' : 'E-203:NO_TOKEN_NO_DOM');
+      const finalDebugMsg = traceSteps.join(' > ');
+      console.warn(`[TimeBubble:Reply] 返信取得失敗 (${finalErrorCode}):`, finalDebugMsg);
+
+      return {
+        replies: [],
+        errorCode: finalErrorCode,
+        debugMessage: finalDebugMsg,
+      };
+    } catch (fatalErr: any) {
+      traceSteps.push(`致命的例外: ${fatalErr?.message || fatalErr}`);
+      const fatalDebug = traceSteps.join(' > ');
+      console.error('[TimeBubble:Reply] 致命的エラー:', fatalDebug);
+      return {
+        replies: [],
+        errorCode: 'E-301:FATAL_EXCEPTION',
+        debugMessage: fatalDebug,
+      };
     }
   }
 

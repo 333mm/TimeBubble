@@ -1,4 +1,4 @@
-import { CommentData, DEFAULT_SETTINGS, OverlayPosition, OverlaySettings, ReplyData, TimestampCommentTrigger } from '../types';
+import { CommentData, DEFAULT_SETTINGS, OverlayPosition, OverlaySettings, ReplyData, ReplyFetchResult, TimestampCommentTrigger } from '../types';
 import { timeStringToSeconds } from './timestampParser';
 import { saveSettings } from '../utils/storage';
 import overlayCssRaw from './overlay.css?raw';
@@ -34,12 +34,12 @@ export class OverlayUi {
   private isPlaybackPaused = false;
   private exitingElements = new Set<HTMLElement>();
   private testCommentCounter = 0;
-  private fetchRepliesCallback: ((comment: CommentData) => Promise<ReplyData[]>) | null = null;
+  private fetchRepliesCallback: ((comment: CommentData) => Promise<ReplyFetchResult>) | null = null;
   // フローモード用: アクティブな流れるコメント要素
   private flowLanes: Array<number> = []; // 各レーンの使用解除タイムスタンプ (ms)
 
   /** 返信フェッチ用コールバックを設定 */
-  public setFetchRepliesCallback(cb: (comment: CommentData) => Promise<ReplyData[]>) {
+  public setFetchRepliesCallback(cb: (comment: CommentData) => Promise<ReplyFetchResult>) {
     this.fetchRepliesCallback = cb;
   }
 
@@ -1258,13 +1258,17 @@ export class OverlayUi {
         loadingEl.textContent = '返信を読み込み中...';
         repliesSection.appendChild(loadingEl);
 
-        let replies: ReplyData[] = [];
+        let result: ReplyFetchResult = { replies: [] };
         try {
           if (this.fetchRepliesCallback) {
-            replies = await this.fetchRepliesCallback(comment);
+            result = await this.fetchRepliesCallback(comment);
           }
-        } catch {
-          replies = [];
+        } catch (fetchErr: any) {
+          result = {
+            replies: [],
+            errorCode: 'E-301:EXCEPTION',
+            debugMessage: `コールバック実行例外: ${fetchErr?.message || fetchErr}`,
+          };
         } finally {
           isLoadingReplies = false;
           if (loadingEl.parentElement) {
@@ -1275,15 +1279,34 @@ export class OverlayUi {
         // 念のため再クリアして重複描画を確実に防止
         repliesSection.querySelectorAll('.yt-co-replies-loading, .yt-co-replies-empty').forEach((el) => el.remove());
 
-        if (replies.length === 0) {
+        if (result.replies.length === 0) {
           const emptyEl = document.createElement('div');
           emptyEl.className = 'yt-co-replies-empty';
-          emptyEl.textContent = '返信はありません';
+
+          const msgEl = document.createElement('div');
+          msgEl.textContent = '返信はありません';
+          emptyEl.appendChild(msgEl);
+
+          if (result.errorCode) {
+            const codeBadge = document.createElement('div');
+            codeBadge.className = 'yt-co-reply-error-badge';
+            codeBadge.textContent = `[エラーコード: ${result.errorCode}]`;
+            codeBadge.title = result.debugMessage
+              ? `クリックで詳細ログを表示\n${result.debugMessage}`
+              : 'クリックで詳細ログを表示';
+            codeBadge.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              console.warn('[TimeBubble] 返信取得診断ログ:', result.debugMessage || result.errorCode);
+              alert(`【返信取得 診断ログ】\n\nエラーコード:\n${result.errorCode}\n\n詳細経緯:\n${result.debugMessage || '詳細なし'}`);
+            });
+            emptyEl.appendChild(codeBadge);
+          }
+
           repliesSection.appendChild(emptyEl);
           return;
         }
 
-        for (const reply of replies) {
+        for (const reply of result.replies) {
           const replyEl = this.createReplyElement(reply);
           repliesSection.appendChild(replyEl);
         }

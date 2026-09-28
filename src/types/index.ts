@@ -59,6 +59,12 @@ export interface ReplyData {
   publishedTimeText: string;
 }
 
+export interface ReplyFetchResult {
+  replies: ReplyData[];
+  errorCode?: string;
+  debugMessage?: string;
+}
+
 export interface CommentData {
   id: string;
   authorName: string;

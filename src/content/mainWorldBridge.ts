@@ -743,12 +743,17 @@
   }
 
   async function handleFetchRepliesInMainWorld() {
+    let debugLog: string[] = [];
+    let errCode = 'E-101:NO_REPLIES_FOUND';
+
     try {
       const reqEl = document.getElementById(REPLY_REQ_EL_ID);
       if (!reqEl || !reqEl.textContent) return;
       const req = JSON.parse(reqEl.textContent);
       const { reqId, commentId, rawText } = req;
       let token = req.token;
+
+      debugLog.push(`開始 (ID:${commentId ? commentId.slice(0, 15) : 'なし'}, Token:${token ? '有' : '無'})`);
 
       // 1. DOM上の該当スレッド要素を探索
       let threadEl: any = null;
@@ -776,14 +781,18 @@
         }
       }
 
-      // すでにDOM上に返信が展開されている場合は即座に抽出
       if (threadEl) {
+        debugLog.push('DOMスレッド検出');
+        // すでにDOM上に返信が展開されている場合は即座に抽出
         const domReplies = extractRepliesFromThreadDom(threadEl, commentId, rawText);
         if (domReplies.length > 0) {
-          writeToEl(REPLY_RES_EL_ID, { reqId, replies: domReplies });
+          debugLog.push(`DOM展開済み返信取得 (${domReplies.length}件)`);
+          writeToEl(REPLY_RES_EL_ID, { reqId, replies: domReplies, errCode: 'OK', debug: debugLog.join(' > ') });
           window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
           return;
         }
+      } else {
+        debugLog.push('DOMスレッド未検出');
       }
 
       // トークンがなければ、MAIN ワールドなのでスレッド要素の内部プロパティから探索
@@ -791,6 +800,7 @@
         const data = threadEl.data || threadEl.__data;
         if (data) {
           token = findTokenInReplies(data);
+          if (token) debugLog.push('スレッド内部データからToken検出');
         }
       }
 
@@ -798,6 +808,7 @@
       if (token) {
         const config = getInnertubeConfig();
         if (config?.apiKey) {
+          debugLog.push('InnerTube APIフェッチ試行');
           try {
             const url = `/youtubei/v1/next?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`;
             const headers: Record<string, string> = {
@@ -831,21 +842,33 @@
               const json = await res.json();
               const replies = parseRepliesFromJson(json, commentId, rawText);
               if (replies.length > 0) {
-                writeToEl(REPLY_RES_EL_ID, { reqId, replies });
+                debugLog.push(`APIより返信パース成功 (${replies.length}件)`);
+                writeToEl(REPLY_RES_EL_ID, { reqId, replies, errCode: 'OK', debug: debugLog.join(' > ') });
                 window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
                 return;
+              } else {
+                errCode = 'E-205:API_PARSE_EMPTY';
+                debugLog.push('API応答は正常だが返信0件');
               }
+            } else {
+              errCode = `E-204:HTTP_${res.status}`;
+              debugLog.push(`APIエラー HTTP ${res.status}`);
             }
-          } catch {
-            // ignore
+          } catch (fetchErr: any) {
+            errCode = 'E-204:API_FETCH_ERR';
+            debugLog.push(`API例外: ${fetchErr?.message || fetchErr}`);
           }
+        } else {
+          errCode = 'E-204:API_KEY_MISSING';
+          debugLog.push('ytcfg APIキー未解決');
         }
       }
 
       // 3. APIで取得できなかった場合は、DOM上の返信ボタンを MAIN ワールドからクリック！
       if (!threadEl) {
+        debugLog.push('DOMコメント初期化トリガー実行');
         triggerDomCommentsLoad();
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 250));
         if (commentId) {
           threadEl = document.querySelector(
             `ytd-comment-thread-renderer[data-yt-overlay-comment-id="${commentId}"], [data-yt-overlay-comment-id="${commentId}"], [comment-id="${commentId}"]`
@@ -854,6 +877,7 @@
             threadEl = threadEl.closest('ytd-comment-thread-renderer') || threadEl;
           }
         }
+        if (threadEl) debugLog.push('初期化後にDOMスレッド検出');
       }
 
       if (threadEl) {
@@ -863,6 +887,7 @@
             'ytd-button-renderer button, button#button, tp-yt-paper-button, .yt-spec-button-shape-next, ytd-button-renderer'
           ) as HTMLElement;
           if (btn) {
+            debugLog.push('DOM返信ボタンクリック');
             const actualBtn = (btn.querySelector('button') || btn) as HTMLElement;
             actualBtn.click();
             // MAIN ワールドなので 150ms ごとに最大 3.5 秒間ポーリング待機
@@ -870,20 +895,35 @@
               await new Promise((r) => setTimeout(r, 150));
               const replies = extractRepliesFromThreadDom(threadEl, commentId, rawText);
               if (replies.length > 0) {
-                writeToEl(REPLY_RES_EL_ID, { reqId, replies });
+                debugLog.push(`DOM展開ポーリング成功 (${replies.length}件)`);
+                writeToEl(REPLY_RES_EL_ID, { reqId, replies, errCode: 'OK', debug: debugLog.join(' > ') });
                 window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
                 return;
               }
             }
+            errCode = 'E-207:DOM_POLL_TIMEOUT';
+            debugLog.push('DOM返信展開ポーリング待機タイムアウト');
+          } else {
+            errCode = 'E-206:DOM_BTN_NOT_FOUND';
+            debugLog.push('DOM返信展開ボタンなし');
           }
+        } else {
+          errCode = 'E-206:REPLIES_CONTAINER_NOT_FOUND';
+          debugLog.push('#repliesコンテナなし');
+        }
+      } else {
+        if (!token) {
+          errCode = 'E-203:NO_TOKEN_NO_DOM';
+          debugLog.push('トークンなし & DOMスレッド未描画');
         }
       }
 
-      // 取得できなかった場合は空配列を返す
-      writeToEl(REPLY_RES_EL_ID, { reqId, replies: [] });
+      // 取得できなかった場合はエラーコード付きで返す
+      writeToEl(REPLY_RES_EL_ID, { reqId, replies: [], errCode, debug: debugLog.join(' > ') });
       window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
-    } catch {
-      writeToEl(REPLY_RES_EL_ID, { replies: [] });
+    } catch (e: any) {
+      debugLog.push(`致命的例外: ${e?.message || e}`);
+      writeToEl(REPLY_RES_EL_ID, { replies: [], errCode: 'E-301:BRIDGE_EXCEPTION', debug: debugLog.join(' > ') });
       window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
     }
   }

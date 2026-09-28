@@ -1122,6 +1122,28 @@
   padding: 8px 4px !important;
 }
 
+.yt-co-reply-error-badge {
+  display: inline-block !important;
+  margin-top: 6px !important;
+  padding: 3px 8px !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  border-radius: 6px !important;
+  color: #f87171 !important;
+  font-size: 11px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  cursor: pointer !important;
+  user-select: text !important;
+  transition: all 0.2s ease !important;
+}
+
+.yt-co-reply-error-badge:hover {
+  background: rgba(239, 68, 68, 0.22) !important;
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3) !important;
+}
+
 .yt-co-reply-item {
   display: flex !important;
   align-items: flex-start !important;
