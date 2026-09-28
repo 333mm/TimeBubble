@@ -11,6 +11,8 @@
 (function () {
   const DATA_EL_ID = 'yt-co-bridge-data';
   const API_EL_ID = 'yt-co-bridge-api';
+  const REPLY_REQ_EL_ID = 'yt-co-bridge-reply-req';
+  const REPLY_RES_EL_ID = 'yt-co-bridge-reply-res';
 
   let currentFetchAbortController: AbortController | null = null;
   let isFetchingInMainWorld = false;
@@ -485,7 +487,413 @@
     }
   }
 
+  // ─── Main World での返信取得ハンドラ ─────────────────────────
+
+  function findTokenInReplies(repliesObj: any): string | null {
+    if (!repliesObj || typeof repliesObj !== 'object') return null;
+    let foundToken: string | null = null;
+    const walk = (node: any) => {
+      if (foundToken || !node || typeof node !== 'object') return;
+      if (typeof node.token === 'string' && node.token.length > 10) {
+        foundToken = node.token;
+        return;
+      }
+      if (typeof node.continuation === 'string' && node.continuation.length > 10) {
+        foundToken = node.continuation;
+        return;
+      }
+      for (const k of Object.keys(node)) {
+        walk(node[k]);
+        if (foundToken) return;
+      }
+    };
+    walk(repliesObj);
+    return foundToken;
+  }
+
+  function parseLikeCountText(text: string): number {
+    if (!text) return 0;
+    const clean = text.replace(/,/g, '').trim();
+    const manMatch = clean.match(/^([\d.]+)\s*万$/);
+    if (manMatch) return Math.round(parseFloat(manMatch[1]) * 10000);
+    const kMatch = clean.match(/^([\d.]+)\s*K$/i);
+    if (kMatch) return Math.round(parseFloat(kMatch[1]) * 1000);
+    const mMatch = clean.match(/^([\d.]+)\s*M$/i);
+    if (mMatch) return Math.round(parseFloat(mMatch[1]) * 1000000);
+    const num = parseInt(clean, 10);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function extractAvatarUrl(el: Element): string {
+    const img = el.querySelector<HTMLImageElement>(
+      'yt-avatar-shape img, #author-thumbnail img, yt-img-shadow img, #avatar img, .yt-spec-avatar-shape__image, img.yt-core-image'
+    );
+    if (img) {
+      const src = img.currentSrc || img.src || img.getAttribute('src');
+      if (src && src.startsWith('http')) return src;
+    }
+    const allImgs = el.querySelectorAll('img');
+    for (const i of Array.from(allImgs)) {
+      const s = i.currentSrc || i.src || i.getAttribute('src');
+      if (s && (s.includes('ggpht.com') || s.includes('googleusercontent.com') || s.includes('ytimg.com'))) {
+        return s;
+      }
+    }
+    return '';
+  }
+
+  function extractRepliesFromThreadDom(threadEl: Element, parentCommentId?: string, parentRawText?: string): any[] {
+    const replies: any[] = [];
+    try {
+      const repliesContainer = threadEl.querySelector('#replies, ytd-comment-replies-renderer');
+      if (!repliesContainer) return replies;
+
+      const replyItems = repliesContainer.querySelectorAll(
+        'ytd-comment-view-model, ytd-comment-renderer, #expander-contents ytd-comment-view-model, #expander-contents ytd-comment-renderer'
+      );
+
+      for (const item of Array.from(replyItems)) {
+        const itemId = item.getAttribute('comment-id') || item.getAttribute('data-comment-id') || '';
+        if (itemId && parentCommentId && itemId === parentCommentId) continue;
+
+        const contentEl = item.querySelector('#content-text, yt-attributed-string#content-text, .yt-core-attributed-string');
+        const rawText = contentEl?.textContent?.trim() || '';
+        if (!rawText) continue;
+        if (parentRawText && rawText === parentRawText.trim()) continue;
+
+        const authorEl = item.querySelector('#author-text span, #author-text, #header-author span');
+        const authorName = authorEl?.textContent?.trim() || 'ユーザー';
+
+        const authorAvatarUrl = extractAvatarUrl(item);
+
+        const authorAnchor = item.querySelector<HTMLAnchorElement>(
+          'a#author-text, #author-text a, a#author-thumbnail, #author-thumbnail a, a.yt-simple-endpoint[href*="/@"], a.yt-simple-endpoint[href*="/channel/"]'
+        );
+        let authorChannelUrl = '';
+        const anchorHref = authorAnchor?.getAttribute('href') || '';
+        if (anchorHref) {
+          authorChannelUrl = anchorHref.startsWith('http') ? anchorHref : `https://www.youtube.com${anchorHref}`;
+        }
+
+        const likeEl = item.querySelector('#vote-count-middle, #vote-count-left, .yt-spec-button-shape-next__button-text-content');
+        const likeText = likeEl?.textContent?.trim() || '0';
+        const likeCount = parseLikeCountText(likeText);
+
+        const timeEl = item.querySelector('#published-time-text a, #published-time-text');
+        const publishedTimeText = timeEl?.textContent?.trim() || '';
+
+        const replyId = itemId || `dom_reply_${authorName}_${rawText.slice(0, 10)}`;
+
+        replies.push({
+          id: replyId,
+          authorName,
+          authorAvatarUrl,
+          authorChannelUrl,
+          rawText,
+          likeCount,
+          formattedLikeCount: likeText || '0',
+          publishedTimeText,
+        });
+      }
+    } catch {
+      // ignore
+    }
+    return replies;
+  }
+
+  function parseRepliesFromJson(json: any, parentCommentId?: string, parentRawText?: string): any[] {
+    const replies: any[] = [];
+    const seenIds = new Set<string>();
+    if (!json || typeof json !== 'object') return replies;
+
+    const isParent = (r: any): boolean => {
+      if (!r) return true;
+      if (parentCommentId && r.id === parentCommentId) return true;
+      if (parentRawText && r.rawText && r.rawText.trim() === parentRawText.trim()) return true;
+      return false;
+    };
+
+    const parseReplyViewModel = (cvm: any): any | null => {
+      try {
+        if (!cvm || typeof cvm !== 'object') return null;
+        let rawText = '';
+        const contentTextObj = cvm.contentText;
+        if (typeof contentTextObj?.content === 'string') rawText = contentTextObj.content;
+        else if (Array.isArray(contentTextObj?.runs)) rawText = contentTextObj.runs.map((r: any) => r.text || '').join('');
+        else if (typeof cvm.content?.content === 'string') rawText = cvm.content.content;
+        else if (typeof cvm.properties?.content?.content === 'string') rawText = cvm.properties.content.content;
+        if (!rawText) return null;
+
+        let authorName = 'ユーザー';
+        const authorTextObj = cvm.authorText;
+        if (typeof authorTextObj?.content === 'string') authorName = authorTextObj.content;
+        else if (typeof cvm.authorName === 'string') authorName = cvm.authorName;
+
+        let authorAvatarUrl = '';
+        const avatarSources = cvm.avatar?.image?.sources;
+        if (Array.isArray(avatarSources) && avatarSources.length > 0) {
+          authorAvatarUrl = avatarSources[avatarSources.length - 1].url;
+        }
+
+        let authorChannelUrl = '';
+        const be = cvm.authorEndpoint?.browseEndpoint || cvm.authorChannelCommand?.browseEndpoint;
+        if (be?.canonicalBaseUrl) authorChannelUrl = `https://www.youtube.com${be.canonicalBaseUrl}`;
+        else if (be?.browseId) authorChannelUrl = `https://www.youtube.com/channel/${be.browseId}`;
+        else if (typeof cvm.authorChannelId === 'string') authorChannelUrl = `https://www.youtube.com/channel/${cvm.authorChannelId}`;
+        else if (authorName.startsWith('@')) authorChannelUrl = `https://www.youtube.com/${authorName}`;
+
+        const likeText = String(cvm.likeCount || cvm.voteCount || cvm.toolbar?.likeCount || '0');
+        const likeCount = parseLikeCountText(likeText);
+        const publishedTimeText = typeof cvm.publishedTimeText?.content === 'string' ? cvm.publishedTimeText.content : '';
+        const id = String(cvm.commentId || `reply_${authorName}_${Date.now()}`);
+
+        return { id, authorName, authorAvatarUrl, authorChannelUrl, rawText, likeCount, formattedLikeCount: likeText, publishedTimeText };
+      } catch {
+        return null;
+      }
+    };
+
+    const parseReplyEntityPayload = (cep: any): any | null => {
+      try {
+        if (!cep || typeof cep !== 'object') return null;
+        let rawText = '';
+        const propContent = cep.properties?.content;
+        if (typeof propContent?.content === 'string') rawText = propContent.content;
+        else if (Array.isArray(propContent?.runs)) rawText = propContent.runs.map((r: any) => r.text || '').join('');
+        else if (typeof cep.content?.content === 'string') rawText = cep.content.content;
+        if (!rawText) return null;
+
+        const authorName = cep.author?.displayName || cep.author?.channelTitle || 'ユーザー';
+        let authorAvatarUrl = cep.author?.avatarThumbnailUrl || '';
+        if (!authorAvatarUrl && Array.isArray(cep.author?.avatar?.image?.sources)) {
+          const srcs = cep.author.avatar.image.sources;
+          authorAvatarUrl = srcs[srcs.length - 1]?.url || '';
+        }
+
+        let authorChannelUrl = '';
+        const be = cep.author?.channelCommand?.innertubeCommand?.browseEndpoint ||
+          cep.author?.command?.innertubeCommand?.browseEndpoint;
+        if (be?.canonicalBaseUrl) authorChannelUrl = `https://www.youtube.com${be.canonicalBaseUrl}`;
+        else if (be?.browseId) authorChannelUrl = `https://www.youtube.com/channel/${be.browseId}`;
+        else if (typeof cep.author?.channelId === 'string') authorChannelUrl = `https://www.youtube.com/channel/${cep.author.channelId}`;
+
+        const likeText = String(cep.toolbar?.likeCountNotliked || cep.toolbar?.likeCount || '0');
+        const likeCount = parseLikeCountText(likeText);
+        const publishedTimeText = typeof cep.properties?.publishedTime === 'string' ? cep.properties.publishedTime : '';
+        const id = String(cep.properties?.commentId || cep.commentId || `reply_${authorName}_${Date.now()}`);
+
+        return { id, authorName, authorAvatarUrl, authorChannelUrl, rawText, likeCount, formattedLikeCount: likeText, publishedTimeText };
+      } catch {
+        return null;
+      }
+    };
+
+    const parseReplyRenderer = (cr: any): any | null => {
+      try {
+        const rawText = cr.contentText?.runs?.map((r: any) => r.text).join('') || '';
+        if (!rawText) return null;
+        const authorName = cr.authorText?.simpleText || 'ユーザー';
+        const thumbs = cr.authorThumbnail?.thumbnails;
+        const authorAvatarUrl = thumbs && thumbs.length > 0 ? thumbs[thumbs.length - 1].url : '';
+        const be = cr.authorEndpoint?.browseEndpoint;
+        let authorChannelUrl = '';
+        if (be?.canonicalBaseUrl) authorChannelUrl = `https://www.youtube.com${be.canonicalBaseUrl}`;
+        else if (be?.browseId) authorChannelUrl = `https://www.youtube.com/channel/${be.browseId}`;
+        const likeCount = Number(cr.likeCount || 0);
+        const formattedLikeCount = cr.voteCount?.simpleText || String(likeCount);
+        const publishedTimeText = cr.publishedTimeText?.runs?.map((r: any) => r.text).join('') || '';
+        const id = String(cr.commentId || `reply_${authorName}_${Date.now()}`);
+        return { id, authorName, authorAvatarUrl, authorChannelUrl, rawText, likeCount, formattedLikeCount, publishedTimeText };
+      } catch {
+        return null;
+      }
+    };
+
+    const walk = (node: any) => {
+      if (!node || typeof node !== 'object') return;
+      if ('commentViewModel' in node) {
+        const r = parseReplyViewModel(node.commentViewModel);
+        if (r && !isParent(r) && !seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          replies.push(r);
+        }
+      }
+      if ('commentEntityPayload' in node) {
+        const r = parseReplyEntityPayload(node.commentEntityPayload);
+        if (r && !isParent(r) && !seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          replies.push(r);
+        }
+      }
+      if ('commentRenderer' in node) {
+        const r = parseReplyRenderer(node.commentRenderer);
+        if (r && !isParent(r) && !seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          replies.push(r);
+        }
+      }
+      for (const k of Object.keys(node)) {
+        if (k === 'secondaryResults' || k === 'relatedVideos' || k === 'watchNextEndScreenRenderer') continue;
+        walk(node[k]);
+      }
+    };
+
+    walk(json);
+    return replies;
+  }
+
+  async function handleFetchRepliesInMainWorld() {
+    try {
+      const reqEl = document.getElementById(REPLY_REQ_EL_ID);
+      if (!reqEl || !reqEl.textContent) return;
+      const req = JSON.parse(reqEl.textContent);
+      const { reqId, commentId, rawText } = req;
+      let token = req.token;
+
+      // 1. DOM上の該当スレッド要素を探索
+      let threadEl: any = null;
+      if (commentId) {
+        threadEl = document.querySelector(
+          `ytd-comment-thread-renderer[data-yt-overlay-comment-id="${commentId}"], [data-yt-overlay-comment-id="${commentId}"], [comment-id="${commentId}"]`
+        );
+        if (threadEl && threadEl.tagName !== 'YTD-COMMENT-THREAD-RENDERER') {
+          threadEl = threadEl.closest('ytd-comment-thread-renderer') || threadEl;
+        }
+      }
+
+      if (!threadEl && rawText) {
+        const clean = rawText.trim().replace(/\s+/g, ' ');
+        if (clean.length >= 4) {
+          const prefix = clean.slice(0, 25);
+          const all = document.querySelectorAll('ytd-comment-thread-renderer');
+          for (const t of Array.from(all)) {
+            const c = (t.querySelector('#content-text, .yt-core-attributed-string')?.textContent || '').trim().replace(/\s+/g, ' ');
+            if (c.includes(prefix) || prefix.includes(c.slice(0, 25))) {
+              threadEl = t;
+              break;
+            }
+          }
+        }
+      }
+
+      // すでにDOM上に返信が展開されている場合は即座に抽出
+      if (threadEl) {
+        const domReplies = extractRepliesFromThreadDom(threadEl, commentId, rawText);
+        if (domReplies.length > 0) {
+          writeToEl(REPLY_RES_EL_ID, { reqId, replies: domReplies });
+          window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
+          return;
+        }
+      }
+
+      // トークンがなければ、MAIN ワールドなのでスレッド要素の内部プロパティから探索
+      if (!token && threadEl) {
+        const data = threadEl.data || threadEl.__data;
+        if (data) {
+          token = findTokenInReplies(data);
+        }
+      }
+
+      // 2. トークンがある場合は InnerTube API をフェッチ
+      if (token) {
+        const config = getInnertubeConfig();
+        if (config?.apiKey) {
+          try {
+            const url = `/youtubei/v1/next?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`;
+            const headers: Record<string, string> = {
+              'Content-Type': 'application/json',
+              'X-YouTube-Client-Name': '1',
+              'X-YouTube-Client-Version': config.clientVersion || '2.20240101.00.00',
+            };
+            if (config.visitorData) headers['X-Goog-Visitor-Id'] = config.visitorData;
+
+            const payload = {
+              context: {
+                client: {
+                  hl: navigator.language || 'ja',
+                  gl: 'JP',
+                  clientName: config.clientName || 'WEB',
+                  clientVersion: config.clientVersion || '2.20240101.00.00',
+                  visitorData: config.visitorData || undefined,
+                },
+              },
+              continuation: token,
+            };
+
+            const res = await fetch(url, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(payload),
+              credentials: 'same-origin',
+            });
+
+            if (res.ok) {
+              const json = await res.json();
+              const replies = parseRepliesFromJson(json, commentId, rawText);
+              if (replies.length > 0) {
+                writeToEl(REPLY_RES_EL_ID, { reqId, replies });
+                window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
+                return;
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      // 3. APIで取得できなかった場合は、DOM上の返信ボタンを MAIN ワールドからクリック！
+      if (!threadEl) {
+        triggerDomCommentsLoad();
+        await new Promise((r) => setTimeout(r, 200));
+        if (commentId) {
+          threadEl = document.querySelector(
+            `ytd-comment-thread-renderer[data-yt-overlay-comment-id="${commentId}"], [data-yt-overlay-comment-id="${commentId}"], [comment-id="${commentId}"]`
+          );
+          if (threadEl && threadEl.tagName !== 'YTD-COMMENT-THREAD-RENDERER') {
+            threadEl = threadEl.closest('ytd-comment-thread-renderer') || threadEl;
+          }
+        }
+      }
+
+      if (threadEl) {
+        const repliesContainer = threadEl.querySelector('#replies, ytd-comment-replies-renderer');
+        if (repliesContainer) {
+          const btn = repliesContainer.querySelector(
+            'ytd-button-renderer button, button#button, tp-yt-paper-button, .yt-spec-button-shape-next, ytd-button-renderer'
+          ) as HTMLElement;
+          if (btn) {
+            const actualBtn = (btn.querySelector('button') || btn) as HTMLElement;
+            actualBtn.click();
+            // MAIN ワールドなので 150ms ごとに最大 3.5 秒間ポーリング待機
+            for (let i = 0; i < 22; i++) {
+              await new Promise((r) => setTimeout(r, 150));
+              const replies = extractRepliesFromThreadDom(threadEl, commentId, rawText);
+              if (replies.length > 0) {
+                writeToEl(REPLY_RES_EL_ID, { reqId, replies });
+                window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
+                return;
+              }
+            }
+          }
+        }
+      }
+
+      // 取得できなかった場合は空配列を返す
+      writeToEl(REPLY_RES_EL_ID, { reqId, replies: [] });
+      window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
+    } catch {
+      writeToEl(REPLY_RES_EL_ID, { replies: [] });
+      window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
+    }
+  }
+
   // ─── イベントリスナー ─────────────────────────
+
+  // Content Script からの返信フェッチリクエスト
+  window.addEventListener('YT_COMMENT_OVERLAY_FETCH_REPLIES', () => {
+    handleFetchRepliesInMainWorld();
+  });
 
   // Content Script からのリクエスト
   window.addEventListener('YT_COMMENT_OVERLAY_REQUEST_MAIN_DATA', () => {

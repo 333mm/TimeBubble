@@ -1728,6 +1728,84 @@ export class CommentFetcher {
   }
 
   /**
+   * Main World Bridge を経由して返信一覧を取得する
+   */
+  private fetchRepliesViaMainWorldBridge(
+    reqId: string,
+    commentId: string,
+    rawText: string,
+    token?: string
+  ): Promise<ReplyData[]> {
+    return new Promise((resolve) => {
+      const REPLY_REQ_EL_ID = 'yt-co-bridge-reply-req';
+      const REPLY_RES_EL_ID = 'yt-co-bridge-reply-res';
+
+      let resolved = false;
+      let timeoutId: number | null = null;
+      let checkIntervalId: number | null = null;
+
+      const cleanup = () => {
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
+        if (checkIntervalId !== null) window.clearInterval(checkIntervalId);
+        window.removeEventListener('YT_COMMENT_OVERLAY_REPLIES_READY', onReady);
+      };
+
+      const checkResponse = () => {
+        if (resolved) return;
+        try {
+          const resEl = document.getElementById(REPLY_RES_EL_ID);
+          if (resEl && resEl.textContent) {
+            const res = JSON.parse(resEl.textContent);
+            if (res && res.reqId === reqId && Array.isArray(res.replies)) {
+              resolved = true;
+              cleanup();
+              resolve(res.replies as ReplyData[]);
+              return;
+            }
+          }
+        } catch {
+          // ignore parse error
+        }
+      };
+
+      const onReady = () => {
+        checkResponse();
+      };
+
+      window.addEventListener('YT_COMMENT_OVERLAY_REPLIES_READY', onReady);
+
+      try {
+        let reqEl = document.getElementById(REPLY_REQ_EL_ID);
+        if (!reqEl) {
+          reqEl = document.createElement('div');
+          reqEl.id = REPLY_REQ_EL_ID;
+          reqEl.style.display = 'none';
+          (document.documentElement || document.body).appendChild(reqEl);
+        }
+        reqEl.textContent = JSON.stringify({ reqId, commentId, rawText, token });
+        reqEl.setAttribute('data-seq', String(Date.now()));
+
+        window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_FETCH_REPLIES'));
+      } catch {
+        cleanup();
+        resolve([]);
+        return;
+      }
+
+      checkIntervalId = window.setInterval(checkResponse, 80);
+
+      timeoutId = window.setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          checkResponse();
+          resolve([]);
+        }
+      }, 4200);
+    });
+  }
+
+  /**
    * 指定コメントの返信一覧を InnerTube API または DOM から取得する
    */
   public async fetchRepliesAsync(comment: CommentData): Promise<ReplyData[]> {
@@ -1757,7 +1835,7 @@ export class CommentFetcher {
         }
       }
 
-      // 3. InnerTube API による返信取得を試みる
+      // トークンの特定
       let token = activeComment.replyContinuationToken;
       if (!token && activeComment.id) {
         token = this.findReplyTokenFromDom(activeComment.id) ?? undefined;
@@ -1770,6 +1848,19 @@ export class CommentFetcher {
         }
       }
 
+      // 3. Main World Bridge 経由での取得を最優先実行 (ページのネイティブCookie/認証/イベントで実行)
+      const reqId = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const bridgeReplies = await this.fetchRepliesViaMainWorldBridge(
+        reqId,
+        activeComment.id,
+        activeComment.rawText,
+        token
+      );
+      if (bridgeReplies && bridgeReplies.length > 0) {
+        return bridgeReplies;
+      }
+
+      // 4. フォールバック: Content Script 側での InnerTube API 直接フェッチ
       if (token) {
         let apiKey = this.bridgeApiKey;
         let clientVersion = this.bridgeClientVersion;
@@ -1782,47 +1873,51 @@ export class CommentFetcher {
         }
 
         if (apiKey) {
-          const url = `https://www.youtube.com/youtubei/v1/next?key=${encodeURIComponent(apiKey)}&prettyPrint=false`;
-          const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-            'X-YouTube-Client-Name': '1',
-            'X-YouTube-Client-Version': clientVersion || '2.20240101.00.00',
-          };
-          if (this.bridgeVisitorData) {
-            headers['X-Goog-Visitor-Id'] = this.bridgeVisitorData;
-          }
-
-          const payload = {
-            context: {
-              client: {
-                hl: navigator.language || 'ja',
-                gl: 'JP',
-                clientName: this.bridgeClientName || 'WEB',
-                clientVersion: clientVersion || '2.20240101.00.00',
-                visitorData: this.bridgeVisitorData || undefined,
-              },
-            },
-            continuation: token,
-          };
-
-          const res = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload),
-            credentials: 'same-origin',
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const replies = this.parseRepliesFromResponse(data, activeComment.id);
-            if (replies.length > 0) {
-              return replies;
+          try {
+            const url = `https://www.youtube.com/youtubei/v1/next?key=${encodeURIComponent(apiKey)}&prettyPrint=false`;
+            const headers: Record<string, string> = {
+              'Content-Type': 'application/json',
+              'X-YouTube-Client-Name': '1',
+              'X-YouTube-Client-Version': clientVersion || '2.20240101.00.00',
+            };
+            if (this.bridgeVisitorData) {
+              headers['X-Goog-Visitor-Id'] = this.bridgeVisitorData;
             }
+
+            const payload = {
+              context: {
+                client: {
+                  hl: navigator.language || 'ja',
+                  gl: 'JP',
+                  clientName: this.bridgeClientName || 'WEB',
+                  clientVersion: clientVersion || '2.20240101.00.00',
+                  visitorData: this.bridgeVisitorData || undefined,
+                },
+              },
+              continuation: token,
+            };
+
+            const res = await fetch(url, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(payload),
+              credentials: 'same-origin',
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              const replies = this.parseRepliesFromResponse(data, activeComment.id);
+              if (replies.length > 0) {
+                return replies;
+              }
+            }
+          } catch {
+            // ignore
           }
         }
       }
 
-      // 4. APIで取得できなかった場合のフォールバック: DOM上の「返信を表示」ボタンをクリックしてポーリングでDOMから抽出
+      // 5. 最終フォールバック: DOM上の「返信を表示」ボタンをクリックしてポーリングでDOMから抽出
       if (threadEl) {
         const expandedReplies = await this.expandAndExtractRepliesFromDom(threadEl, activeComment.id);
         if (expandedReplies.length > 0) {
