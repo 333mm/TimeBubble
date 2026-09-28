@@ -14,6 +14,7 @@ export class PlayerSync {
   private playListener: (() => void) | null = null;
   private endedListener: (() => void) | null = null;
   private currentVideoId: string = '';
+  private isSeeking: boolean = false;
 
   private readonly syncToken = `sync_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -184,17 +185,22 @@ export class PlayerSync {
   }
 
   private handleSeeking() {
-    // シーク中はオーバーレイをクリアし、チェック済み秒数をリセット
+    this.isSeeking = true;
+    // シーク中はオーバーレイをクリアし、チェック済み秒数とレーンをリセット
     this.overlayUi.clearAll();
+    this.overlayUi.resetFlowLanes();
     this.lastCheckedSecond = -1;
     this.triggeredFlowCommentIds.clear();
   }
 
   private handleSeeked() {
     if (!this.videoEl) return;
+    this.isSeeking = false;
     const currentTime = this.videoEl.currentTime;
     const currentSecond = Math.floor(currentTime);
 
+    this.overlayUi.clearAll();
+    this.overlayUi.resetFlowLanes();
     this.triggeredFlowCommentIds.clear();
 
     if (this.overlayUi.isFlowModeEnabled()) {
@@ -214,15 +220,15 @@ export class PlayerSync {
     }
   }
 
-
   private handleTimeUpdate() {
-    if (!this.videoEl) return;
+    if (!this.videoEl || this.isSeeking) return;
     const currentTime = this.videoEl.currentTime;
     const currentSecond = Math.floor(currentTime);
 
     // 巻き戻しを検知した場合
     if (this.lastCheckedSecond !== -1 && currentSecond < this.lastCheckedSecond) {
       this.overlayUi.clearAll();
+      this.overlayUi.resetFlowLanes();
       this.triggeredFlowCommentIds.clear();
       if (this.overlayUi.isFlowModeEnabled()) {
         this.syncFlowCommentsOnSeek(currentTime);
@@ -331,6 +337,7 @@ export class PlayerSync {
 
   /**
    * シーク完了時: シーク先時間で現在画面内に流れている最中であるべきコメントを復元
+   * ※ 重なり防止および「出現直後にすぐ消える」現象を防ぐため、十分な残り時間があるもののみを別レーンに分散配置
    */
   private syncFlowCommentsOnSeek(currentTime: number) {
     const leadTimeSec = this.overlayUi.getFlowLeadTimeSeconds();
@@ -338,10 +345,17 @@ export class PlayerSync {
     const durationSec = durationMs / 1000;
 
     // シーク先で画面内にいる可能性があるタイムスタンプ秒 S の範囲:
-    // S - leadTimeSec <= currentTime < S - leadTimeSec + durationSec
-    // => currentTime + leadTimeSec - durationSec < S <= currentTime + leadTimeSec
     const minS = Math.floor(currentTime + leadTimeSec - durationSec);
     const maxS = Math.ceil(currentTime + leadTimeSec);
+
+    // 候補コメントを収集
+    interface FlowCandidate {
+      trigger: TimestampCommentTrigger;
+      offsetMs: number;
+      remainingMs: number;
+    }
+    const candidates: FlowCandidate[] = [];
+    const seenTexts = new Set<string>();
 
     for (let s = minS; s <= maxS; s++) {
       const triggers = this.triggersBySecond.get(s);
@@ -351,14 +365,38 @@ export class PlayerSync {
         if (this.currentVideoId && trigger.comment.videoId && trigger.comment.videoId !== this.currentVideoId) {
           continue;
         }
+        if (this.triggeredFlowCommentIds.has(trigger.id)) {
+          continue;
+        }
+
+        const normText = trigger.comment.rawText.trim().replace(/\s+/g, ' ');
+        if (seenTexts.has(normText)) {
+          continue;
+        }
+
         const triggerStartTime = trigger.timestamp.seconds - leadTimeSec;
-        if (currentTime >= triggerStartTime && currentTime < triggerStartTime + durationSec) {
-          this.triggeredFlowCommentIds.add(trigger.id);
-          const offsetMs = Math.max(0, Math.round((currentTime - triggerStartTime) * 1000));
-          this.overlayUi.showFlowComment(trigger, offsetMs);
+        const offsetMs = Math.round((currentTime - triggerStartTime) * 1000);
+        const remainingMs = durationMs - offsetMs;
+
+        // 途中で消えるのを防ぐ:
+        // 残り時間が短すぎるコメント（アニメーション終盤で画面左側に現れてすぐ消えるもの）は復元せずスキップ
+        const minRemainingMs = Math.max(3000, durationMs * 0.45);
+        if (offsetMs >= 0 && remainingMs >= minRemainingMs) {
+          seenTexts.add(normText);
+          candidates.push({ trigger, offsetMs, remainingMs });
         }
       }
     }
+
+    // 残り時間が長く、画面右側〜中央に綺麗に出現するものを優先（最大3件）
+    candidates.sort((a, b) => b.remainingMs - a.remainingMs);
+    const selected = candidates.slice(0, 3);
+
+    // 各コメントに異なるレーン（0, 1, 2...）を割り当てて重なりを防止
+    selected.forEach((c, idx) => {
+      this.triggeredFlowCommentIds.add(c.trigger.id);
+      this.overlayUi.showFlowComment(c.trigger, c.offsetMs, false, idx);
+    });
   }
 }
 

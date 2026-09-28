@@ -1093,7 +1093,17 @@
   align-self: flex-start !important;
 }
 
-.yt-co-load-replies-btn:hover {
+.yt-co-load-replies-btn.is-hidden {
+  display: none !important;
+}
+
+.yt-co-load-replies-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+.yt-co-load-replies-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08) !important;
   color: #e2e8f0 !important;
   border-color: rgba(255, 255, 255, 0.28) !important;

@@ -1240,20 +1240,40 @@ export class OverlayUi {
         : '返信を表示';
       loadRepliesBtn.appendChild(repliesIcon);
       loadRepliesBtn.appendChild(repliesLabel);
+      let isLoadingReplies = false;
       loadRepliesBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        loadRepliesBtn.style.display = 'none';
+        if (isLoadingReplies) return;
+        isLoadingReplies = true;
+
+        loadRepliesBtn.disabled = true;
+        loadRepliesBtn.classList.add('is-hidden');
+        loadRepliesBtn.style.setProperty('display', 'none', 'important');
+
+        // 既存のローディングやエラー・空メッセージ等をクリア
+        repliesSection.querySelectorAll('.yt-co-replies-loading, .yt-co-replies-empty, .yt-co-reply-item').forEach((el) => el.remove());
+
         const loadingEl = document.createElement('div');
         loadingEl.className = 'yt-co-replies-loading';
         loadingEl.textContent = '返信を読み込み中...';
         repliesSection.appendChild(loadingEl);
 
         let replies: ReplyData[] = [];
-        if (this.fetchRepliesCallback) {
-          replies = await this.fetchRepliesCallback(comment);
+        try {
+          if (this.fetchRepliesCallback) {
+            replies = await this.fetchRepliesCallback(comment);
+          }
+        } catch {
+          replies = [];
+        } finally {
+          isLoadingReplies = false;
+          if (loadingEl.parentElement) {
+            repliesSection.removeChild(loadingEl);
+          }
         }
 
-        repliesSection.removeChild(loadingEl);
+        // 念のため再クリアして重複描画を確実に防止
+        repliesSection.querySelectorAll('.yt-co-replies-loading, .yt-co-replies-empty').forEach((el) => el.remove());
 
         if (replies.length === 0) {
           const emptyEl = document.createElement('div');
@@ -1290,6 +1310,12 @@ export class OverlayUi {
       this.modalRootEl.parentElement.removeChild(this.modalRootEl);
       this.modalRootEl = null;
     }
+    // DOM上に残存する古いモーダル要素があればすべて安全に削除
+    document.querySelectorAll('#yt-comment-overlay-modal-root').forEach((el) => {
+      if (el.parentElement) {
+        el.parentElement.removeChild(el);
+      }
+    });
   }
 
   /** 返信1件のDOM要素を生成 */
@@ -1345,12 +1371,25 @@ export class OverlayUi {
   }
 
   /**
+   * レーンの使用状況をリセットする（シーク時・巻き戻し時用）
+   */
+  public resetFlowLanes() {
+    this.flowLanes = Array(6).fill(0);
+  }
+
+  /**
    * ニコニコ動画風の流れるコメントを表示する
    * @param trigger タイムスタンプコメント
    * @param timeOffsetMs シーク時等に既に経過している時間 (ミリ秒)
    * @param force 設定の有効無効チェックをバイパスするか (テスト用)
+   * @param preferredLaneIndex 指定レーン番号（シーク時の重なり防止用）
    */
-  public showFlowComment(trigger: TimestampCommentTrigger, timeOffsetMs = 0, force = false) {
+  public showFlowComment(
+    trigger: TimestampCommentTrigger,
+    timeOffsetMs = 0,
+    force = false,
+    preferredLaneIndex?: number
+  ) {
     if (!this.settings.enabled && !force) return;
     if (!this.isFlowModeEnabled() && !force) return;
 
@@ -1368,17 +1407,21 @@ export class OverlayUi {
       this.flowLanes = Array(LANE_COUNT).fill(0);
     }
 
-    // 空きレーンを選択 (使用解除時刻が最も古いものを使用)
+    // レーンを選択 (preferredLaneIndex があればそれを優先、無ければ使用解除時刻が最も古いものを使用)
     let laneIndex = 0;
-    let minTime = Infinity;
-    for (let i = 0; i < LANE_COUNT; i++) {
-      if (this.flowLanes[i] <= now) {
-        laneIndex = i;
-        break;
-      }
-      if (this.flowLanes[i] < minTime) {
-        minTime = this.flowLanes[i];
-        laneIndex = i;
+    if (preferredLaneIndex !== undefined && preferredLaneIndex >= 0 && preferredLaneIndex < LANE_COUNT) {
+      laneIndex = preferredLaneIndex;
+    } else {
+      let minTime = Infinity;
+      for (let i = 0; i < LANE_COUNT; i++) {
+        if (this.flowLanes[i] <= now) {
+          laneIndex = i;
+          break;
+        }
+        if (this.flowLanes[i] < minTime) {
+          minTime = this.flowLanes[i];
+          laneIndex = i;
+        }
       }
     }
 

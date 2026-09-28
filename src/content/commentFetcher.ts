@@ -700,6 +700,19 @@ export class CommentFetcher {
 
     el.setAttribute('data-yt-overlay-comment-id', commentId);
 
+    // 返信件数の抽出（DOMから）
+    let replyCount = 0;
+    const threadEl = el.closest('ytd-comment-thread-renderer') || el;
+    const repliesContainer = threadEl.querySelector('#replies, ytd-comment-replies-renderer');
+    if (repliesContainer) {
+      const replyBtn = repliesContainer.querySelector('ytd-button-renderer, button, tp-yt-paper-button');
+      const replyBtnText = replyBtn?.textContent?.trim() || '';
+      const replyMatch = replyBtnText.match(/(\d+)/);
+      if (replyMatch) {
+        replyCount = parseInt(replyMatch[1], 10);
+      }
+    }
+
     return {
       id: commentId,
       authorName,
@@ -712,6 +725,7 @@ export class CommentFetcher {
       publishedTimeText,
       timestamps,
       videoId: activeVid,
+      replyCount: replyCount || undefined,
     };
   }
 
@@ -1327,9 +1341,59 @@ export class CommentFetcher {
       }
     }
 
-    // 2. 汎用再帰走査 (commentEntityPayload, commentRenderer, commentViewModel を包括)
+    // 2. 汎用再帰走査 (commentThreadRenderer, commentEntityPayload, commentRenderer, commentViewModel を包括)
     const walk = (node: unknown) => {
       if (!node || typeof node !== 'object') return;
+
+      // commentThreadRenderer (親コンテナから返信トークン・返信件数を抽出)
+      if ('commentThreadRenderer' in node) {
+        const ctr = (node as Record<string, unknown>).commentThreadRenderer as Record<string, any>;
+        let replyContinuationToken: string | undefined;
+        let replyCount = 0;
+
+        const repliesObj = ctr.replies?.commentRepliesRenderer;
+        if (repliesObj) {
+          const contList = repliesObj.continuations || repliesObj.contents;
+          if (Array.isArray(contList) && contList.length > 0) {
+            for (const item of contList) {
+              const token =
+                item?.nextContinuationData?.continuation ||
+                item?.continuationEndpoint?.continuationCommand?.token ||
+                item?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+              if (token) {
+                replyContinuationToken = token;
+                break;
+              }
+            }
+          }
+
+          const btnText =
+            repliesObj.viewReplies?.buttonRenderer?.text?.runs?.[0]?.text ||
+            repliesObj.viewReplies?.buttonRenderer?.buttonText?.runs?.[0]?.text;
+          if (btnText) {
+            const m = String(btnText).match(/(\d+)/);
+            if (m) replyCount = parseInt(m[1], 10);
+          }
+        }
+
+        const commentObj = ctr.comment;
+        let commentData: CommentData | null = null;
+        if (commentObj?.commentViewModel) {
+          commentData = this.parseCommentViewModelJson(commentObj.commentViewModel);
+        } else if (commentObj?.commentRenderer) {
+          commentData = this.parseCommentRendererJson(commentObj.commentRenderer);
+        }
+
+        if (commentData && commentData.timestamps.length > 0) {
+          if (replyContinuationToken && !commentData.replyContinuationToken) {
+            commentData.replyContinuationToken = replyContinuationToken;
+          }
+          if (replyCount > 0 && !commentData.replyCount) {
+            commentData.replyCount = replyCount;
+          }
+          this.registerComment(commentData, newItems);
+        }
+      }
 
       if ('commentEntityPayload' in node) {
         const cep = (node as Record<string, unknown>).commentEntityPayload as Record<string, any>;
@@ -1443,7 +1507,10 @@ export class CommentFetcher {
           ? cep.properties.publishedTime
           : '';
 
-      // 7. コメントID
+      // 7. 返信件数
+      let replyCount = Number(cep.toolbar?.replyCount || cep.properties?.replyCount || 0);
+
+      // 8. コメントID
       const commentId = String(
         cep.properties?.commentId ||
         cep.commentId ||
@@ -1464,6 +1531,7 @@ export class CommentFetcher {
         publishedTimeText,
         timestamps,
         videoId: activeVid,
+        replyCount: replyCount || undefined,
       };
     } catch {
       return null;
@@ -1524,6 +1592,18 @@ export class CommentFetcher {
       const publishedTimeObj = cvm.publishedTimeText as Record<string, unknown> | undefined;
       const publishedTimeText = typeof publishedTimeObj?.content === 'string' ? publishedTimeObj.content : '';
 
+      // 返信件数・返信トークン
+      let replyCount = Number((cvm as any).replyCount || 0);
+      if (!replyCount && (cvm as any).toolbar?.replyCount) {
+        replyCount = Number((cvm as any).toolbar.replyCount);
+      }
+      let replyContinuationToken: string | undefined;
+      const rendererContext = (cvm as any).rendererContext;
+      const continuationCmd = rendererContext?.commandContext?.onTap?.innertubeCommand?.continuationCommand;
+      if (continuationCmd?.token) {
+        replyContinuationToken = continuationCmd.token;
+      }
+
       return {
         id: commentId || `cvm_${authorName}_${timestamps[0].seconds}`,
         authorName,
@@ -1536,6 +1616,8 @@ export class CommentFetcher {
         publishedTimeText,
         timestamps,
         videoId: this.getVideoId(),
+        replyCount: replyCount || undefined,
+        replyContinuationToken,
       };
     } catch {
       return null;
@@ -1612,86 +1694,247 @@ export class CommentFetcher {
   }
 
   /**
-   * 指定コメントの返信一覧を InnerTube API から取得する
+   * 指定コメントの返信一覧を InnerTube API または DOM から取得する
    */
   public async fetchRepliesAsync(comment: CommentData): Promise<ReplyData[]> {
     try {
-      let token = comment.replyContinuationToken;
+      // 1. DOM上のスレッド要素を特定
+      const threadEl = this.findCommentThreadEl(comment);
 
-      // トークンが無い場合はDOMから探索
+      // 2. すでにDOM上に返信が展開されている場合は、DOMから即座に抽出
+      if (threadEl) {
+        const existingDomReplies = this.extractRepliesFromDomThread(threadEl, comment.id);
+        if (existingDomReplies.length > 0) {
+          return existingDomReplies;
+        }
+      }
+
+      // 3. InnerTube API による返信取得を試みる
+      let token = comment.replyContinuationToken;
       if (!token && comment.id) {
         token = this.findReplyTokenFromDom(comment.id) ?? undefined;
       }
 
-      if (!token) return [];
+      if (token) {
+        let apiKey = this.bridgeApiKey;
+        let clientVersion = this.bridgeClientVersion;
+        if (!apiKey) {
+          const config = this.extractInnertubeConfig();
+          if (config) {
+            apiKey = config.apiKey;
+            clientVersion = config.clientVersion;
+          }
+        }
 
-      let apiKey = this.bridgeApiKey;
-      let clientVersion = this.bridgeClientVersion;
-      if (!apiKey) {
-        const config = this.extractInnertubeConfig();
-        if (config) {
-          apiKey = config.apiKey;
-          clientVersion = config.clientVersion;
+        if (apiKey) {
+          const url = `https://www.youtube.com/youtubei/v1/next?key=${encodeURIComponent(apiKey)}&prettyPrint=false`;
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'X-YouTube-Client-Name': '1',
+            'X-YouTube-Client-Version': clientVersion || '2.20240101.00.00',
+          };
+          if (this.bridgeVisitorData) {
+            headers['X-Goog-Visitor-Id'] = this.bridgeVisitorData;
+          }
+
+          const payload = {
+            context: {
+              client: {
+                hl: navigator.language || 'ja',
+                gl: 'JP',
+                clientName: this.bridgeClientName || 'WEB',
+                clientVersion: clientVersion || '2.20240101.00.00',
+                visitorData: this.bridgeVisitorData || undefined,
+              },
+            },
+            continuation: token,
+          };
+
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            credentials: 'same-origin',
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const replies = this.parseRepliesFromResponse(data, comment.id);
+            if (replies.length > 0) {
+              return replies;
+            }
+          }
         }
       }
-      if (!apiKey) return [];
 
-      const url = `https://www.youtube.com/youtubei/v1/next?key=${encodeURIComponent(apiKey)}&prettyPrint=false`;
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'X-YouTube-Client-Name': '1',
-        'X-YouTube-Client-Version': clientVersion || '2.20240101.00.00',
-      };
-      if (this.bridgeVisitorData) {
-        headers['X-Goog-Visitor-Id'] = this.bridgeVisitorData;
+      // 4. APIで取得できなかった場合のフォールバック: DOM上の「返信を表示」ボタンをクリックしてDOMから抽出
+      if (threadEl) {
+        const expandedReplies = await this.expandAndExtractRepliesFromDom(threadEl, comment.id);
+        if (expandedReplies.length > 0) {
+          return expandedReplies;
+        }
       }
 
-      const payload = {
-        context: {
-          client: {
-            hl: navigator.language || 'ja',
-            gl: 'JP',
-            clientName: this.bridgeClientName || 'WEB',
-            clientVersion: clientVersion || '2.20240101.00.00',
-            visitorData: this.bridgeVisitorData || undefined,
-          },
-        },
-        continuation: token,
-      };
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        credentials: 'same-origin',
-      });
-
-      if (!res.ok) return [];
-      const data = await res.json();
-      return this.parseRepliesFromResponse(data);
+      return [];
     } catch {
       return [];
     }
   }
 
-  /** 返信APIレスポンスからReplyData[]を抽出 */
-  private parseRepliesFromResponse(data: unknown): ReplyData[] {
+  /**
+   * DOM上で該当コメントのスレッド要素（ytd-comment-thread-renderer）を探索
+   */
+  private findCommentThreadEl(comment: CommentData): Element | null {
+    try {
+      // 1. 付与済みの data-yt-overlay-comment-id 属性で検索
+      if (comment.id) {
+        const byAttr = document.querySelector(
+          `ytd-comment-thread-renderer[data-yt-overlay-comment-id="${comment.id}"], [data-yt-overlay-comment-id="${comment.id}"]`
+        );
+        if (byAttr) {
+          return byAttr.closest('ytd-comment-thread-renderer') || byAttr;
+        }
+      }
+
+      // 2. 本文冒頭のテキスト一致でDOMスレッドを検索
+      const cleanTarget = comment.rawText.trim().replace(/\s+/g, ' ');
+      if (cleanTarget.length >= 5) {
+        const prefix = cleanTarget.slice(0, 30);
+        const allThreads = document.querySelectorAll('ytd-comment-thread-renderer');
+        for (const thread of Array.from(allThreads)) {
+          const contentEl = thread.querySelector('#content-text, .yt-core-attributed-string');
+          const threadText = (contentEl?.textContent || '').trim().replace(/\s+/g, ' ');
+          if (threadText.includes(prefix) || prefix.includes(threadText.slice(0, 30))) {
+            return thread;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  /**
+   * DOMのスレッド要素から展開済みの返信一覧を抽出
+   */
+  private extractRepliesFromDomThread(threadEl: Element, parentCommentId: string): ReplyData[] {
     const replies: ReplyData[] = [];
+    try {
+      const repliesContainer = threadEl.querySelector('#replies, ytd-comment-replies-renderer');
+      if (!repliesContainer) return replies;
+
+      const replyItems = repliesContainer.querySelectorAll(
+        'ytd-comment-view-model, ytd-comment-renderer'
+      );
+
+      for (const item of Array.from(replyItems)) {
+        // 親コメント自体の要素であれば除外
+        const itemId = item.getAttribute('comment-id') || item.getAttribute('data-comment-id') || '';
+        if (itemId && itemId === parentCommentId) continue;
+
+        const contentEl = item.querySelector('#content-text, .yt-core-attributed-string');
+        const rawText = contentEl?.textContent?.trim() || '';
+        if (!rawText) continue;
+
+        const authorEl = item.querySelector('#author-text span, #author-text');
+        const authorName = authorEl?.textContent?.trim() || 'ユーザー';
+
+        const authorAvatarUrl = this.extractAvatarFromCommentElement(item);
+
+        const authorAnchor = item.querySelector<HTMLAnchorElement>(
+          'a#author-text, #author-text a, a#author-thumbnail, #author-thumbnail a, a.yt-simple-endpoint[href*="/@"]'
+        );
+        let authorChannelUrl = '';
+        const anchorHref = authorAnchor?.getAttribute('href') || '';
+        if (anchorHref) {
+          authorChannelUrl = anchorHref.startsWith('http') ? anchorHref : `https://www.youtube.com${anchorHref}`;
+        }
+
+        const likeEl = item.querySelector('#vote-count-middle, #vote-count-left, .yt-spec-button-shape-next__button-text-content');
+        const likeText = likeEl?.textContent?.trim() || '0';
+        const likeCount = this.parseLikeCount(likeText);
+
+        const timeEl = item.querySelector('#published-time-text a, #published-time-text');
+        const publishedTimeText = timeEl?.textContent?.trim() || '';
+
+        const replyId = itemId || `dom_reply_${authorName}_${rawText.slice(0, 10)}`;
+
+        replies.push({
+          id: replyId,
+          authorName,
+          authorAvatarUrl,
+          authorChannelUrl,
+          rawText,
+          likeCount,
+          formattedLikeCount: likeText || '0',
+          publishedTimeText,
+        });
+      }
+    } catch {
+      // ignore
+    }
+    return replies;
+  }
+
+  /**
+   * DOM上の返信展開ボタンをクリックし、展開された返信を取得
+   */
+  private async expandAndExtractRepliesFromDom(threadEl: Element, parentCommentId: string): Promise<ReplyData[]> {
+    try {
+      const repliesContainer = threadEl.querySelector('#replies, ytd-comment-replies-renderer');
+      if (!repliesContainer) return [];
+
+      const expandBtn = repliesContainer.querySelector<HTMLElement>(
+        'ytd-button-renderer button, button#button, tp-yt-paper-button, .yt-spec-button-shape-next'
+      );
+      if (expandBtn) {
+        expandBtn.click();
+        // DOMのレンダリング待機
+        await new Promise((resolve) => setTimeout(resolve, 750));
+        return this.extractRepliesFromDomThread(threadEl, parentCommentId);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  }
+
+  /** 返信APIレスポンスからReplyData[]を抽出 */
+  private parseRepliesFromResponse(data: unknown, parentCommentId?: string): ReplyData[] {
+    const replies: ReplyData[] = [];
+    const seenIds = new Set<string>();
     if (!data || typeof data !== 'object') return replies;
 
     const walk = (node: unknown): void => {
       if (!node || typeof node !== 'object') return;
       const obj = node as Record<string, unknown>;
 
+      // commentViewModel (最新仕様)
+      if ('commentViewModel' in obj) {
+        const r = this.parseReplyFromViewModel(obj.commentViewModel as Record<string, any>);
+        if (r && (!parentCommentId || r.id !== parentCommentId) && !seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          replies.push(r);
+        }
+      }
+
       // commentEntityPayload (最新仕様)
       if ('commentEntityPayload' in obj) {
         const r = this.parseReplyEntityPayload(obj.commentEntityPayload as Record<string, any>);
-        if (r) replies.push(r);
+        if (r && (!parentCommentId || r.id !== parentCommentId) && !seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          replies.push(r);
+        }
       }
+
       // commentRenderer (旧仕様)
       if ('commentRenderer' in obj) {
         const r = this.parseReplyFromRenderer(obj.commentRenderer as Record<string, any>);
-        if (r) replies.push(r);
+        if (r && (!parentCommentId || r.id !== parentCommentId) && !seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          replies.push(r);
+        }
       }
 
       for (const key of Object.keys(obj)) {
@@ -1702,6 +1945,75 @@ export class CommentFetcher {
 
     walk(data);
     return replies;
+  }
+
+  /** commentViewModel から ReplyData を生成 */
+  private parseReplyFromViewModel(cvm: Record<string, any>): ReplyData | null {
+    try {
+      if (!cvm || typeof cvm !== 'object') return null;
+
+      let rawText = '';
+      const contentTextObj = cvm.contentText as Record<string, unknown> | undefined;
+      if (typeof contentTextObj?.content === 'string') {
+        rawText = contentTextObj.content;
+      } else if (Array.isArray(contentTextObj?.runs)) {
+        rawText = (contentTextObj.runs as { text: string }[]).map((r) => r.text).join('');
+      } else if (typeof cvm.content?.content === 'string') {
+        rawText = cvm.content.content;
+      } else if (typeof cvm.properties?.content?.content === 'string') {
+        rawText = cvm.properties.content.content;
+      }
+      if (!rawText) return null;
+
+      let authorName = 'ユーザー';
+      const authorTextObj = cvm.authorText as Record<string, unknown> | undefined;
+      if (typeof authorTextObj?.content === 'string') {
+        authorName = authorTextObj.content;
+      } else if (typeof cvm.authorName === 'string') {
+        authorName = cvm.authorName;
+      }
+
+      let authorAvatarUrl = '';
+      const avatarObj = cvm.avatar as Record<string, unknown> | undefined;
+      const avatarSources = (avatarObj?.image as Record<string, unknown>)?.sources as { url: string }[] | undefined;
+      if (Array.isArray(avatarSources) && avatarSources.length > 0) {
+        authorAvatarUrl = avatarSources[avatarSources.length - 1].url;
+      }
+
+      let authorChannelUrl = '';
+      const authorEndpoint = (cvm.authorEndpoint || cvm.authorChannelCommand) as Record<string, any> | undefined;
+      const browseEndpoint = authorEndpoint?.browseEndpoint;
+      if (browseEndpoint?.canonicalBaseUrl) {
+        authorChannelUrl = `https://www.youtube.com${browseEndpoint.canonicalBaseUrl}`;
+      } else if (browseEndpoint?.browseId) {
+        authorChannelUrl = `https://www.youtube.com/channel/${browseEndpoint.browseId}`;
+      } else if (typeof cvm.authorChannelId === 'string') {
+        authorChannelUrl = `https://www.youtube.com/channel/${cvm.authorChannelId}`;
+      } else if (authorName.startsWith('@')) {
+        authorChannelUrl = `https://www.youtube.com/${authorName}`;
+      }
+
+      const likeText = String(cvm.likeCount || cvm.voteCount || cvm.toolbar?.likeCount || '0');
+      const likeCount = this.parseLikeCount(likeText);
+
+      const publishedTimeObj = cvm.publishedTimeText as Record<string, unknown> | undefined;
+      const publishedTimeText = typeof publishedTimeObj?.content === 'string' ? publishedTimeObj.content : '';
+
+      const id = String(cvm.commentId || `reply_${authorName}_${Date.now()}`);
+
+      return {
+        id,
+        authorName,
+        authorAvatarUrl,
+        authorChannelUrl,
+        rawText,
+        likeCount,
+        formattedLikeCount: likeText,
+        publishedTimeText,
+      };
+    } catch {
+      return null;
+    }
   }
 
   /** commentEntityPayload から ReplyData を生成 */
@@ -1766,17 +2078,24 @@ export class CommentFetcher {
   private findReplyTokenFromDom(commentId: string): string | null {
     try {
       const commentEls = document.querySelectorAll(
-        `ytd-comment-thread-renderer[comment-id="${commentId}"], ytd-comment-thread-renderer`
+        `ytd-comment-thread-renderer[data-yt-overlay-comment-id="${commentId}"], ytd-comment-thread-renderer[comment-id="${commentId}"], ytd-comment-thread-renderer`
       );
       for (const el of Array.from(commentEls)) {
-        const attrId = el.getAttribute('comment-id') || el.getAttribute('data-comment-id') || '';
+        const attrId = el.getAttribute('data-yt-overlay-comment-id') || el.getAttribute('comment-id') || el.getAttribute('data-comment-id') || '';
         if (attrId && attrId !== commentId) continue;
         const rawEl = (el as any).wrappedJSObject || el;
         const data = rawEl.data || rawEl.__data;
-        const contList = data?.comment?.commentRenderer?.replies?.commentRepliesRenderer?.continuations;
+        const repliesRenderer = data?.comment?.commentRenderer?.replies?.commentRepliesRenderer ||
+          data?.replies?.commentRepliesRenderer;
+        const contList = repliesRenderer?.continuations || repliesRenderer?.contents;
         if (Array.isArray(contList) && contList.length > 0) {
-          return contList[0]?.nextContinuationData?.continuation ||
-            contList[0]?.continuationEndpoint?.continuationCommand?.token || null;
+          for (const item of contList) {
+            const token =
+              item?.nextContinuationData?.continuation ||
+              item?.continuationEndpoint?.continuationCommand?.token ||
+              item?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+            if (token) return token;
+          }
         }
       }
     } catch {
