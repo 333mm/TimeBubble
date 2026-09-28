@@ -1334,6 +1334,49 @@ export class CommentFetcher {
   private parseInitialDataJson(data: unknown) {
     if (!data || typeof data !== 'object') return;
     const newItems: CommentData[] = [];
+    const replyTokensMap = new Map<string, string>();
+    const replyCountsMap = new Map<string, number>();
+
+    // 0. 事前走査: commentThreadRenderer などから commentId -> replyContinuationToken / replyCount を収集
+    const scanTokens = (node: unknown) => {
+      if (!node || typeof node !== 'object') return;
+      const obj = node as Record<string, any>;
+
+      if ('commentThreadRenderer' in obj) {
+        const ctr = obj.commentThreadRenderer;
+        const cId = ctr?.comment?.commentViewModel?.commentId ||
+          ctr?.comment?.commentRenderer?.commentId ||
+          ctr?.commentId || '';
+
+        const repliesObj = ctr?.replies?.commentRepliesRenderer || ctr?.replies;
+        const token = this.findTokenInRepliesObject(repliesObj) || this.findTokenInRepliesObject(ctr);
+        let count = 0;
+        const replyTextCandidates = [
+          repliesObj?.viewReplies?.buttonRenderer?.text?.runs?.[0]?.text,
+          repliesObj?.viewReplies?.buttonRenderer?.buttonText?.runs?.[0]?.text,
+          repliesObj?.viewReplies?.buttonRenderer?.text?.simpleText,
+          ctr?.replyCount,
+        ];
+        for (const cand of replyTextCandidates) {
+          if (typeof cand === 'number' && cand > 0) { count = cand; break; }
+          if (typeof cand === 'string') {
+            const m = cand.match(/(\d+)/);
+            if (m) { count = parseInt(m[1], 10); break; }
+          }
+        }
+
+        if (cId) {
+          if (token) replyTokensMap.set(String(cId), token);
+          if (count > 0) replyCountsMap.set(String(cId), count);
+        }
+      }
+
+      for (const k of Object.keys(obj)) {
+        if (k === 'secondaryResults' || k === 'relatedVideos' || k === 'watchNextEndScreenRenderer') continue;
+        scanTokens(obj[k]);
+      }
+    };
+    scanTokens(data);
 
     // 1. YouTube 最新仕様: frameworkUpdates / entityBatchUpdate (Entity Store) の直接走査
     const frameworkUpdates = (data as any).frameworkUpdates;
@@ -1344,6 +1387,12 @@ export class CommentFetcher {
         if (payload?.commentEntityPayload) {
           const commentData = this.parseCommentEntityPayload(payload.commentEntityPayload);
           if (commentData && commentData.timestamps.length > 0) {
+            if (!commentData.replyContinuationToken && replyTokensMap.has(commentData.id)) {
+              commentData.replyContinuationToken = replyTokensMap.get(commentData.id);
+            }
+            if (!commentData.replyCount && replyCountsMap.has(commentData.id)) {
+              commentData.replyCount = replyCountsMap.get(commentData.id);
+            }
             this.registerComment(commentData, newItems);
           }
         }
@@ -1401,6 +1450,12 @@ export class CommentFetcher {
           if (replyCount > 0 && !commentData.replyCount) {
             commentData.replyCount = replyCount;
           }
+          if (!commentData.replyContinuationToken && replyTokensMap.has(commentData.id)) {
+            commentData.replyContinuationToken = replyTokensMap.get(commentData.id);
+          }
+          if (!commentData.replyCount && replyCountsMap.has(commentData.id)) {
+            commentData.replyCount = replyCountsMap.get(commentData.id);
+          }
           this.registerComment(commentData, newItems);
         }
       }
@@ -1409,6 +1464,12 @@ export class CommentFetcher {
         const cep = (node as Record<string, unknown>).commentEntityPayload as Record<string, any>;
         const commentData = this.parseCommentEntityPayload(cep);
         if (commentData && commentData.timestamps.length > 0) {
+          if (!commentData.replyContinuationToken && replyTokensMap.has(commentData.id)) {
+            commentData.replyContinuationToken = replyTokensMap.get(commentData.id);
+          }
+          if (!commentData.replyCount && replyCountsMap.has(commentData.id)) {
+            commentData.replyCount = replyCountsMap.get(commentData.id);
+          }
           this.registerComment(commentData, newItems);
         }
       }
@@ -1417,6 +1478,12 @@ export class CommentFetcher {
         const cr = (node as Record<string, unknown>).commentRenderer as Record<string, unknown>;
         const commentData = this.parseCommentRendererJson(cr);
         if (commentData && commentData.timestamps.length > 0) {
+          if (!commentData.replyContinuationToken && replyTokensMap.has(commentData.id)) {
+            commentData.replyContinuationToken = replyTokensMap.get(commentData.id);
+          }
+          if (!commentData.replyCount && replyCountsMap.has(commentData.id)) {
+            commentData.replyCount = replyCountsMap.get(commentData.id);
+          }
           this.registerComment(commentData, newItems);
         }
       }
@@ -1425,6 +1492,12 @@ export class CommentFetcher {
         const cvm = (node as Record<string, unknown>).commentViewModel as Record<string, unknown>;
         const commentData = this.parseCommentViewModelJson(cvm);
         if (commentData && commentData.timestamps.length > 0) {
+          if (!commentData.replyContinuationToken && replyTokensMap.has(commentData.id)) {
+            commentData.replyContinuationToken = replyTokensMap.get(commentData.id);
+          }
+          if (!commentData.replyCount && replyCountsMap.has(commentData.id)) {
+            commentData.replyCount = replyCountsMap.get(commentData.id);
+          }
           this.registerComment(commentData, newItems);
         }
       }
@@ -1793,7 +1866,7 @@ export class CommentFetcher {
           reqEl.style.display = 'none';
           (document.documentElement || document.body).appendChild(reqEl);
         }
-        reqEl.textContent = JSON.stringify({ reqId, commentId, rawText, token });
+        reqEl.textContent = JSON.stringify({ reqId, commentId, rawText, token, videoId: this.getVideoId() });
         reqEl.setAttribute('data-seq', String(Date.now()));
 
         window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_FETCH_REPLIES'));

@@ -17,6 +17,8 @@
   let currentFetchAbortController: AbortController | null = null;
   let isFetchingInMainWorld = false;
   let lastSuccessfulVideoId = '';
+  const commentTokenCache = new Map<string, string>(); // commentId -> continuationToken
+  const cachedResponses: any[] = [];
 
   function getOrCreateEl(id: string): HTMLElement {
     let el = document.getElementById(id);
@@ -308,6 +310,9 @@
           });
           if (initRes.ok && !signal.aborted && getVideoIdFromUrl() === targetVideoId) {
             const initJson = await initRes.json();
+            cachedResponses.push(initJson);
+            if (cachedResponses.length > 25) cachedResponses.shift();
+            extractAllCommentTokens(initJson);
             writeToEl(API_EL_ID, { data: initJson, videoId: targetVideoId, page: 0 });
             token = findCommentContinuationToken(initJson);
           }
@@ -346,6 +351,10 @@
 
           const json = await res.json();
           if (signal.aborted || getVideoIdFromUrl() !== targetVideoId) break;
+
+          cachedResponses.push(json);
+          if (cachedResponses.length > 25) cachedResponses.shift();
+          extractAllCommentTokens(json);
 
           // DOM 要素に API レスポンスを書き込み — Content Script が読み取る
           writeToEl(API_EL_ID, { data: json, videoId: targetVideoId, page });
@@ -473,6 +482,12 @@
     // 2. DOM コンポーネントへの安全なトリガー
     triggerDomCommentsLoad();
 
+    if (config.initialData) {
+      cachedResponses.push(config.initialData);
+      if (cachedResponses.length > 25) cachedResponses.shift();
+      extractAllCommentTokens(config.initialData);
+    }
+
     // 3. Main World 自前で InnerTube API フェッチ開始 (トークンがあれば直接、無ければ videoId から解決)
     if (config.apiKey && config.videoId) {
       const token = findCommentContinuationToken(config.initialData);
@@ -509,6 +524,62 @@
     };
     walk(repliesObj);
     return foundToken;
+  }
+
+  function extractAllCommentTokens(json: any) {
+    if (!json || typeof json !== 'object') return;
+    const walk = (node: any) => {
+      if (!node || typeof node !== 'object') return;
+
+      // 1. commentThreadRenderer
+      if ('commentThreadRenderer' in node) {
+        const ctr = node.commentThreadRenderer;
+        let cId = '';
+        const cObj = ctr?.comment;
+        if (cObj?.commentViewModel?.commentId) cId = String(cObj.commentViewModel.commentId);
+        else if (cObj?.commentRenderer?.commentId) cId = String(cObj.commentRenderer.commentId);
+        else if (ctr?.commentId) cId = String(ctr.commentId);
+
+        let token = '';
+        const repliesObj = ctr?.replies?.commentRepliesRenderer || ctr?.replies;
+        if (repliesObj) {
+          token = findTokenInReplies(repliesObj) || '';
+        }
+        if (!token) {
+          token = findTokenInReplies(ctr) || '';
+        }
+
+        if (cId && token) {
+          commentTokenCache.set(cId, token);
+        }
+      }
+
+      // 2. commentViewModel
+      if ('commentViewModel' in node) {
+        const cvm = node.commentViewModel;
+        const cId = cvm?.commentId ? String(cvm.commentId) : '';
+        if (cId && !commentTokenCache.has(cId)) {
+          const t = findTokenInReplies(cvm);
+          if (t) commentTokenCache.set(cId, t);
+        }
+      }
+
+      // 3. commentEntityPayload
+      if ('commentEntityPayload' in node) {
+        const cep = node.commentEntityPayload;
+        const cId = cep?.properties?.commentId || cep?.commentId ? String(cep.properties?.commentId || cep.commentId) : '';
+        if (cId && !commentTokenCache.has(cId)) {
+          const t = findTokenInReplies(cep);
+          if (t) commentTokenCache.set(cId, t);
+        }
+      }
+
+      for (const k of Object.keys(node)) {
+        if (k === 'secondaryResults' || k === 'relatedVideos' || k === 'watchNextEndScreenRenderer') continue;
+        walk(node[k]);
+      }
+    };
+    walk(json);
   }
 
   function parseLikeCountText(text: string): number {
@@ -742,6 +813,55 @@
     return replies;
   }
 
+  async function fetchRepliesViaLinkedComment(
+    config: any,
+    videoId: string,
+    commentId: string,
+    rawText?: string
+  ): Promise<any[]> {
+    try {
+      const url = `/youtubei/v1/next?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-YouTube-Client-Name': '1',
+        'X-YouTube-Client-Version': config.clientVersion || '2.20240101.00.00',
+      };
+      if (config.visitorData) headers['X-Goog-Visitor-Id'] = config.visitorData;
+
+      const payload = {
+        context: {
+          client: {
+            hl: navigator.language || 'ja',
+            gl: 'JP',
+            clientName: config.clientName || 'WEB',
+            clientVersion: config.clientVersion || '2.20240101.00.00',
+            visitorData: config.visitorData || undefined,
+          },
+        },
+        videoId: videoId || getVideoIdFromUrl(),
+        linkedCommentId: commentId,
+      };
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'same-origin',
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        // 新たなトークンをキャッシュに登録
+        extractAllCommentTokens(json);
+        const replies = parseRepliesFromJson(json, commentId, rawText);
+        if (replies.length > 0) return replies;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  }
+
   async function handleFetchRepliesInMainWorld() {
     let debugLog: string[] = [];
     let errCode = 'E-101:NO_REPLIES_FOUND';
@@ -752,10 +872,34 @@
       const req = JSON.parse(reqEl.textContent);
       const { reqId, commentId, rawText } = req;
       let token = req.token;
+      const videoId = req.videoId || getVideoIdFromUrl();
 
       debugLog.push(`開始 (ID:${commentId ? commentId.slice(0, 15) : 'なし'}, Token:${token ? '有' : '無'})`);
 
-      // 1. DOM上の該当スレッド要素を探索
+      // 1. トークンがなければメモリ内キャッシュから探索
+      if (!token && commentId) {
+        token = commentTokenCache.get(commentId);
+        if (token) debugLog.push('トークンキャッシュから解決');
+      }
+
+      // それでもなければ、保持している全レスポンスと initialData からトークンを再探索
+      if (!token && commentId) {
+        for (const resp of cachedResponses) {
+          extractAllCommentTokens(resp);
+          token = commentTokenCache.get(commentId);
+          if (token) break;
+        }
+        if (!token) {
+          const config = getInnertubeConfig();
+          if (config?.initialData) {
+            extractAllCommentTokens(config.initialData);
+            token = commentTokenCache.get(commentId);
+          }
+        }
+        if (token) debugLog.push('全レスポンス探索からトークン解決');
+      }
+
+      // 2. DOM上の該当スレッド要素を探索
       let threadEl: any = null;
       if (commentId) {
         threadEl = document.querySelector(
@@ -791,84 +935,89 @@
           window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
           return;
         }
+        // スレッド内部データからトークン探索
+        if (!token) {
+          const data = threadEl.data || threadEl.__data;
+          if (data) {
+            token = findTokenInReplies(data);
+            if (token) debugLog.push('スレッド内部データからToken検出');
+          }
+        }
       } else {
         debugLog.push('DOMスレッド未検出');
       }
 
-      // トークンがなければ、MAIN ワールドなのでスレッド要素の内部プロパティから探索
-      if (!token && threadEl) {
-        const data = threadEl.data || threadEl.__data;
-        if (data) {
-          token = findTokenInReplies(data);
-          if (token) debugLog.push('スレッド内部データからToken検出');
-        }
-      }
+      const config = getInnertubeConfig();
 
-      // 2. トークンがある場合は InnerTube API をフェッチ
-      if (token) {
-        const config = getInnertubeConfig();
-        if (config?.apiKey) {
-          debugLog.push('InnerTube APIフェッチ試行');
-          try {
-            const url = `/youtubei/v1/next?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`;
-            const headers: Record<string, string> = {
-              'Content-Type': 'application/json',
-              'X-YouTube-Client-Name': '1',
-              'X-YouTube-Client-Version': config.clientVersion || '2.20240101.00.00',
-            };
-            if (config.visitorData) headers['X-Goog-Visitor-Id'] = config.visitorData;
+      // 3. トークンがある場合は InnerTube API をフェッチ
+      if (token && config?.apiKey) {
+        debugLog.push('InnerTube APIフェッチ試行');
+        try {
+          const url = `/youtubei/v1/next?key=${encodeURIComponent(config.apiKey)}&prettyPrint=false`;
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'X-YouTube-Client-Name': '1',
+            'X-YouTube-Client-Version': config.clientVersion || '2.20240101.00.00',
+          };
+          if (config.visitorData) headers['X-Goog-Visitor-Id'] = config.visitorData;
 
-            const payload = {
-              context: {
-                client: {
-                  hl: navigator.language || 'ja',
-                  gl: 'JP',
-                  clientName: config.clientName || 'WEB',
-                  clientVersion: config.clientVersion || '2.20240101.00.00',
-                  visitorData: config.visitorData || undefined,
-                },
+          const payload = {
+            context: {
+              client: {
+                hl: navigator.language || 'ja',
+                gl: 'JP',
+                clientName: config.clientName || 'WEB',
+                clientVersion: config.clientVersion || '2.20240101.00.00',
+                visitorData: config.visitorData || undefined,
               },
-              continuation: token,
-            };
+            },
+            continuation: token,
+          };
 
-            const res = await fetch(url, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify(payload),
-              credentials: 'same-origin',
-            });
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            credentials: 'same-origin',
+          });
 
-            if (res.ok) {
-              const json = await res.json();
-              const replies = parseRepliesFromJson(json, commentId, rawText);
-              if (replies.length > 0) {
-                debugLog.push(`APIより返信パース成功 (${replies.length}件)`);
-                writeToEl(REPLY_RES_EL_ID, { reqId, replies, errCode: 'OK', debug: debugLog.join(' > ') });
-                window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
-                return;
-              } else {
-                errCode = 'E-205:API_PARSE_EMPTY';
-                debugLog.push('API応答は正常だが返信0件');
-              }
+          if (res.ok) {
+            const json = await res.json();
+            const replies = parseRepliesFromJson(json, commentId, rawText);
+            if (replies.length > 0) {
+              debugLog.push(`APIより返信パース成功 (${replies.length}件)`);
+              writeToEl(REPLY_RES_EL_ID, { reqId, replies, errCode: 'OK', debug: debugLog.join(' > ') });
+              window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
+              return;
             } else {
-              errCode = `E-204:HTTP_${res.status}`;
-              debugLog.push(`APIエラー HTTP ${res.status}`);
+              debugLog.push('API応答は正常だが返信0件');
             }
-          } catch (fetchErr: any) {
-            errCode = 'E-204:API_FETCH_ERR';
-            debugLog.push(`API例外: ${fetchErr?.message || fetchErr}`);
+          } else {
+            debugLog.push(`APIエラー HTTP ${res.status}`);
           }
-        } else {
-          errCode = 'E-204:API_KEY_MISSING';
-          debugLog.push('ytcfg APIキー未解決');
+        } catch (fetchErr: any) {
+          debugLog.push(`API例外: ${fetchErr?.message || fetchErr}`);
         }
       }
 
-      // 3. APIで取得できなかった場合は、DOM上の返信ボタンを MAIN ワールドからクリック！
+      // 4. トークンが無い、またはトークン取得で返信0件の場合: linkedCommentId による API 直接フェッチ！
+      if (commentId && config?.apiKey) {
+        debugLog.push('linkedCommentId APIフェッチ試行');
+        const linkedReplies = await fetchRepliesViaLinkedComment(config, videoId, commentId, rawText);
+        if (linkedReplies && linkedReplies.length > 0) {
+          debugLog.push(`linkedCommentIdより返信取得成功 (${linkedReplies.length}件)`);
+          writeToEl(REPLY_RES_EL_ID, { reqId, replies: linkedReplies, errCode: 'OK', debug: debugLog.join(' > ') });
+          window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
+          return;
+        }
+        debugLog.push('linkedCommentId返信0件');
+      }
+
+      // 5. APIで取得できなかった場合は、DOM上の返信ボタンを MAIN ワールドからクリック！
       if (!threadEl) {
         debugLog.push('DOMコメント初期化トリガー実行');
         triggerDomCommentsLoad();
-        await new Promise((r) => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, 300));
         if (commentId) {
           threadEl = document.querySelector(
             `ytd-comment-thread-renderer[data-yt-overlay-comment-id="${commentId}"], [data-yt-overlay-comment-id="${commentId}"], [comment-id="${commentId}"]`
@@ -890,7 +1039,6 @@
             debugLog.push('DOM返信ボタンクリック');
             const actualBtn = (btn.querySelector('button') || btn) as HTMLElement;
             actualBtn.click();
-            // MAIN ワールドなので 150ms ごとに最大 3.5 秒間ポーリング待機
             for (let i = 0; i < 22; i++) {
               await new Promise((r) => setTimeout(r, 150));
               const replies = extractRepliesFromThreadDom(threadEl, commentId, rawText);
@@ -912,13 +1060,10 @@
           debugLog.push('#repliesコンテナなし');
         }
       } else {
-        if (!token) {
-          errCode = 'E-203:NO_TOKEN_NO_DOM';
-          debugLog.push('トークンなし & DOMスレッド未描画');
-        }
+        errCode = 'E-203:NO_TOKEN_NO_DOM';
+        debugLog.push('トークンなし & linkedComment返信なし & DOMスレッド未描画');
       }
 
-      // 取得できなかった場合はエラーコード付きで返す
       writeToEl(REPLY_RES_EL_ID, { reqId, replies: [], errCode, debug: debugLog.join(' > ') });
       window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REPLIES_READY'));
     } catch (e: any) {
