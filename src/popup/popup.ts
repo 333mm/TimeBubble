@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, DisplayMode, FlowSpeed, OverlayPosition, OverlaySettings, OverlaySize } from '../types';
+import { DEFAULT_SETTINGS, DisplayMode, FlowDensity, FlowSpeed, OverlayPosition, OverlaySettings, OverlaySize } from '../types';
 import { getSettings, saveSettings } from '../utils/storage';
 
 type SupportedLang = 'ja' | 'en' | 'es' | 'zh';
@@ -8,6 +8,7 @@ interface I18nStrings {
   subtitle: string;
   modeCard: string;
   modeFlow: string;
+  modeChatbox: string;
   position: string;
   topLeft: string;
   topRight: string;
@@ -28,10 +29,14 @@ interface I18nStrings {
   speedSlow: string;
   speedNormal: string;
   speedFast: string;
+  densityLow: string;
+  densityNormal: string;
+  densityHigh: string;
   highlightTitle: string;
   highlightDesc: string;
   testBtnCard: string;
   testBtnFlow: string;
+  testBtnChatbox: string;
   savedText: string;
   savingText: string;
   testSending: string;
@@ -45,9 +50,10 @@ interface I18nStrings {
 const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   ja: {
     title: 'TimeBubble',
-    subtitle: 'YouTube タイムスタンプコメント',
+    subtitle: 'YouTube & Twitch コメントオーバーレイ',
     modeCard: 'カード表示',
     modeFlow: '流れるコメント',
+    modeChatbox: 'ログ表示',
     position: '表示位置',
     topLeft: '左上',
     topRight: '右上',
@@ -68,10 +74,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     speedSlow: '遅い',
     speedNormal: '普通',
     speedFast: '速い',
+    densityLow: '控えめ',
+    densityNormal: '標準',
+    densityHigh: 'すべて',
     highlightTitle: '高評価コメントをハイライト',
     highlightDesc: 'いいね数に応じてグラデーションと光彩を適用',
     testBtnCard: '現在の画面にテスト吹き出しを表示',
     testBtnFlow: '現在の画面にテスト流れるコメントを表示',
+    testBtnChatbox: '現在の画面にテストチャットログを表示',
     savedText: '設定は自動保存されます',
     savingText: '設定を保存しました',
     testSending: '送信中...',
@@ -83,9 +93,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   },
   en: {
     title: 'TimeBubble',
-    subtitle: 'YouTube Timestamp Comments',
+    subtitle: 'YouTube & Twitch Comment Overlay',
     modeCard: 'Card Overlay',
     modeFlow: 'Flowing Comments',
+    modeChatbox: 'Chat Log',
     position: 'Position',
     topLeft: 'Top Left',
     topRight: 'Top Right',
@@ -106,10 +117,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     speedSlow: 'Slow',
     speedNormal: 'Normal',
     speedFast: 'Fast',
+    densityLow: 'Low',
+    densityNormal: 'Normal',
+    densityHigh: 'All',
     highlightTitle: 'Highlight Top Comments',
     highlightDesc: 'Apply gradient and glow based on likes',
     testBtnCard: 'Show Test Comment on Screen',
     testBtnFlow: 'Show Test Flowing Comment on Screen',
+    testBtnChatbox: 'Show Test Chat Log on Screen',
     savedText: 'Settings are saved automatically',
     savingText: 'Settings saved',
     testSending: 'Sending...',
@@ -121,9 +136,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   },
   es: {
     title: 'TimeBubble',
-    subtitle: 'Comentarios con Marca de Tiempo',
+    subtitle: 'Comentarios de YouTube y Twitch',
     modeCard: 'Modo Tarjeta',
     modeFlow: 'Comentarios en Flujo',
+    modeChatbox: 'Registro de Chat',
     position: 'Posición',
     topLeft: 'Arriba Izq.',
     topRight: 'Arriba Der.',
@@ -144,10 +160,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     speedSlow: 'Lento',
     speedNormal: 'Normal',
     speedFast: 'Rápido',
+    densityLow: 'Bajo',
+    densityNormal: 'Normal',
+    densityHigh: 'Todos',
     highlightTitle: 'Destacar Comentarios Populares',
     highlightDesc: 'Aplica brillo y degradado según los likes',
     testBtnCard: 'Mostrar Comentario de Prueba',
     testBtnFlow: 'Mostrar Comentario Flotante de Prueba',
+    testBtnChatbox: 'Mostrar Registro de Prueba',
     savedText: 'Los ajustes se guardan automáticamente',
     savingText: 'Ajustes guardados',
     testSending: 'Enviando...',
@@ -159,9 +179,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   },
   zh: {
     title: 'TimeBubble',
-    subtitle: 'YouTube 时间戳评论',
+    subtitle: 'YouTube & Twitch 弹幕/评论覆盖',
     modeCard: '卡片模式',
     modeFlow: '弹幕模式',
+    modeChatbox: '聊天日志',
     position: '显示位置',
     topLeft: '左上',
     topRight: '右上',
@@ -182,10 +203,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     speedSlow: '慢速',
     speedNormal: '标准',
     speedFast: '快速',
+    densityLow: '少量',
+    densityNormal: '标准',
+    densityHigh: '全部',
     highlightTitle: '高赞评论高亮',
     highlightDesc: '根据点赞数应用渐变与光晕效果',
     testBtnCard: '在当前屏幕显示测试气泡',
     testBtnFlow: '在当前屏幕显示测试弹幕',
+    testBtnChatbox: '在当前屏幕显示测试聊天日志',
     savedText: '设置已自动保存',
     savingText: '设置已保存',
     testSending: '发送中...',
@@ -202,12 +227,22 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
 document.addEventListener('DOMContentLoaded', async () => {
   const langSelect = document.getElementById('lang-select') as HTMLSelectElement | null;
   const enabledToggle = document.getElementById('enabled-toggle') as HTMLInputElement | null;
-  
+
+  // ナビゲーションタブ
+  const tabOverlayBtn = document.getElementById('tab-overlay-btn') as HTMLButtonElement | null;
+  const tabLiveBtn = document.getElementById('tab-live-btn') as HTMLButtonElement | null;
+  const tabPipBtn = document.getElementById('tab-pip-btn') as HTMLButtonElement | null;
+  const tabOverlayPanel = document.getElementById('tab-overlay-panel') as HTMLElement | null;
+  const tabLivePanel = document.getElementById('tab-live-panel') as HTMLElement | null;
+  const tabPipPanel = document.getElementById('tab-pip-panel') as HTMLElement | null;
+
   // モード切り替えタブ
   const modeCardBtn = document.getElementById('mode-card-btn') as HTMLButtonElement | null;
   const modeFlowBtn = document.getElementById('mode-flow-btn') as HTMLButtonElement | null;
+  const modeChatboxBtn = document.getElementById('mode-chatbox-btn') as HTMLButtonElement | null;
   const cardModeOptions = document.getElementById('card-mode-options') as HTMLElement | null;
   const flowModeOptions = document.getElementById('flow-mode-options') as HTMLElement | null;
+  const chatboxModeOptions = document.getElementById('chatbox-mode-options') as HTMLElement | null;
 
   // カード表示用コントロール
   const posButtons = document.querySelectorAll<HTMLButtonElement>('.pos-btn');
@@ -228,10 +263,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   const flowOpacitySlider = document.getElementById('flow-opacity-slider') as HTMLInputElement | null;
   const flowOpacityVal = document.getElementById('flow-opacity-val') as HTMLElement | null;
 
+  // Live & Twitch コントロール
+  const ytLiveToggle = document.getElementById('yt-live-toggle') as HTMLInputElement | null;
+  const twitchToggle = document.getElementById('twitch-toggle') as HTMLInputElement | null;
+  const twitchBadgesToggle = document.getElementById('twitch-badges-toggle') as HTMLInputElement | null;
+  const densityButtons = document.querySelectorAll<HTMLButtonElement>('.density-btn');
+  const densityVal = document.getElementById('density-val') as HTMLElement | null;
+
+  // PiP コントロール
+  const pipEnabledToggle = document.getElementById('pip-enabled-toggle') as HTMLInputElement | null;
+  const triggerPipBtn = document.getElementById('trigger-pip-btn') as HTMLButtonElement | null;
+
   // 共通コントロール
   const highlightToggle = document.getElementById('highlight-toggle') as HTMLInputElement | null;
   const testCommentBtn = document.getElementById('test-comment-btn') as HTMLButtonElement | null;
   const saveStatus = document.getElementById('save-status') as HTMLElement | null;
+
+  // ナビゲーションタブの切り替え
+  const navTabs = [
+    { btn: tabOverlayBtn, panel: tabOverlayPanel },
+    { btn: tabLiveBtn, panel: tabLivePanel },
+    { btn: tabPipBtn, panel: tabPipPanel },
+  ];
+
+  navTabs.forEach(({ btn, panel }) => {
+    btn?.addEventListener('click', () => {
+      navTabs.forEach((t) => {
+        t.btn?.classList.remove('active');
+        if (t.panel) t.panel.style.display = 'none';
+      });
+      btn.classList.add('active');
+      if (panel) panel.style.display = 'flex';
+    });
+  });
 
   // ロゴアイコンを chrome.runtime.getURL で正しく解決
   const logoImg = document.querySelector<HTMLImageElement>('.header-logo-img');
@@ -268,6 +332,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elModeCard) elModeCard.textContent = t.modeCard;
     const elModeFlow = document.getElementById('i18n-mode-flow');
     if (elModeFlow) elModeFlow.textContent = t.modeFlow;
+    const elModeChatbox = document.getElementById('i18n-mode-chatbox');
+    if (elModeChatbox) elModeChatbox.textContent = t.modeChatbox;
 
     // カードオプション言語
     const elPos = document.getElementById('i18n-position');
@@ -359,9 +425,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       flowSpeedVal.textContent = spd === 'slow' ? t.speedSlow : spd === 'fast' ? t.speedFast : t.speedNormal;
     }
 
+    const d = currentSettings.flowDensity || 'normal';
+    if (densityVal) {
+      densityVal.textContent = d === 'low' ? t.densityLow : d === 'high' ? t.densityHigh : t.densityNormal;
+    }
+
     const elTestBtn = document.getElementById('i18n-test-btn');
     if (elTestBtn) {
-      elTestBtn.textContent = currentSettings.displayMode === 'flow' ? t.testBtnFlow : t.testBtnCard;
+      if (currentSettings.displayMode === 'flow') {
+        elTestBtn.textContent = t.testBtnFlow;
+      } else if (currentSettings.displayMode === 'chatbox') {
+        elTestBtn.textContent = t.testBtnChatbox;
+      } else {
+        elTestBtn.textContent = t.testBtnCard;
+      }
     }
   }
 
@@ -396,8 +473,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // モードタブの切り替え
     if (modeCardBtn) modeCardBtn.classList.toggle('active', mode === 'card');
     if (modeFlowBtn) modeFlowBtn.classList.toggle('active', mode === 'flow');
+    if (modeChatboxBtn) modeChatboxBtn.classList.toggle('active', mode === 'chatbox');
     if (cardModeOptions) cardModeOptions.style.display = mode === 'card' ? 'flex' : 'none';
     if (flowModeOptions) flowModeOptions.style.display = mode === 'flow' ? 'flex' : 'none';
+    if (chatboxModeOptions) chatboxModeOptions.style.display = mode === 'chatbox' ? 'block' : 'none';
 
     // カード: 位置
     posButtons.forEach((btn) => {
@@ -457,6 +536,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (highlightToggle) {
       highlightToggle.checked = settings.highlightPopular;
     }
+
+    // Live & Twitch
+    if (ytLiveToggle) ytLiveToggle.checked = settings.liveChatEnabled ?? true;
+    if (twitchToggle) twitchToggle.checked = settings.twitchEnabled ?? true;
+    if (twitchBadgesToggle) twitchBadgesToggle.checked = settings.twitchShowBadges ?? true;
+
+    // 流量密度
+    const currentDensity = settings.flowDensity || 'normal';
+    densityButtons.forEach((btn) => {
+      const d = btn.getAttribute('data-density');
+      if (d === currentDensity) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // PiP
+    if (pipEnabledToggle) pipEnabledToggle.checked = settings.pipEnabled ?? true;
 
     updateDynamicLabels();
   }
@@ -846,6 +944,49 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   modeCardBtn?.addEventListener('click', () => setMode('card'));
   modeFlowBtn?.addEventListener('click', () => setMode('flow'));
+  modeChatboxBtn?.addEventListener('click', () => setMode('chatbox'));
+
+  // Live & Twitch トグル
+  ytLiveToggle?.addEventListener('change', () => {
+    updateSetting('liveChatEnabled', ytLiveToggle.checked);
+  });
+
+  twitchToggle?.addEventListener('change', () => {
+    updateSetting('twitchEnabled', twitchToggle.checked);
+  });
+
+  twitchBadgesToggle?.addEventListener('change', () => {
+    updateSetting('twitchShowBadges', twitchBadgesToggle.checked);
+  });
+
+  // 流量密度ボタン
+  densityButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = btn.getAttribute('data-density') as FlowDensity | null;
+      if (!d) return;
+
+      densityButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.flowDensity = d;
+      updateDynamicLabels();
+      updateSetting('flowDensity', d);
+    });
+  });
+
+  // PiP コントロール
+  pipEnabledToggle?.addEventListener('change', () => {
+    updateSetting('pipEnabled', pipEnabledToggle.checked);
+  });
+
+  triggerPipBtn?.addEventListener('click', async () => {
+    const tab = await getActiveTab();
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_PIP' }, () => {
+        if (chrome.runtime.lastError) { /* ignore */ }
+      });
+      flashSaveStatus(currentLang === 'ja' ? 'PiPを起動しました' : 'PiP launched');
+    }
+  });
 
 
   // 言語選択セレクター

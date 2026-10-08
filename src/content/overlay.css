@@ -1207,3 +1207,138 @@
 .yt-co-reply-likes {
   color: #f87171 !important;
 }
+
+/* ─── ミニチャットボックスモード (Mini Chatbox Mode) ─── */
+.yt-co-chatbox-container {
+  position: absolute !important;
+  bottom: 80px !important;
+  right: 20px !important;
+  width: 320px !important;
+  max-height: 280px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  z-index: 2147483647 !important;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 25%) !important;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%) !important;
+}
+
+.yt-co-chatbox-item {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  padding: 6px 12px !important;
+  background: rgba(15, 15, 25, 0.72) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px !important;
+  color: #fff !important;
+  font-size: 12.5px !important;
+  line-height: 1.4 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+  animation: ytCoChatboxSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  pointer-events: auto !important;
+  word-break: break-word !important;
+}
+
+@keyframes ytCoChatboxSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.yt-co-chatbox-item.is-fading {
+  animation: ytCoChatboxFadeOut 0.4s ease forwards !important;
+}
+
+@keyframes ytCoChatboxFadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.yt-co-chatbox-author {
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+.yt-co-chatbox-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-size: 9.5px !important;
+  padding: 1px 4px !important;
+  border-radius: 4px !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  font-weight: 600 !important;
+  margin-right: 4px !important;
+  vertical-align: middle !important;
+}
+
+/* ─── スパチャ / Bits ネオングラデーション ─── */
+.yt-co-bubble.is-superchat,
+.yt-co-chatbox-item.is-superchat {
+  border: 1.5px solid transparent !important;
+  background: linear-gradient(rgba(20, 20, 35, 0.85), rgba(20, 20, 35, 0.85)) padding-box,
+              linear-gradient(135deg, #ffd700, #ff8c00, #ff007f) border-box !important;
+  box-shadow: 0 0 16px rgba(255, 140, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+.yt-co-superchat-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  background: linear-gradient(135deg, #ff8c00, #ff007f) !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 8px rgba(255, 0, 127, 0.4) !important;
+  margin-bottom: 4px !important;
+}
+
+/* ─── プレイヤー内 TimeBubble コントロールボタン ─── */
+.yt-co-player-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #eee !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 40px !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0.85 !important;
+  transition: opacity 0.15s ease, transform 0.15s ease !important;
+  vertical-align: middle !important;
+  position: relative !important;
+}
+
+.yt-co-player-btn:hover {
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
+}
+
+.yt-co-player-btn.is-active {
+  color: #38bdf8 !important;
+  opacity: 1 !important;
+}
+
+.yt-co-player-btn svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+

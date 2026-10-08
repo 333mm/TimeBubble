@@ -18,6 +18,11 @@ export class OverlayUi {
   private playerElement: HTMLElement | null = null;
   private modalRootEl: HTMLElement | null = null;
   private quickToggleBtnEl: HTMLElement | null = null;
+  private chatboxContainerEl: HTMLElement | null = null;
+  private playerControlsBarEl: HTMLElement | null = null;
+  private recentCommentTimestamps: number[] = [];
+  private onPipToggleCallback: (() => void) | null = null;
+  private onModeCycleCallback: (() => void) | null = null;
   private likedCommentIds = new Set<string>();
   private settings: OverlaySettings = DEFAULT_SETTINGS;
   private activeCards = new Map<string, {
@@ -41,6 +46,37 @@ export class OverlayUi {
   /** 返信フェッチ用コールバックを設定 */
   public setFetchRepliesCallback(cb: (comment: CommentData) => Promise<ReplyFetchResult>) {
     this.fetchRepliesCallback = cb;
+  }
+
+  /** PiPトグルコールバックを設定 */
+  public setOnPipToggleCallback(cb: () => void) {
+    this.onPipToggleCallback = cb;
+  }
+
+  /** モード切替コールバックを設定 */
+  public setOnModeCycleCallback(cb: () => void) {
+    this.onModeCycleCallback = cb;
+  }
+
+  /** オーバーレイコンテナ要素を返す (PiP移行用) */
+  public getContainerElement(): HTMLElement | null {
+    return this.containerEl;
+  }
+
+  /** 有効な表示モードを取得 ('card' | 'flow' | 'chatbox') */
+  public getEffectiveDisplayMode(): 'card' | 'flow' | 'chatbox' {
+    if (this.settings.displayMode === 'chatbox') return 'chatbox';
+    if (this.settings.displayMode === 'flow' || this.settings.flowMode) return 'flow';
+    return 'card';
+  }
+
+  /** コメント流量が激しいかどうか (毎秒トラフィック判定) */
+  public isHighTraffic(): boolean {
+    const now = Date.now();
+    this.recentCommentTimestamps = this.recentCommentTimestamps.filter((t) => now - t < 3000);
+    this.recentCommentTimestamps.push(now);
+    const threshold = this.settings.flowDensity === 'low' ? 3 : this.settings.flowDensity === 'high' ? 12 : 6;
+    return this.recentCommentTimestamps.length > threshold;
   }
 
   /** フローモードが有効かどうかを返す */
@@ -212,6 +248,7 @@ export class OverlayUi {
   public destroy() {
     this.closeExpandedComment();
     this.removeQuickToggleButton();
+    this.removePlayerControlsBar();
     this.clearAll();
     const existingContainers = document.querySelectorAll<HTMLElement>(`#${CONTAINER_ID}`);
     existingContainers.forEach((el) => el.parentElement?.removeChild(el));
@@ -1531,6 +1568,80 @@ export class OverlayUi {
 
   }
 
+  /**
+   * ミニチャットボックスモードへのコメント追加
+   */
+  public enqueueChatboxComment(comment: CommentData) {
+    if (!this.settings.enabled) return;
+    if (!this.playerElement) return;
+
+    if (!this.chatboxContainerEl || !this.chatboxContainerEl.parentElement) {
+      let box = this.playerElement.querySelector<HTMLElement>('.yt-co-chatbox-container');
+      if (!box) {
+        box = document.createElement('div');
+        box.className = 'yt-co-chatbox-container';
+        this.playerElement.appendChild(box);
+      }
+      this.chatboxContainerEl = box;
+    }
+
+    const itemEl = document.createElement('div');
+    itemEl.className = `yt-co-chatbox-item ${comment.isSuperChat ? 'is-superchat' : ''}`;
+
+    if (comment.isSuperChat && comment.superChatAmount) {
+      const superEl = document.createElement('div');
+      superEl.className = 'yt-co-superchat-badge';
+      superEl.textContent = `💰 ${comment.superChatAmount}`;
+      itemEl.appendChild(superEl);
+    }
+
+    const rowEl = document.createElement('div');
+    rowEl.style.display = 'flex';
+    rowEl.style.gap = '6px';
+    rowEl.style.alignItems = 'baseline';
+    rowEl.style.flexWrap = 'wrap';
+
+    if (comment.badges && comment.badges.length > 0) {
+      comment.badges.forEach((b) => {
+        const badgeSpan = document.createElement('span');
+        badgeSpan.className = 'yt-co-chatbox-badge';
+        badgeSpan.textContent = b;
+        rowEl.appendChild(badgeSpan);
+      });
+    }
+
+    const authorSpan = document.createElement('span');
+    authorSpan.className = 'yt-co-chatbox-author';
+    if (comment.userColor) {
+      authorSpan.style.color = comment.userColor;
+    }
+    authorSpan.textContent = `${comment.authorName || 'ユーザー'}:`;
+    rowEl.appendChild(authorSpan);
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'yt-co-chatbox-text';
+    textSpan.textContent = comment.rawText || '';
+    rowEl.appendChild(textSpan);
+
+    itemEl.appendChild(rowEl);
+
+    this.chatboxContainerEl.appendChild(itemEl);
+
+    // 最大同時表示数 (最新6件を保持)
+    while (this.chatboxContainerEl.children.length > 6) {
+      const first = this.chatboxContainerEl.firstElementChild;
+      if (first) this.chatboxContainerEl.removeChild(first);
+    }
+
+    // 7秒後にフェードアウト
+    window.setTimeout(() => {
+      itemEl.classList.add('is-fading');
+      window.setTimeout(() => {
+        if (itemEl.parentElement) itemEl.parentElement.removeChild(itemEl);
+      }, 400);
+    }, 7000);
+  }
+
 
   /**
    * 投稿者のYouTubeチャンネルURLを解決
@@ -1645,5 +1756,118 @@ export class OverlayUi {
     this.settings.enabled = !this.settings.enabled;
     await saveSettings({ enabled: this.settings.enabled });
     this.applySettingsToContainer();
+  }
+
+  /**
+   * プレイヤー内コントロールバーに TimeBubble 操作ボタンをマウント
+   */
+  public mountPlayerControlsBar(controlsBar: HTMLElement) {
+    if (this.playerControlsBarEl && this.playerControlsBarEl.parentElement === controlsBar) {
+      return;
+    }
+    this.removePlayerControlsBar();
+
+    const container = document.createElement('div');
+    container.id = 'yt-co-player-controls-container';
+    container.style.display = 'inline-flex';
+    container.style.alignItems = 'center';
+    container.style.height = '100%';
+    container.style.verticalAlign = 'top';
+
+    // 1. モード切替ボタン
+    const modeBtn = document.createElement('button');
+    modeBtn.className = 'yt-co-player-btn ytp-button';
+    modeBtn.type = 'button';
+    modeBtn.title = `TimeBubble: 表示モード切替 (現在: ${this.settings.displayMode})`;
+
+    const modeSvg = this.createSvgElement('0 0 24 24', 18, 18);
+    modeSvg.setAttribute('fill', 'none');
+    modeSvg.setAttribute('stroke', 'currentColor');
+    modeSvg.setAttribute('stroke-width', '2');
+    modeSvg.setAttribute('stroke-linecap', 'round');
+    modeSvg.setAttribute('stroke-linejoin', 'round');
+    const modePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    modePath.setAttribute('d', 'M4 6h16M4 12h16M4 18h12');
+    modeSvg.appendChild(modePath);
+    modeBtn.appendChild(modeSvg);
+
+    modeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.cycleDisplayMode();
+      modeBtn.title = `TimeBubble: 表示モード切替 (現在: ${this.settings.displayMode})`;
+    });
+
+    // 2. PiP ボタン
+    const pipBtn = document.createElement('button');
+    pipBtn.className = 'yt-co-player-btn ytp-button';
+    pipBtn.type = 'button';
+    pipBtn.title = 'TimeBubble: コメント付きPiP再生';
+
+    const pipSvg = this.createSvgElement('0 0 24 24', 18, 18);
+    pipSvg.setAttribute('fill', 'none');
+    pipSvg.setAttribute('stroke', 'currentColor');
+    pipSvg.setAttribute('stroke-width', '2');
+    pipSvg.setAttribute('stroke-linecap', 'round');
+    pipSvg.setAttribute('stroke-linejoin', 'round');
+    const pipRect1 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    pipRect1.setAttribute('x', '2');
+    pipRect1.setAttribute('y', '3');
+    pipRect1.setAttribute('width', '20');
+    pipRect1.setAttribute('height', '14');
+    pipRect1.setAttribute('rx', '2');
+    pipRect1.setAttribute('ry', '2');
+    pipSvg.appendChild(pipRect1);
+    const pipRect2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    pipRect2.setAttribute('x', '12');
+    pipRect2.setAttribute('y', '9');
+    pipRect2.setAttribute('width', '8');
+    pipRect2.setAttribute('height', '6');
+    pipRect2.setAttribute('rx', '1');
+    pipRect2.setAttribute('ry', '1');
+    pipRect2.setAttribute('fill', 'currentColor');
+    pipSvg.appendChild(pipRect2);
+    pipBtn.appendChild(pipSvg);
+
+    pipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (this.onPipToggleCallback) {
+        this.onPipToggleCallback();
+      }
+    });
+
+    container.appendChild(modeBtn);
+    container.appendChild(pipBtn);
+
+    if (controlsBar.firstChild) {
+      controlsBar.insertBefore(container, controlsBar.firstChild);
+    } else {
+      controlsBar.appendChild(container);
+    }
+    this.playerControlsBarEl = container;
+  }
+
+  public removePlayerControlsBar() {
+    if (this.playerControlsBarEl && this.playerControlsBarEl.parentElement) {
+      this.playerControlsBarEl.parentElement.removeChild(this.playerControlsBarEl);
+    }
+    const existing = document.querySelectorAll('#yt-co-player-controls-container');
+    existing.forEach((el) => el.parentElement?.removeChild(el));
+    this.playerControlsBarEl = null;
+  }
+
+  public async cycleDisplayMode() {
+    const modes: ('card' | 'flow' | 'chatbox')[] = ['card', 'flow', 'chatbox'];
+    const currentIdx = modes.indexOf(this.settings.displayMode as any);
+    const nextMode = modes[(currentIdx + 1) % modes.length];
+    this.settings.displayMode = nextMode;
+    this.settings.flowMode = nextMode === 'flow';
+    await saveSettings({ displayMode: nextMode, flowMode: this.settings.flowMode });
+    this.applySettingsToContainer();
+    if (this.onModeCycleCallback) {
+      this.onModeCycleCallback();
+    }
+    console.log('[TimeBubble] Switched display mode to:', nextMode);
   }
 }

@@ -38,6 +38,18 @@ export class PlayerSync {
       if (this.currentVideoId && comment.videoId && comment.videoId !== this.currentVideoId) {
         continue;
       }
+
+      // リアルタイムチャット (Live / Twitch) または タイムスタンプなしコメントの場合: 即時ディスパッチ
+      if (
+        comment.source === 'live_chat' ||
+        comment.source === 'twitch_chat' ||
+        !comment.timestamps ||
+        comment.timestamps.length === 0
+      ) {
+        this.dispatchLiveComment(comment);
+        continue;
+      }
+
       for (const ts of comment.timestamps) {
         const sec = ts.seconds;
         if (!this.triggersBySecond.has(sec)) {
@@ -59,6 +71,28 @@ export class PlayerSync {
             id: triggerId,
           });
         }
+      }
+    }
+  }
+
+  private dispatchLiveComment(comment: CommentData) {
+    if (this.videoEl?.paused) return;
+
+    const dummyTrigger: TimestampCommentTrigger = {
+      comment,
+      timestamp: { seconds: Math.floor(this.videoEl?.currentTime || 0), formatted: 'Live' },
+      id: comment.id,
+    };
+
+    const mode = this.overlayUi.getEffectiveDisplayMode();
+    if (mode === 'flow') {
+      this.overlayUi.showFlowComment(dummyTrigger, 0);
+    } else if (mode === 'chatbox') {
+      this.overlayUi.enqueueChatboxComment(comment);
+    } else {
+      // カードモード: スパチャ/人気コメント、または流量が落ち着いている場合にカード表示
+      if (comment.isSuperChat || !this.overlayUi.isHighTraffic()) {
+        this.overlayUi.showComment(dummyTrigger);
       }
     }
   }
