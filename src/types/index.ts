@@ -5,6 +5,7 @@ export type FlowSpeed = 'slow' | 'normal' | 'fast';
 export type FlowDensity = 'low' | 'normal' | 'high';
 export type PlatformType = 'youtube' | 'twitch' | 'unknown';
 export type CommentSource = 'timestamp' | 'live_chat' | 'twitch_chat';
+export type PipWindowType = 'native' | 'interactive';
 
 export interface OverlaySettings {
   enabled: boolean;
@@ -59,6 +60,7 @@ export interface OverlaySettings {
   pipEnabled: boolean;
   pipShowComments: boolean;
   pipCommentScale: number; // 0.5 - 1.5
+  pipWindowType?: PipWindowType; // 'native' (タイトルバーなし・比率固定) | 'interactive' (ポップアップ・返信対応)
 }
 
 export const DEFAULT_SETTINGS: OverlaySettings = {
@@ -106,6 +108,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   pipEnabled: true,
   pipShowComments: true,
   pipCommentScale: 1.0,
+  pipWindowType: 'native',
 };
 
 

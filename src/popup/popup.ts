@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, DisplayMode, FlowDensity, FlowSpeed, OverlayPosition, OverlaySettings, OverlaySize } from '../types';
+import { DEFAULT_SETTINGS, DisplayMode, FlowDensity, FlowSpeed, OverlayPosition, OverlaySettings, OverlaySize, PipWindowType } from '../types';
 import { getSettings, saveSettings } from '../utils/storage';
 
 type SupportedLang = 'ja' | 'en' | 'es' | 'zh';
@@ -42,6 +42,9 @@ interface I18nStrings {
   tsPipTitle: string;
   tsPipDesc: string;
   tsPipLaunch: string;
+  pipTypeTitle: string;
+  pipTypeNative: string;
+  pipTypeInteractive: string;
   // ライブ
   liveYtTitle: string;
   liveYtDesc: string;
@@ -112,6 +115,9 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     tsPipTitle: 'PiP ウィンドウにコメントを表示',
     tsPipDesc: 'ピクチャインピクチャ再生中もコメントを合成描画',
     tsPipLaunch: '今すぐコメント付きPiPを開始',
+    pipTypeTitle: 'PiP ウィンドウ形式',
+    pipTypeNative: 'ネイティブ',
+    pipTypeInteractive: 'ポップアップ',
     liveYtTitle: 'YouTube Live チャット表示',
     liveYtDesc: '生配信・アーカイブのリアルタイムチャットを動画上に流す',
     liveTwitchTitle: 'Twitch 配信チャット表示',
@@ -178,6 +184,9 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     tsPipTitle: 'Show Comments in PiP',
     tsPipDesc: 'Render comments inside Picture-in-Picture window',
     tsPipLaunch: 'Start PiP with Comments Now',
+    pipTypeTitle: 'PiP Window Type',
+    pipTypeNative: 'Native',
+    pipTypeInteractive: 'Popup',
     liveYtTitle: 'YouTube Live Chat',
     liveYtDesc: 'Display live and replay stream chats over video',
     liveTwitchTitle: 'Twitch Chat',
@@ -244,6 +253,9 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     tsPipTitle: 'Mostrar en ventana PiP',
     tsPipDesc: 'Dibujar comentarios en Picture-in-Picture',
     tsPipLaunch: 'Iniciar PiP con Comentarios',
+    pipTypeTitle: 'Tipo de ventana PiP',
+    pipTypeNative: 'Nativa',
+    pipTypeInteractive: 'Ventana emergente',
     liveYtTitle: 'Chat de YouTube Live',
     liveYtDesc: 'Mostrar chat en vivo sobre el reproductor',
     liveTwitchTitle: 'Chat de Twitch',
@@ -310,6 +322,9 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     tsPipTitle: '在画中画(PiP)窗口显示评论',
     tsPipDesc: '画中画播放时同步合成绘制评论',
     tsPipLaunch: '立即开启带评论的画中画',
+    pipTypeTitle: 'PiP 窗口类型',
+    pipTypeNative: '原生',
+    pipTypeInteractive: '弹窗',
     liveYtTitle: 'YouTube Live 聊天显示',
     liveYtDesc: '在视频上实时显示直播与回放聊天',
     liveTwitchTitle: 'Twitch 弹幕显示',
@@ -401,6 +416,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tsHighlightToggle = document.getElementById('ts-highlight-toggle') as HTMLInputElement | null;
   const tsAvatarsToggle = document.getElementById('ts-avatars-toggle') as HTMLInputElement | null;
   const tsPipToggle = document.getElementById('ts-pip-toggle') as HTMLInputElement | null;
+  const tsPipTypeVal = document.getElementById('ts-pip-type-val') as HTMLElement | null;
+  const tsPipTypeButtons = document.querySelectorAll<HTMLButtonElement>('#ts-pip-type-group .pip-type-btn');
   const tsTriggerPipBtn = document.getElementById('ts-trigger-pip-btn') as HTMLButtonElement | null;
 
   // ─── ライブ用コントロール ───
@@ -440,6 +457,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const liveUserColorToggle = document.getElementById('live-user-color-toggle') as HTMLInputElement | null;
   const liveAvatarsToggle = document.getElementById('live-avatars-toggle') as HTMLInputElement | null;
   const livePipToggle = document.getElementById('live-pip-toggle') as HTMLInputElement | null;
+  const livePipTypeVal = document.getElementById('live-pip-type-val') as HTMLElement | null;
+  const livePipTypeButtons = document.querySelectorAll<HTMLButtonElement>('#live-pip-type-group .pip-type-btn');
   const liveTriggerPipBtn = document.getElementById('live-trigger-pip-btn') as HTMLButtonElement | null;
 
   // ─── フッター & 共通 ───
@@ -538,6 +557,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elTsPipDesc) elTsPipDesc.textContent = t.tsPipDesc;
     const elTsPipLaunch = document.getElementById('i18n-ts-pip-launch');
     if (elTsPipLaunch) elTsPipLaunch.textContent = t.tsPipLaunch;
+    const elTsPipType = document.getElementById('i18n-ts-pip-type');
+    if (elTsPipType) elTsPipType.textContent = t.pipTypeTitle;
 
     // ライブ側 i18n
     const elLiveYtTitle = document.getElementById('i18n-live-yt-title');
@@ -585,6 +606,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elLivePipDesc) elLivePipDesc.textContent = t.livePipDesc;
     const elLivePipLaunch = document.getElementById('i18n-live-pip-launch');
     if (elLivePipLaunch) elLivePipLaunch.textContent = t.livePipLaunch;
+    const elLivePipType = document.getElementById('i18n-live-pip-type');
+    if (elLivePipType) elLivePipType.textContent = t.pipTypeTitle;
 
     // フッター & 共通
     const elTestBtn = document.getElementById('i18n-test-btn');
@@ -605,6 +628,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.density-btn[data-density="low"]').forEach((btn) => { btn.textContent = t.densityLow; });
     document.querySelectorAll('.density-btn[data-density="normal"]').forEach((btn) => { btn.textContent = t.densityNormal; });
     document.querySelectorAll('.density-btn[data-density="high"]').forEach((btn) => { btn.textContent = t.densityHigh; });
+    document.querySelectorAll('.pip-type-btn[data-type="native"]').forEach((btn) => { btn.textContent = t.pipTypeNative; });
+    document.querySelectorAll('.pip-type-btn[data-type="interactive"]').forEach((btn) => { btn.textContent = t.pipTypeInteractive; });
 
     updateDynamicLabels();
   }
@@ -672,6 +697,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (liveOpacityVal) {
       const op = currentSettings.liveOpacity ?? currentSettings.opacity ?? 30;
       liveOpacityVal.textContent = `${op}%`;
+    }
+
+    const currentPipType = currentSettings.pipWindowType || 'native';
+    const pipTypeText = currentPipType === 'interactive' ? t.pipTypeInteractive : t.pipTypeNative;
+    if (tsPipTypeVal) {
+      tsPipTypeVal.textContent = pipTypeText;
+    }
+    if (livePipTypeVal) {
+      livePipTypeVal.textContent = pipTypeText;
     }
   }
 
@@ -797,6 +831,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (liveUserColorToggle) liveUserColorToggle.checked = settings.liveShowUserColor ?? true;
     if (liveAvatarsToggle) liveAvatarsToggle.checked = settings.liveShowAvatars ?? settings.showLiveAvatars ?? true;
     if (livePipToggle) livePipToggle.checked = settings.livePipEnabled ?? settings.pipEnabled ?? true;
+
+    const currentPipType = settings.pipWindowType || 'native';
+    tsPipTypeButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-type') === currentPipType);
+    });
+    livePipTypeButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-type') === currentPipType);
+    });
 
     updateDynamicLabels();
   }
@@ -1299,6 +1341,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   tsPipToggle?.addEventListener('change', () => {
     updateSetting('pipEnabled', tsPipToggle.checked);
+  });
+
+  const handlePipTypeChange = (type: PipWindowType) => {
+    currentSettings.pipWindowType = type;
+    tsPipTypeButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-type') === type);
+    });
+    livePipTypeButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-type') === type);
+    });
+    updateDynamicLabels();
+    updateSetting('pipWindowType', type);
+  };
+
+  tsPipTypeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const type = btn.getAttribute('data-type') as PipWindowType | null;
+      if (type) handlePipTypeChange(type);
+    });
+  });
+
+  livePipTypeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const type = btn.getAttribute('data-type') as PipWindowType | null;
+      if (type) handlePipTypeChange(type);
+    });
   });
 
   tsTriggerPipBtn?.addEventListener('click', async () => {
