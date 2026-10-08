@@ -18,7 +18,9 @@ export class OverlayUi {
   private playerElement: HTMLElement | null = null;
   private modalRootEl: HTMLElement | null = null;
   private quickToggleBtnEl: HTMLElement | null = null;
+  private quickLiveToggleBtnEl: HTMLElement | null = null;
   private quickPipBtnEl: HTMLElement | null = null;
+  private isLiveStreamCallback: (() => boolean) | null = null;
   private chatboxContainerEl: HTMLElement | null = null;
   private playerControlsBarEl: HTMLElement | null = null;
   private recentCommentTimestamps: number[] = [];
@@ -64,6 +66,30 @@ export class OverlayUi {
   /** PiPがアクティブかどうかを判定 */
   public isPipActive(): boolean {
     return this.isPipActiveCallback ? this.isPipActiveCallback() : false;
+  }
+
+  /** ライブ配信判定コールバックを設定 */
+  public setIsLiveStreamCallback(cb: () => boolean) {
+    this.isLiveStreamCallback = cb;
+  }
+
+  /** 現在の動画/配信がライブモード（TwitchまたはYouTubeライブ）対象か判定 */
+  public isLiveModeActive(): boolean {
+    if (typeof location !== 'undefined' && location.hostname.includes('twitch.tv')) {
+      return true;
+    }
+    if (this.isLiveStreamCallback && this.isLiveStreamCallback()) {
+      return true;
+    }
+    if (typeof document !== 'undefined') {
+      if (document.querySelector('.ytp-live, .ytp-live-badge, ytd-watch-flexy[is-live], ytd-live-chat-frame, #chatframe')) {
+        return true;
+      }
+      if (typeof location !== 'undefined' && location.pathname.startsWith('/live/')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** モード切替コールバックを設定 */
@@ -2130,11 +2156,14 @@ export class OverlayUi {
       return;
     }
 
-    // 1. クイックON/OFFトグルボタン
+    const isLive = this.isLiveModeActive();
+
+    // 1. タイムスタンプ ON/OFFトグルボタン (通常動画用)
     const toggleBtn = ownerDoc.createElement('button');
     toggleBtn.id = 'yt-co-quick-toggle-btn';
     toggleBtn.type = 'button';
-    toggleBtn.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${this.settings.enabled ? 'is-enabled' : 'is-disabled'}`;
+    toggleBtn.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${this.settings.enabled ? 'is-enabled' : 'is-disabled'} ${isLive ? 'is-hidden' : ''}`;
+    toggleBtn.style.setProperty('display', isLive ? 'none' : 'flex', 'important');
 
     this.renderQuickToggleContent(toggleBtn);
 
@@ -2144,7 +2173,23 @@ export class OverlayUi {
       this.toggleEnabled();
     });
 
-    // 2. クイックPiP切り替えボタン
+    // 2. ライブモード ON/OFFトグルボタン (Twitch / YouTubeライブ用)
+    const liveToggleBtn = ownerDoc.createElement('button');
+    liveToggleBtn.id = 'yt-co-quick-live-toggle-btn';
+    liveToggleBtn.type = 'button';
+    const isLiveEn = this.isLiveChatCurrentlyEnabled();
+    liveToggleBtn.className = `yt-co-quick-live-toggle-btn yt-co-quick-pos-${this.settings.position} ${isLiveEn ? 'is-enabled' : 'is-disabled'} ${isLive ? '' : 'is-hidden'}`;
+    liveToggleBtn.style.setProperty('display', isLive ? 'flex' : 'none', 'important');
+
+    this.renderQuickLiveToggleContent(liveToggleBtn);
+
+    liveToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.toggleLiveEnabled();
+    });
+
+    // 3. クイックPiP切り替えボタン
     const pipBtn = ownerDoc.createElement('button');
     pipBtn.id = 'yt-co-quick-pip-btn';
     pipBtn.type = 'button';
@@ -2162,19 +2207,24 @@ export class OverlayUi {
 
     // マウスホバー監視で、セレクタに依らずカーソルがプレイヤー上にあるときに100%確実に表示
     const handleMouseEnter = () => {
+      this.updateQuickActions();
       toggleBtn.classList.add('is-hovered');
+      liveToggleBtn.classList.add('is-hovered');
       pipBtn.classList.add('is-hovered');
     };
     const handleMouseLeave = () => {
       toggleBtn.classList.remove('is-hovered');
+      liveToggleBtn.classList.remove('is-hovered');
       pipBtn.classList.remove('is-hovered');
     };
     playerElement.addEventListener('mouseenter', handleMouseEnter);
     playerElement.addEventListener('mouseleave', handleMouseLeave);
 
     playerElement.appendChild(toggleBtn);
+    playerElement.appendChild(liveToggleBtn);
     playerElement.appendChild(pipBtn);
     this.quickToggleBtnEl = toggleBtn;
+    this.quickLiveToggleBtnEl = liveToggleBtn;
     this.quickPipBtnEl = pipBtn;
   }
 
@@ -2205,6 +2255,51 @@ export class OverlayUi {
       circle.setAttribute('r', '2');
       circle.setAttribute('fill', 'currentColor');
       svg.appendChild(circle);
+    } else {
+      const line = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', '2');
+      line.setAttribute('y1', '2');
+      line.setAttribute('x2', '22');
+      line.setAttribute('y2', '22');
+      svg.appendChild(line);
+    }
+
+    btn.appendChild(svg);
+  }
+
+  private renderQuickLiveToggleContent(btn: HTMLElement) {
+    const ownerDoc = this.getOwnerDocument();
+    const isEn = this.isLiveChatCurrentlyEnabled();
+    btn.title = isEn
+      ? 'TimeBubble ライブチャット: ON (クリックで非表示)'
+      : 'TimeBubble ライブチャット: OFF (クリックで表示)';
+
+    while (btn.firstChild) {
+      btn.removeChild(btn.firstChild);
+    }
+
+    const svg = this.createSvgElement('0 0 24 24', 13, 13);
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2.2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+
+    const circle = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '12');
+    circle.setAttribute('cy', '12');
+    circle.setAttribute('r', '2.5');
+    circle.setAttribute('fill', 'currentColor');
+    svg.appendChild(circle);
+
+    const arc1 = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arc1.setAttribute('d', 'M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49');
+    svg.appendChild(arc1);
+
+    if (isEn) {
+      const arc2 = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
+      arc2.setAttribute('d', 'M19.07 4.93a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14');
+      svg.appendChild(arc2);
     } else {
       const line = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('x1', '2');
@@ -2262,10 +2357,19 @@ export class OverlayUi {
   }
 
   public updateQuickActions() {
+    const isLive = this.isLiveModeActive();
+
     if (this.quickToggleBtnEl) {
       const isEn = this.settings.enabled;
-      this.quickToggleBtnEl.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${isEn ? 'is-enabled' : 'is-disabled'}`;
+      this.quickToggleBtnEl.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${isEn ? 'is-enabled' : 'is-disabled'} ${isLive ? 'is-hidden' : ''}`;
+      this.quickToggleBtnEl.style.setProperty('display', isLive ? 'none' : 'flex', 'important');
       this.renderQuickToggleContent(this.quickToggleBtnEl);
+    }
+    if (this.quickLiveToggleBtnEl) {
+      const isLiveEn = this.isLiveChatCurrentlyEnabled();
+      this.quickLiveToggleBtnEl.className = `yt-co-quick-live-toggle-btn yt-co-quick-pos-${this.settings.position} ${isLiveEn ? 'is-enabled' : 'is-disabled'} ${isLive ? '' : 'is-hidden'}`;
+      this.quickLiveToggleBtnEl.style.setProperty('display', isLive ? 'flex' : 'none', 'important');
+      this.renderQuickLiveToggleContent(this.quickLiveToggleBtnEl);
     }
     if (this.quickPipBtnEl) {
       this.quickPipBtnEl.className = `yt-co-quick-pip-btn yt-co-quick-pos-${this.settings.position}`;
@@ -2278,13 +2382,44 @@ export class OverlayUi {
     if (this.quickToggleBtnEl && this.quickToggleBtnEl.parentElement) {
       this.quickToggleBtnEl.parentElement.removeChild(this.quickToggleBtnEl);
     }
+    if (this.quickLiveToggleBtnEl && this.quickLiveToggleBtnEl.parentElement) {
+      this.quickLiveToggleBtnEl.parentElement.removeChild(this.quickLiveToggleBtnEl);
+    }
     if (this.quickPipBtnEl && this.quickPipBtnEl.parentElement) {
       this.quickPipBtnEl.parentElement.removeChild(this.quickPipBtnEl);
     }
-    const existing = ownerDoc.querySelectorAll('#yt-co-quick-toggle-btn, #yt-co-quick-pip-btn');
+    const existing = ownerDoc.querySelectorAll('#yt-co-quick-toggle-btn, #yt-co-quick-live-toggle-btn, #yt-co-quick-pip-btn');
     existing.forEach((el) => el.parentElement?.removeChild(el));
     this.quickToggleBtnEl = null;
+    this.quickLiveToggleBtnEl = null;
     this.quickPipBtnEl = null;
+  }
+
+  private isLiveChatCurrentlyEnabled(): boolean {
+    const isTwitch = typeof location !== 'undefined' && location.hostname.includes('twitch.tv');
+    return isTwitch
+      ? (this.settings.twitchEnabled ?? true)
+      : (this.settings.liveChatEnabled ?? true);
+  }
+
+  private async toggleLiveEnabled() {
+    const isTwitch = typeof location !== 'undefined' && location.hostname.includes('twitch.tv');
+    const currentVal = this.isLiveChatCurrentlyEnabled();
+    const nextVal = !currentVal;
+
+    if (isTwitch) {
+      this.settings.twitchEnabled = nextVal;
+      await saveSettings({ twitchEnabled: nextVal });
+    } else {
+      this.settings.liveChatEnabled = nextVal;
+      await saveSettings({ liveChatEnabled: nextVal });
+    }
+
+    if (!nextVal) {
+      this.clearAll();
+    }
+    this.updateQuickActions();
+    this.applySettingsToContainer();
   }
 
   private async toggleEnabled() {

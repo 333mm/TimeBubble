@@ -48,6 +48,11 @@ if (LiveChatForwarder.isLiveChatFrame()) {
         }
       });
 
+      this.overlayUi.setIsLiveStreamCallback(() => {
+        if (!this.currentAdapter) return false;
+        return this.currentAdapter.getPlatform() === 'twitch' || this.currentAdapter.isLiveStream();
+      });
+
       // 4. プラットフォームアダプタの選定
       this.initAdapter();
 
@@ -204,6 +209,7 @@ if (LiveChatForwarder.isLiveChatFrame()) {
 
       // オーバーレイUIのマウント
       this.overlayUi.mount(playerEl);
+      this.overlayUi.updateQuickActions();
 
       // コントロールバーボタンのマウント (YouTube / Twitch)
       const controlsBar = this.currentAdapter?.getControlsBar();
