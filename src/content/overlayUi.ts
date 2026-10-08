@@ -58,6 +58,16 @@ export class OverlayUi {
     this.onModeCycleCallback = cb;
   }
 
+  /** オーバーレイ用CSSのRaw文字列を返す */
+  public getCssRaw(): string {
+    return overlayCssRaw;
+  }
+
+  /** 現在マウントされているプレイヤー要素を返す */
+  public getPlayerElement(): HTMLElement | null {
+    return this.playerElement;
+  }
+
   /** オーバーレイコンテナ要素を返す (PiP移行用) */
   public getContainerElement(): HTMLElement | null {
     return this.containerEl;
@@ -164,17 +174,21 @@ export class OverlayUi {
   }
 
 
+  private getOwnerDocument(): Document {
+    return this.playerElement?.ownerDocument || (typeof document !== 'undefined' ? document : null as any);
+  }
+
   constructor() {
     this.ensureGlobalStyles();
   }
 
-  private ensureGlobalStyles() {
-    if (typeof document === 'undefined') return;
-    let styleEl = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+  private ensureGlobalStyles(targetDoc: Document = document) {
+    if (!targetDoc) return;
+    let styleEl = targetDoc.getElementById(STYLE_ID) as HTMLStyleElement | null;
     if (!styleEl) {
-      styleEl = document.createElement('style');
+      styleEl = targetDoc.createElement('style');
       styleEl.id = STYLE_ID;
-      (document.head || document.documentElement).appendChild(styleEl);
+      (targetDoc.head || targetDoc.documentElement).appendChild(styleEl);
     }
     if (styleEl.textContent !== overlayCssRaw) {
       styleEl.textContent = overlayCssRaw;
@@ -195,12 +209,14 @@ export class OverlayUi {
    * 動画プレイヤーへのマウント
    */
   public mount(playerElement: HTMLElement): boolean {
-    this.ensureGlobalStyles();
+    const ownerDoc = playerElement.ownerDocument || document;
+    this.ensureGlobalStyles(ownerDoc);
     this.playerElement = playerElement;
 
     // 親要素の position が static なら relative を付与して絶対配置の基準にする (bodyは除く)
-    const computedPos = window.getComputedStyle(playerElement).position;
-    if (playerElement !== document.body && computedPos === 'static') {
+    const win = ownerDoc.defaultView || window;
+    const computedPos = win.getComputedStyle(playerElement).position;
+    if (playerElement !== ownerDoc.body && computedPos === 'static') {
       playerElement.style.position = 'relative';
     }
 
@@ -210,8 +226,14 @@ export class OverlayUi {
       return true;
     }
 
+    // 別ドキュメントや別の親から切り替わる場合、古いコンテナを解除
+    if (this.containerEl && this.containerEl.parentElement !== playerElement) {
+      this.containerEl.parentElement?.removeChild(this.containerEl);
+      this.containerEl = null;
+    }
+
     // DOM全体から既存のコンテナ（古いサイズや孤立したもの）をすべて探索
-    const existingContainers = document.querySelectorAll<HTMLElement>(`#${CONTAINER_ID}`);
+    const existingContainers = ownerDoc.querySelectorAll<HTMLElement>(`#${CONTAINER_ID}`);
     let targetContainer: HTMLElement | null = null;
 
     for (const el of Array.from(existingContainers)) {
@@ -230,8 +252,8 @@ export class OverlayUi {
       return true;
     }
 
-    // 新規作成
-    const container = document.createElement('div');
+    // 新規作成 (ターゲットドキュメント内で作成)
+    const container = ownerDoc.createElement('div');
     container.id = CONTAINER_ID;
     const size = this.settings.size || 'medium';
     container.className = `pos-${this.settings.position} size-${size}`;
@@ -776,8 +798,9 @@ export class OverlayUi {
    * Trusted Types / CSP に完全準拠した安全なDOM生成 (innerHTML不使用)
    */
   private createBubbleElement(trigger: TimestampCommentTrigger): HTMLElement {
+    const doc = this.getOwnerDocument();
     const { comment, timestamp } = trigger;
-    const bubble = document.createElement('div');
+    const bubble = doc.createElement('div');
     const size = this.settings.size || 'medium';
     bubble.className = `yt-co-bubble yt-co-size-${size}`;
     bubble.setAttribute('data-size', size);
@@ -799,20 +822,20 @@ export class OverlayUi {
     const avatarEl = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
 
     // ヘッダー構造
-    const header = document.createElement('div');
+    const header = doc.createElement('div');
     header.className = 'yt-co-header';
 
-    const meta = document.createElement('div');
+    const meta = doc.createElement('div');
     meta.className = 'yt-co-meta';
 
-    const author = document.createElement('span');
+    const author = doc.createElement('span');
     author.className = 'yt-co-author';
     author.textContent = comment.authorName;
 
     meta.appendChild(author);
 
     if (comment.isDescription) {
-      const descBadge = document.createElement('span');
+      const descBadge = doc.createElement('span');
       descBadge.className = 'yt-co-chapter-badge';
       descBadge.textContent = '見どころ';
       meta.appendChild(descBadge);
@@ -823,30 +846,30 @@ export class OverlayUi {
 
     // いいね数バッジ
     if (comment.likeCount > 0) {
-      const likesBadge = document.createElement('span');
+      const likesBadge = doc.createElement('span');
       likesBadge.className = 'yt-co-likes-badge';
 
       const likeSvg = this.createSvgElement('0 0 24 24', 12, 12);
       likeSvg.classList.add('yt-co-likes-icon');
-      const likePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const likePath = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
       likePath.setAttribute('d', 'M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z');
       likeSvg.appendChild(likePath);
 
       likesBadge.appendChild(likeSvg);
-      likesBadge.appendChild(document.createTextNode(` ${comment.formattedLikeCount}`));
+      likesBadge.appendChild(doc.createTextNode(` ${comment.formattedLikeCount}`));
       header.appendChild(likesBadge);
     }
 
     // 本文テキスト（時間の部分をバッジに置き換えてインライン配置）
-    const content = document.createElement('div');
+    const content = doc.createElement('div');
     content.className = 'yt-co-content';
     this.renderContentWithTimestamps(content, comment.rawText, timestamp.formatted);
 
     // フッター (詳細表示・拡張インジケーター)
-    const footer = document.createElement('div');
+    const footer = doc.createElement('div');
     footer.className = 'yt-co-footer';
 
-    const footerText = document.createElement('span');
+    const footerText = doc.createElement('span');
     footerText.textContent = '詳細を表示';
 
     const expandSvg = this.createSvgElement('0 0 24 24', 11, 11);
@@ -910,18 +933,19 @@ export class OverlayUi {
    * インライン用のタイムスタンプバッジ要素を生成
    */
   private createTimestampBadge(timeText: string): HTMLElement {
-    const tsBadge = document.createElement('span');
+    const doc = this.getOwnerDocument();
+    const tsBadge = doc.createElement('span');
     const size = this.settings.size || 'medium';
     tsBadge.className = `yt-co-ts-badge yt-co-size-${size}`;
     tsBadge.title = `${timeText} へジャンプ`;
 
     const playSvg = this.createSvgElement('0 0 24 24', 9, 9);
     playSvg.setAttribute('fill', 'currentColor');
-    const playPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    const playPoly = doc.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     playPoly.setAttribute('points', '6 4 20 12 6 20 6 4');
     playSvg.appendChild(playPoly);
 
-    const tsText = document.createTextNode(timeText);
+    const tsText = doc.createTextNode(timeText);
     tsBadge.appendChild(playSvg);
     tsBadge.appendChild(tsText);
 
@@ -930,7 +954,7 @@ export class OverlayUi {
       e.stopPropagation();
       const sec = timeStringToSeconds(timeText);
       if (sec >= 0) {
-        const video = document.querySelector<HTMLVideoElement>('video');
+        const video = this.playerElement?.querySelector<HTMLVideoElement>('video') || document.querySelector<HTMLVideoElement>('video');
         if (video) {
           video.currentTime = sec;
         }
@@ -941,7 +965,8 @@ export class OverlayUi {
   }
 
   private createSvgElement(viewBox: string, width: number, height: number): SVGSVGElement {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const doc = this.getOwnerDocument();
+    const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', viewBox);
     svg.setAttribute('width', width.toString());
     svg.setAttribute('height', height.toString());
@@ -949,10 +974,11 @@ export class OverlayUi {
   }
 
   private createAvatarElement(authorName: string, avatarUrl: string): HTMLElement {
+    const doc = this.getOwnerDocument();
     const hasValidUrl = Boolean(avatarUrl && avatarUrl.startsWith('http'));
 
     if (hasValidUrl) {
-      const img = document.createElement('img');
+      const img = doc.createElement('img');
       img.className = 'yt-co-avatar';
       img.src = avatarUrl;
       img.alt = authorName;
@@ -970,10 +996,11 @@ export class OverlayUi {
   }
 
   private generateInitialAvatar(name: string): HTMLElement {
+    const doc = this.getOwnerDocument();
     const cleanName = (name || 'ユ').trim();
     const firstChar = Array.from(cleanName)[0] || 'ユ';
 
-    const fallback = document.createElement('div');
+    const fallback = doc.createElement('div');
     fallback.className = 'yt-co-avatar-fallback';
     fallback.textContent = firstChar;
 
@@ -1485,7 +1512,8 @@ export class OverlayUi {
       }
     }
 
-    const flowEl = document.createElement('div');
+    const ownerDoc = playerEl.ownerDocument || document;
+    const flowEl = ownerDoc.createElement('div');
     const size = this.settings.flowSize || 'medium';
     flowEl.className = `yt-co-flow-comment size-${size}`;
 
@@ -1507,7 +1535,7 @@ export class OverlayUi {
     const avatar = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
     avatar.classList.add('yt-co-flow-avatar');
 
-    const textEl = document.createElement('span');
+    const textEl = ownerDoc.createElement('span');
     textEl.className = 'yt-co-flow-text';
     textEl.textContent = comment.rawText.replace(/\n/g, ' ');
 
@@ -1515,7 +1543,8 @@ export class OverlayUi {
     flowEl.appendChild(textEl);
 
     // レーン位置（プレイヤー高さの均等分割）
-    const playerHeight = playerEl.clientHeight || 360;
+    const win = ownerDoc.defaultView || window;
+    const playerHeight = playerEl.clientHeight || win.innerHeight || 360;
     const laneHeight = Math.floor(playerHeight / LANE_COUNT);
     const topPx = laneIndex * laneHeight + Math.floor(laneHeight * 0.15);
     flowEl.style.top = `${topPx}px`;
@@ -1523,7 +1552,7 @@ export class OverlayUi {
     playerEl.appendChild(flowEl);
 
     // アニメーション時間（flowSpeed設定に対応）
-    const playerWidth = playerEl.clientWidth || 640;
+    const playerWidth = playerEl.clientWidth || win.innerWidth || 640;
     const duration = this.getFlowDuration(playerWidth);
     flowEl.style.setProperty('--yt-co-flow-duration', `${duration}ms`);
     flowEl.style.setProperty('--yt-co-flow-start-x', `${playerWidth}px`);
@@ -1575,27 +1604,29 @@ export class OverlayUi {
     if (!this.settings.enabled) return;
     if (!this.playerElement) return;
 
+    const ownerDoc = this.getOwnerDocument();
+
     if (!this.chatboxContainerEl || !this.chatboxContainerEl.parentElement) {
       let box = this.playerElement.querySelector<HTMLElement>('.yt-co-chatbox-container');
       if (!box) {
-        box = document.createElement('div');
+        box = ownerDoc.createElement('div');
         box.className = 'yt-co-chatbox-container';
         this.playerElement.appendChild(box);
       }
       this.chatboxContainerEl = box;
     }
 
-    const itemEl = document.createElement('div');
+    const itemEl = ownerDoc.createElement('div');
     itemEl.className = `yt-co-chatbox-item ${comment.isSuperChat ? 'is-superchat' : ''}`;
 
     if (comment.isSuperChat && comment.superChatAmount) {
-      const superEl = document.createElement('div');
+      const superEl = ownerDoc.createElement('div');
       superEl.className = 'yt-co-superchat-badge';
       superEl.textContent = `💰 ${comment.superChatAmount}`;
       itemEl.appendChild(superEl);
     }
 
-    const rowEl = document.createElement('div');
+    const rowEl = ownerDoc.createElement('div');
     rowEl.style.display = 'flex';
     rowEl.style.gap = '6px';
     rowEl.style.alignItems = 'baseline';
@@ -1603,14 +1634,14 @@ export class OverlayUi {
 
     if (comment.badges && comment.badges.length > 0) {
       comment.badges.forEach((b) => {
-        const badgeSpan = document.createElement('span');
+        const badgeSpan = ownerDoc.createElement('span');
         badgeSpan.className = 'yt-co-chatbox-badge';
         badgeSpan.textContent = b;
         rowEl.appendChild(badgeSpan);
       });
     }
 
-    const authorSpan = document.createElement('span');
+    const authorSpan = ownerDoc.createElement('span');
     authorSpan.className = 'yt-co-chatbox-author';
     if (comment.userColor) {
       authorSpan.style.color = comment.userColor;
@@ -1618,7 +1649,7 @@ export class OverlayUi {
     authorSpan.textContent = `${comment.authorName || 'ユーザー'}:`;
     rowEl.appendChild(authorSpan);
 
-    const textSpan = document.createElement('span');
+    const textSpan = ownerDoc.createElement('span');
     textSpan.className = 'yt-co-chatbox-text';
     textSpan.textContent = comment.rawText || '';
     rowEl.appendChild(textSpan);

@@ -9,8 +9,6 @@ export class PipController {
   private animFrameId: number | null = null;
   private originalVideoParent: HTMLElement | null = null;
   private originalVideoNextSibling: Node | null = null;
-  private originalOverlayParent: HTMLElement | null = null;
-  private originalOverlayNextSibling: Node | null = null;
   private placeholderEl: HTMLElement | null = null;
 
   public static getInstance(): PipController {
@@ -57,6 +55,8 @@ export class PipController {
     }
   }
 
+  private originalPlayerElement: HTMLElement | null = null;
+
   /**
    * 1. Document Picture-in-Picture (Chrome, Edge 向け最高画質・フルインタラクティブ)
    */
@@ -73,66 +73,83 @@ export class PipController {
 
       this.pipWindow = pipWin;
 
-      // 1. スタイルシートの同期コピー
+      // 1. TimeBubble 全体スタイルの注入 (overlay.css)
+      const baseStyle = pipWin.document.createElement('style');
+      baseStyle.id = 'yt-comment-overlay-styles';
+      baseStyle.textContent = overlayUi.getCssRaw();
+      pipWin.document.head.appendChild(baseStyle);
+
+      // 2. 親ドキュメントの既存スタイルシートの同期コピー
       document.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => {
         try {
-          pipWin.document.head.appendChild(el.cloneNode(true));
+          if (el.id !== 'yt-comment-overlay-styles') {
+            pipWin.document.head.appendChild(el.cloneNode(true));
+          }
         } catch {
           // ignore
         }
       });
 
-      // 2. PiP ウィンドウ固有のリセットスタイル
+      // 3. PiP ウィンドウ固有のリセット & オーバーレイスタイル
       const pipStyle = pipWin.document.createElement('style');
       pipStyle.textContent = `
         body {
-          margin: 0;
-          padding: 0;
-          background: #000;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100vw;
-          height: 100vh;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #000 !important;
+          overflow: hidden !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          user-select: none !important;
         }
         .pip-player-wrapper {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #000;
+          position: relative !important;
+          width: 100% !important;
+          height: 100% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          background: #000 !important;
+          overflow: hidden !important;
         }
         .pip-player-wrapper video {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: contain !important;
         }
-        .yt-comment-overlay-container {
+        #yt-comment-overlay-container {
           position: absolute !important;
-          inset: 0 !important;
+          z-index: 2147483647 !important;
           pointer-events: none !important;
-          z-index: 9999 !important;
+          max-width: 90% !important;
         }
-        .yt-comment-overlay-container * {
+        #yt-comment-overlay-container * {
           pointer-events: auto !important;
+        }
+        .yt-co-flow-comment {
+          position: absolute !important;
+          z-index: 2147483640 !important;
+          white-space: nowrap !important;
+        }
+        .yt-co-chatbox-container {
+          position: absolute !important;
+          bottom: 10px !important;
+          right: 10px !important;
+          z-index: 2147483647 !important;
+          max-width: 80% !important;
         }
       `;
       pipWin.document.head.appendChild(pipStyle);
 
-      // 3. 元の位置を記録
+      // 4. 元の位置とプレイヤー要素を退避
       this.originalVideoParent = video.parentElement;
       this.originalVideoNextSibling = video.nextSibling;
+      this.originalPlayerElement = overlayUi.getPlayerElement() || video.parentElement;
 
-      const overlayContainer = overlayUi.getContainerElement();
-      if (overlayContainer) {
-        this.originalOverlayParent = overlayContainer.parentElement;
-        this.originalOverlayNextSibling = overlayContainer.nextSibling;
-      }
-
-      // 4. 元ページにプレースホルダーを挿入
+      // 5. 元ページにプレースホルダーを挿入
       this.placeholderEl = document.createElement('div');
       this.placeholderEl.style.width = '100%';
       this.placeholderEl.style.height = '100%';
@@ -177,16 +194,17 @@ export class PipController {
         this.originalVideoParent.insertBefore(this.placeholderEl, this.originalVideoNextSibling);
       }
 
-      // 5. PiP DOM を構築
+      // 6. PiP DOM を構築して動画を配置
       const wrapper = pipWin.document.createElement('div');
       wrapper.className = 'pip-player-wrapper';
       wrapper.appendChild(video);
-      if (overlayContainer) {
-        wrapper.appendChild(overlayContainer);
-      }
       pipWin.document.body.appendChild(wrapper);
 
-      // 6. 終了イベントリスナー
+      // 7. オーバーレイUIを PiP のプレイヤーラッパーに再マウント！
+      // これによりカード、流れるコメント、チャットボックスがすべて PiP ウィンドウ内の wrapper に描画される
+      overlayUi.mount(wrapper);
+
+      // 8. 終了イベントリスナー
       pipWin.addEventListener('pagehide', () => {
         this.restoreFromDocumentPiP(video, overlayUi);
       });
@@ -211,11 +229,10 @@ export class PipController {
       this.originalVideoNextSibling = null;
     }
 
-    const overlayContainer = overlayUi.getContainerElement();
-    if (overlayContainer && this.originalOverlayParent) {
-      this.originalOverlayParent.insertBefore(overlayContainer, this.originalOverlayNextSibling);
-      this.originalOverlayParent = null;
-      this.originalOverlayNextSibling = null;
+    // 元のプレイヤー要素にオーバーレイUIを復帰マウント
+    if (this.originalPlayerElement) {
+      overlayUi.mount(this.originalPlayerElement);
+      this.originalPlayerElement = null;
     }
 
     this.pipWindow = null;
@@ -307,20 +324,22 @@ export class PipController {
     h: number,
     _overlayUi: OverlayUi
   ) {
-    // 流れるコメントの描画 (DOM要素の位置をサンプリング)
-    const flowElements = document.querySelectorAll<HTMLElement>('.yt-comment-flow-item');
+    // 1. 流れるコメントの描画 (.yt-co-flow-comment)
+    const flowElements = document.querySelectorAll<HTMLElement>('.yt-co-flow-comment');
     if (flowElements.length > 0) {
       ctx.save();
-      ctx.font = `bold ${Math.round(h * 0.05)}px sans-serif`;
+      const fontSize = Math.max(14, Math.round(h * 0.055));
+      ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.textBaseline = 'top';
 
       flowElements.forEach((el) => {
         const rect = el.getBoundingClientRect();
         const parentRect = el.parentElement?.getBoundingClientRect();
-        if (parentRect) {
-          const relX = (rect.left - parentRect.left) / parentRect.width * w;
-          const relY = (rect.top - parentRect.top) / parentRect.height * h;
-          const text = el.textContent || '';
+        if (parentRect && parentRect.width > 0 && parentRect.height > 0) {
+          const relX = ((rect.left - parentRect.left) / parentRect.width) * w;
+          const relY = ((rect.top - parentRect.top) / parentRect.height) * h;
+          const textEl = el.querySelector('.yt-co-flow-text');
+          const text = textEl?.textContent || el.textContent || '';
 
           // テキスト縁取り (黒)
           ctx.strokeStyle = '#000000';
@@ -335,40 +354,74 @@ export class PipController {
       ctx.restore();
     }
 
-    // カードコメントの描画
-    const cards = document.querySelectorAll<HTMLElement>('.yt-comment-card');
+    // 2. カードコメントの描画 (.yt-co-bubble)
+    const cards = document.querySelectorAll<HTMLElement>('.yt-co-bubble');
     if (cards.length > 0) {
       ctx.save();
-      const cardHeight = Math.round(h * 0.2);
-      const cardWidth = Math.round(w * 0.4);
-      let cardY = 20;
+      const cardHeight = Math.round(h * 0.22);
+      const cardWidth = Math.round(w * 0.42);
+      let cardY = 16;
 
       cards.forEach((card) => {
-        const text = card.querySelector('.yt-comment-card-body')?.textContent || '';
-        const author = card.querySelector('.yt-comment-card-author')?.textContent || '';
-        const cardX = w - cardWidth - 20;
+        const text = card.querySelector('.yt-co-content')?.textContent || '';
+        const author = card.querySelector('.yt-co-author')?.textContent || '';
+        const cardX = w - cardWidth - 16;
 
         // 半透明背景
-        ctx.fillStyle = 'rgba(20, 20, 30, 0.75)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 10);
+        if (ctx.roundRect) {
+          ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 10);
+        } else {
+          ctx.rect(cardX, cardY, cardWidth, cardHeight);
+        }
         ctx.fill();
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
         // 投稿者名
-        ctx.fillStyle = '#67e8f9';
-        ctx.font = `bold ${Math.round(h * 0.03)}px sans-serif`;
+        ctx.fillStyle = '#818cf8';
+        ctx.font = `bold ${Math.max(12, Math.round(h * 0.035))}px sans-serif`;
         ctx.fillText(author, cardX + 12, cardY + 22);
 
         // 本文
         ctx.fillStyle = '#ffffff';
-        ctx.font = `${Math.round(h * 0.028)}px sans-serif`;
-        ctx.fillText(text.slice(0, 30), cardX + 12, cardY + 48);
+        ctx.font = `${Math.max(11, Math.round(h * 0.032))}px sans-serif`;
+        ctx.fillText(text.slice(0, 32), cardX + 12, cardY + 46);
 
         cardY += cardHeight + 10;
+      });
+      ctx.restore();
+    }
+
+    // 3. チャットボックスの描画 (.yt-co-chatbox-item)
+    const chatItems = document.querySelectorAll<HTMLElement>('.yt-co-chatbox-item');
+    if (chatItems.length > 0) {
+      ctx.save();
+      const chatWidth = Math.round(w * 0.45);
+      const itemHeight = Math.max(22, Math.round(h * 0.055));
+      let currentY = h - 20 - chatItems.length * itemHeight;
+
+      chatItems.forEach((item) => {
+        const author = item.querySelector('.yt-co-chatbox-author')?.textContent || '';
+        const text = item.querySelector('.yt-co-chatbox-text')?.textContent || '';
+        const chatX = w - chatWidth - 16;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.fillRect(chatX, currentY, chatWidth, itemHeight);
+
+        ctx.fillStyle = '#c7d2fe';
+        ctx.font = `bold ${Math.max(11, Math.round(h * 0.03))}px sans-serif`;
+        ctx.fillText(author, chatX + 6, currentY + 16);
+
+        const authorWidth = ctx.measureText(author).width;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${Math.max(11, Math.round(h * 0.03))}px sans-serif`;
+        ctx.fillText(text.slice(0, 28), chatX + 8 + authorWidth, currentY + 16);
+
+        currentY += itemHeight;
       });
       ctx.restore();
     }
