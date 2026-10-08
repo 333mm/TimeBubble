@@ -42,6 +42,7 @@ export class OverlayUi {
   private fetchRepliesCallback: ((comment: CommentData) => Promise<ReplyFetchResult>) | null = null;
   // フローモード用: アクティブな流れるコメント要素
   private flowLanes: Array<number> = []; // 各レーンの使用解除タイムスタンプ (ms)
+  private lastSelectedLaneIndex = -1;
 
   /** 返信フェッチ用コールバックを設定 */
   public setFetchRepliesCallback(cb: (comment: CommentData) => Promise<ReplyFetchResult>) {
@@ -1666,11 +1667,16 @@ export class OverlayUi {
    * レーンの使用状況をリセットする（シーク時・巻き戻し時用）
    */
   public resetFlowLanes() {
-    this.flowLanes = Array(6).fill(0);
+    this.flowLanes = [];
+    this.lastSelectedLaneIndex = -1;
   }
 
   /**
    * ニコニコ動画風の流れるコメントを表示する
+   * - 画面の高さとフォントサイズに応じた動的レーン数を自動算出（8〜24レーン）
+   * - コメントの推定長に応じた正確な右端通過クリア時間で衝突（重なり）を防止
+   * - 空きレーンからのランダム分散配置＆直前レーン回避により、自動車レーン感を解消し自然に散らす
+   * - 微小な垂直ランダムジッター（±3〜5px）により、機械的な整列を崩して自然な浮遊感を演出
    * @param trigger タイムスタンプコメント
    * @param timeOffsetMs シーク時等に既に経過している時間 (ミリ秒)
    * @param force 設定の有効無効チェックをバイパスするか (テスト用)
@@ -1700,37 +1706,102 @@ export class OverlayUi {
     if (!playerEl) return;
 
     const { comment } = trigger;
-    const LANE_COUNT = 6;
     const now = Date.now();
-
-    // レーン初期化
-    if (this.flowLanes.length < LANE_COUNT) {
-      this.flowLanes = Array(LANE_COUNT).fill(0);
-    }
-
-    // レーンを選択 (preferredLaneIndex があればそれを優先、無ければ使用解除時刻が最も古いものを使用)
-    let laneIndex = 0;
-    if (preferredLaneIndex !== undefined && preferredLaneIndex >= 0 && preferredLaneIndex < LANE_COUNT) {
-      laneIndex = preferredLaneIndex;
-    } else {
-      let minTime = Infinity;
-      for (let i = 0; i < LANE_COUNT; i++) {
-        if (this.flowLanes[i] <= now) {
-          laneIndex = i;
-          break;
-        }
-        if (this.flowLanes[i] < minTime) {
-          minTime = this.flowLanes[i];
-          laneIndex = i;
-        }
-      }
-    }
-
     const ownerDoc = playerEl.ownerDocument || document;
-    const flowEl = ownerDoc.createElement('div');
+    const win = ownerDoc.defaultView || window;
+
+    const playerHeight = playerEl.clientHeight || win.innerHeight || 360;
+    const playerWidth = playerEl.clientWidth || win.innerWidth || 640;
+
+    // セーフエリア（上部5%、下部12%コントロールバーマージン）
+    const safeTop = Math.max(16, Math.floor(playerHeight * 0.05));
+    const safeBottom = Math.max(68, Math.floor(playerHeight * 0.12));
+    const usableHeight = Math.max(120, playerHeight - safeTop - safeBottom);
+
     const size = isLive
       ? (this.settings.liveFlowSize || this.settings.flowSize || 'medium')
       : (this.settings.flowSize || 'medium');
+
+    // サイズに応じた1レーンの高さピッチ (small: 28px, medium: 34px, large: 42px)
+    const lanePitch = size === 'large' ? 42 : size === 'small' ? 28 : 34;
+
+    // プレイヤーの高さに応じてレーン数を動的に算出（最小8レーン、最大24レーン）
+    const laneCount = Math.max(8, Math.min(24, Math.floor(usableHeight / lanePitch)));
+
+    // レーン配列の自動拡張
+    while (this.flowLanes.length < laneCount) {
+      this.flowLanes.push(0);
+    }
+
+    const duration = this.getFlowDuration(playerWidth, isLive);
+
+    // アバター・バッジ表示判定
+    const shouldShowAvatar = isLive
+      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? true)
+      : (this.settings.showAvatars ?? true);
+
+    const shouldShowBadges = isLive
+      ? (this.settings.liveShowBadges ?? this.settings.showBadges ?? true)
+      : false;
+
+    // コメントの推定表示幅（全角文字約15px, 半角約8px, アバター, バッジ, パディング）
+    const charWidth = size === 'large' ? 18 : size === 'small' ? 12 : 15;
+    const estimatedTextWidth = Array.from(comment.rawText).reduce(
+      (acc, c) => acc + (c.charCodeAt(0) > 255 ? charWidth : Math.round(charWidth * 0.55)),
+      0
+    );
+    const avatarWidth = shouldShowAvatar ? (size === 'large' ? 32 : size === 'small' ? 20 : 26) : 0;
+    const badgesWidth = (shouldShowBadges && comment.badges && comment.badges.length > 0) ? (comment.badges.length * 28) : 0;
+    const estimatedTotalWidth = Math.max(80, estimatedTextWidth + avatarWidth + badgesWidth + 24);
+
+    // コメント移動速度 (px/ms)
+    const speedPxPerMs = (playerWidth + estimatedTotalWidth) / duration;
+
+    // コメントの末尾が画面右端を抜けて次のコメントが入れるようになるまでの所要時間 (ms)
+    // 次のコメントとの衝突を防ぐため、最低40pxの余白時間を確保
+    const clearRightEdgeMs = Math.round((estimatedTotalWidth + 40) / speedPxPerMs);
+
+    // ─── 重なり回避 & 自然なランダム分散レーン選択 ───
+    let laneIndex = 0;
+    if (preferredLaneIndex !== undefined && preferredLaneIndex >= 0 && preferredLaneIndex < laneCount) {
+      laneIndex = preferredLaneIndex;
+    } else {
+      // 現在解放されている空きレーンを収集
+      const availableLanes: number[] = [];
+      for (let i = 0; i < laneCount; i++) {
+        if (this.flowLanes[i] <= now) {
+          availableLanes.push(i);
+        }
+      }
+
+      if (availableLanes.length > 0) {
+        // 空きレーンが存在する場合:
+        // 直前レーン（lastSelectedLaneIndex）の直近（±1）をできる限り避けて分散感を高める
+        let candidates = availableLanes;
+        if (this.lastSelectedLaneIndex !== -1 && availableLanes.length > 2) {
+          const nonAdjacent = availableLanes.filter(
+            (idx) => Math.abs(idx - this.lastSelectedLaneIndex) > 1
+          );
+          if (nonAdjacent.length > 0) {
+            candidates = nonAdjacent;
+          }
+        }
+        // 候補群の中からランダムに選択（自動車レーン感を解消し、自然に散らす！）
+        laneIndex = candidates[Math.floor(Math.random() * candidates.length)];
+      } else {
+        // 全レーン使用中（高トラフィック時）:
+        // 解放予定時刻が最も早い上位3レーンの中からランダムに選んで衝突・連続を分散
+        const sortedByTime = [...Array(laneCount).keys()].sort(
+          (a, b) => this.flowLanes[a] - this.flowLanes[b]
+        );
+        const bestCandidates = sortedByTime.slice(0, Math.min(3, sortedByTime.length));
+        laneIndex = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
+      }
+    }
+
+    this.lastSelectedLaneIndex = laneIndex;
+
+    const flowEl = ownerDoc.createElement('div');
     flowEl.className = `yt-co-flow-comment size-${size}`;
 
     // フロー背景不透明度の適用
@@ -1755,9 +1826,6 @@ export class OverlayUi {
     }
 
     // アバター
-    const shouldShowAvatar = isLive
-      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? true)
-      : (this.settings.showAvatars ?? true);
     if (shouldShowAvatar) {
       const avatar = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
       avatar.classList.add('yt-co-flow-avatar');
@@ -1765,9 +1833,6 @@ export class OverlayUi {
     }
 
     // ライブバッジ
-    const shouldShowBadges = isLive
-      ? (this.settings.liveShowBadges ?? this.settings.showBadges ?? true)
-      : false;
     if (shouldShowBadges && comment.badges && comment.badges.length > 0) {
       comment.badges.forEach((b) => {
         const badgeEl = this.createBadgeElement(b);
@@ -1784,21 +1849,17 @@ export class OverlayUi {
 
     flowEl.appendChild(textEl);
 
-    // レーン位置（セーフエリアを確保し、各種アスペクト比での見切れを防止）
-    const win = ownerDoc.defaultView || window;
-    const playerHeight = playerEl.clientHeight || win.innerHeight || 360;
-    const safeTop = Math.max(16, Math.floor(playerHeight * 0.05));
-    const safeBottom = Math.max(68, Math.floor(playerHeight * 0.12)); // 下部シークバー・コントロールバーの被り防止
-    const usableHeight = Math.max(120, playerHeight - safeTop - safeBottom);
-    const laneHeight = Math.floor(usableHeight / LANE_COUNT);
-    const topPx = safeTop + (laneIndex * laneHeight) + Math.floor(laneHeight * 0.08);
+    // ─── 垂直位置の計算（自然なジッター・散らし効果） ───
+    const baseTop = safeTop + (laneIndex * (usableHeight / laneCount));
+    // ±3px 〜 ±5px の微細なランダム揺らぎを加え、規則正しすぎる「線路・自動車レーン」感を自然に解消
+    const maxJitter = Math.min(5, Math.max(2, Math.floor(lanePitch * 0.15)));
+    const randomJitter = (Math.random() - 0.5) * (maxJitter * 2);
+    const topPx = Math.max(safeTop, Math.min(playerHeight - safeBottom - lanePitch, Math.round(baseTop + randomJitter)));
     flowEl.style.top = `${topPx}px`;
 
     playerEl.appendChild(flowEl);
 
     // アニメーション時間（flowSpeed設定に対応）
-    const playerWidth = playerEl.clientWidth || win.innerWidth || 640;
-    const duration = this.getFlowDuration(playerWidth, isLive);
     flowEl.style.setProperty('--yt-co-flow-duration', `${duration}ms`);
     flowEl.style.setProperty('--yt-co-flow-start-x', `${playerWidth}px`);
 
@@ -1812,9 +1873,8 @@ export class OverlayUi {
       flowEl.classList.add('is-paused');
     }
 
-    // レーン解放予定時刻を更新（テキスト幅の半分移動した時点）
-    const halfwayTime = duration * 0.45;
-    this.flowLanes[laneIndex] = now + Math.max(0, halfwayTime - timeOffsetMs);
+    // レーン解放予定時刻を更新（コメント末尾が右端を抜け切るまでレーンをロックして重複侵入を防止）
+    this.flowLanes[laneIndex] = now + Math.max(0, clearRightEdgeMs - timeOffsetMs);
 
     // アニメーション終了後にDOMから安全に削除するタイマー管理
     const totalRemaining = Math.max(200, duration - timeOffsetMs) + 200;
