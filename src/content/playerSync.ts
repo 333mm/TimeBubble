@@ -78,6 +78,12 @@ export class PlayerSync {
   private dispatchLiveComment(comment: CommentData) {
     if (this.videoEl?.paused) return;
 
+    const isTwitch = comment.platform === 'twitch' || comment.sourcePlatform === 'twitch' || comment.source === 'twitch_chat' || (typeof location !== 'undefined' && location.hostname.includes('twitch.tv'));
+    const liveEnabled = isTwitch
+      ? (this.overlayUi.getSettings().twitchEnabled ?? true)
+      : (this.overlayUi.getSettings().liveChatEnabled ?? true);
+    if (!liveEnabled) return;
+
     const dummyTrigger: TimestampCommentTrigger = {
       comment,
       timestamp: { seconds: Math.floor(this.videoEl?.currentTime || 0), formatted: 'Live' },
@@ -256,6 +262,7 @@ export class PlayerSync {
 
   private handleTimeUpdate() {
     if (!this.videoEl || this.isSeeking) return;
+    if (!this.overlayUi.getSettings().enabled) return;
     const currentTime = this.videoEl.currentTime;
     const currentSecond = Math.floor(currentTime);
 

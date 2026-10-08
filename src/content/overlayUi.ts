@@ -47,6 +47,7 @@ export class OverlayUi {
   // フローモード用: アクティブな流れるコメント要素
   private flowLanes: Array<number> = []; // 各レーンの使用解除タイムスタンプ (ms)
   private lastSelectedLaneIndex = -1;
+  private quickActionsCleanup: (() => void) | null = null;
 
   /** 返信フェッチ用コールバックを設定 */
   public setFetchRepliesCallback(cb: (comment: CommentData) => Promise<ReplyFetchResult>) {
@@ -90,6 +91,30 @@ export class OverlayUi {
       }
     }
     return false;
+  }
+
+  /** Twitchプラットフォームかどうか判定 */
+  public isTwitchPlatform(comment?: CommentData): boolean {
+    if (typeof location !== 'undefined' && location.hostname.includes('twitch.tv')) {
+      return true;
+    }
+    if (comment) {
+      return (
+        comment.sourcePlatform === 'twitch' ||
+        comment.platform === 'twitch' ||
+        comment.source === 'twitch_chat'
+      );
+    }
+    return false;
+  }
+
+  /** コメント/トリガーがライブ配信向け（リアルタイムチャット/Twitch）かどうか判定 */
+  public isLiveComment(trigger: TimestampCommentTrigger): boolean {
+    return (
+      trigger.timestamp.formatted === 'Live' ||
+      this.isTwitchPlatform(trigger.comment) ||
+      this.isLiveModeActive()
+    );
   }
 
   /** モード切替コールバックを設定 */
@@ -343,6 +368,12 @@ export class OverlayUi {
 
   public updateSettings(newSettings: OverlaySettings) {
     this.settings = { ...this.settings, ...newSettings };
+    const isLive = this.isLiveModeActive();
+    const isEnabled = isLive ? this.isLiveChatCurrentlyEnabled() : this.settings.enabled;
+    if (!isEnabled) {
+      this.clearAll();
+    }
+    this.updateQuickActions();
     this.applySettingsToContainer();
   }
 
@@ -450,6 +481,16 @@ export class OverlayUi {
       }
     }
     this.activeFlowItems.clear();
+
+    if (this.chatboxContainerEl) {
+      while (this.chatboxContainerEl.firstChild) {
+        this.chatboxContainerEl.removeChild(this.chatboxContainerEl.firstChild);
+      }
+    }
+
+    const ownerDoc = this.getOwnerDocument();
+    const remainingFlows = ownerDoc.querySelectorAll('.yt-co-flow-comment');
+    remainingFlows.forEach((el) => el.parentElement?.removeChild(el));
   }
 
 
@@ -472,9 +513,15 @@ export class OverlayUi {
 
     if (!this.containerEl) return;
 
+    const isLive = this.isLiveModeActive();
+    const isEnabled = isLive ? this.isLiveChatCurrentlyEnabled() : this.settings.enabled;
+
     const size = this.settings.size || 'medium';
     this.containerEl.className = `pos-${this.settings.position} size-${size}`;
-    this.containerEl.style.display = this.settings.enabled ? 'flex' : 'none';
+    this.containerEl.style.display = isEnabled ? 'flex' : 'none';
+    if (this.chatboxContainerEl) {
+      this.chatboxContainerEl.style.display = isEnabled ? 'flex' : 'none';
+    }
 
     // 文字・アイコン・バッジは100%不透明を維持し、背景とアウトラインのみ透明度を適用
     this.containerEl.style.opacity = '1';
@@ -757,10 +804,12 @@ export class OverlayUi {
    * コメント吹き出しをスタックに追加して表示
    */
   public showComment(trigger: TimestampCommentTrigger, force = false) {
-    const isLive = trigger.timestamp.formatted === 'Live' || trigger.comment.sourcePlatform === 'twitch';
+    const isLive = this.isLiveComment(trigger);
     if (!force) {
       if (isLive) {
-        const liveEnabled = trigger.comment.sourcePlatform === 'twitch' ? (this.settings.twitchEnabled ?? true) : (this.settings.liveChatEnabled ?? true);
+        const liveEnabled = this.isTwitchPlatform(trigger.comment)
+          ? (this.settings.twitchEnabled ?? true)
+          : (this.settings.liveChatEnabled ?? true);
         if (!liveEnabled) return;
         if (this.getEffectiveLiveDisplayMode() !== 'card') return;
       } else {
@@ -1094,7 +1143,7 @@ export class OverlayUi {
   private createBubbleElement(trigger: TimestampCommentTrigger): HTMLElement {
     const doc = this.getOwnerDocument();
     const { comment, timestamp } = trigger;
-    const isLive = timestamp.formatted === 'Live' || comment.sourcePlatform === 'twitch';
+    const isLive = this.isLiveComment(trigger);
     const bubble = doc.createElement('div');
     const size = isLive
       ? (this.settings.liveSize || this.settings.size || 'medium')
@@ -1811,10 +1860,12 @@ export class OverlayUi {
     force = false,
     preferredLaneIndex?: number
   ) {
-    const isLive = trigger.timestamp.formatted === 'Live' || trigger.comment.sourcePlatform === 'twitch';
+    const isLive = this.isLiveComment(trigger);
     if (!force) {
       if (isLive) {
-        const liveEnabled = trigger.comment.sourcePlatform === 'twitch' ? (this.settings.twitchEnabled ?? true) : (this.settings.liveChatEnabled ?? true);
+        const liveEnabled = this.isTwitchPlatform(trigger.comment)
+          ? (this.settings.twitchEnabled ?? true)
+          : (this.settings.liveChatEnabled ?? true);
         if (!liveEnabled) return;
         if (this.getEffectiveLiveDisplayMode() !== 'flow') return;
       } else {
@@ -2019,14 +2070,13 @@ export class OverlayUi {
   /**
    * ミニチャットボックスモードへのコメント追加
    */
-
-  /**
-   * ミニチャットボックスモードへのコメント追加
-   */
   public enqueueChatboxComment(comment: CommentData) {
-    const isLive = comment.sourcePlatform === 'twitch' || comment.source === 'live_chat';
+    const isTwitch = this.isTwitchPlatform(comment);
+    const isLive = isTwitch || comment.source === 'live_chat' || this.isLiveModeActive();
     if (isLive) {
-      const liveEnabled = comment.sourcePlatform === 'twitch' ? (this.settings.twitchEnabled ?? true) : (this.settings.liveChatEnabled ?? true);
+      const liveEnabled = isTwitch
+        ? (this.settings.twitchEnabled ?? true)
+        : (this.settings.liveChatEnabled ?? true);
       if (!liveEnabled) return;
       if (this.getEffectiveLiveDisplayMode() !== 'chatbox') return;
     } else {
@@ -2206,19 +2256,42 @@ export class OverlayUi {
     });
 
     // マウスホバー監視で、セレクタに依らずカーソルがプレイヤー上にあるときに100%確実に表示
+    const setHoveredState = (hovered: boolean) => {
+      if (hovered) {
+        toggleBtn.classList.add('is-hovered');
+        liveToggleBtn.classList.add('is-hovered');
+        pipBtn.classList.add('is-hovered');
+      } else {
+        toggleBtn.classList.remove('is-hovered');
+        liveToggleBtn.classList.remove('is-hovered');
+        pipBtn.classList.remove('is-hovered');
+      }
+    };
+
+    if (playerElement.matches && playerElement.matches(':hover')) {
+      setHoveredState(true);
+    }
+
     const handleMouseEnter = () => {
       this.updateQuickActions();
-      toggleBtn.classList.add('is-hovered');
-      liveToggleBtn.classList.add('is-hovered');
-      pipBtn.classList.add('is-hovered');
+      setHoveredState(true);
+    };
+    const handleMouseMove = () => {
+      if (!toggleBtn.classList.contains('is-hovered')) {
+        setHoveredState(true);
+      }
     };
     const handleMouseLeave = () => {
-      toggleBtn.classList.remove('is-hovered');
-      liveToggleBtn.classList.remove('is-hovered');
-      pipBtn.classList.remove('is-hovered');
+      setHoveredState(false);
     };
     playerElement.addEventListener('mouseenter', handleMouseEnter);
+    playerElement.addEventListener('mousemove', handleMouseMove, { passive: true });
     playerElement.addEventListener('mouseleave', handleMouseLeave);
+    this.quickActionsCleanup = () => {
+      playerElement.removeEventListener('mouseenter', handleMouseEnter);
+      playerElement.removeEventListener('mousemove', handleMouseMove);
+      playerElement.removeEventListener('mouseleave', handleMouseLeave);
+    };
 
     playerElement.appendChild(toggleBtn);
     playerElement.appendChild(liveToggleBtn);
@@ -2361,23 +2434,30 @@ export class OverlayUi {
 
     if (this.quickToggleBtnEl) {
       const isEn = this.settings.enabled;
-      this.quickToggleBtnEl.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${isEn ? 'is-enabled' : 'is-disabled'} ${isLive ? 'is-hidden' : ''}`;
+      const isHovered = this.quickToggleBtnEl.classList.contains('is-hovered');
+      this.quickToggleBtnEl.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${isEn ? 'is-enabled' : 'is-disabled'} ${isLive ? 'is-hidden' : ''} ${isHovered ? 'is-hovered' : ''}`.replace(/\s+/g, ' ').trim();
       this.quickToggleBtnEl.style.setProperty('display', isLive ? 'none' : 'flex', 'important');
       this.renderQuickToggleContent(this.quickToggleBtnEl);
     }
     if (this.quickLiveToggleBtnEl) {
       const isLiveEn = this.isLiveChatCurrentlyEnabled();
-      this.quickLiveToggleBtnEl.className = `yt-co-quick-live-toggle-btn yt-co-quick-pos-${this.settings.position} ${isLiveEn ? 'is-enabled' : 'is-disabled'} ${isLive ? '' : 'is-hidden'}`;
+      const isHovered = this.quickLiveToggleBtnEl.classList.contains('is-hovered');
+      this.quickLiveToggleBtnEl.className = `yt-co-quick-live-toggle-btn yt-co-quick-pos-${this.settings.position} ${isLiveEn ? 'is-enabled' : 'is-disabled'} ${isLive ? '' : 'is-hidden'} ${isHovered ? 'is-hovered' : ''}`.replace(/\s+/g, ' ').trim();
       this.quickLiveToggleBtnEl.style.setProperty('display', isLive ? 'flex' : 'none', 'important');
       this.renderQuickLiveToggleContent(this.quickLiveToggleBtnEl);
     }
     if (this.quickPipBtnEl) {
-      this.quickPipBtnEl.className = `yt-co-quick-pip-btn yt-co-quick-pos-${this.settings.position}`;
+      const isHovered = this.quickPipBtnEl.classList.contains('is-hovered');
+      this.quickPipBtnEl.className = `yt-co-quick-pip-btn yt-co-quick-pos-${this.settings.position} ${isHovered ? 'is-hovered' : ''}`.replace(/\s+/g, ' ').trim();
       this.renderQuickPipContent(this.quickPipBtnEl);
     }
   }
 
   private removeQuickActions() {
+    if (this.quickActionsCleanup) {
+      this.quickActionsCleanup();
+      this.quickActionsCleanup = null;
+    }
     const ownerDoc = this.getOwnerDocument();
     if (this.quickToggleBtnEl && this.quickToggleBtnEl.parentElement) {
       this.quickToggleBtnEl.parentElement.removeChild(this.quickToggleBtnEl);
@@ -2395,15 +2475,14 @@ export class OverlayUi {
     this.quickPipBtnEl = null;
   }
 
-  private isLiveChatCurrentlyEnabled(): boolean {
-    const isTwitch = typeof location !== 'undefined' && location.hostname.includes('twitch.tv');
-    return isTwitch
+  public isLiveChatCurrentlyEnabled(): boolean {
+    return this.isTwitchPlatform()
       ? (this.settings.twitchEnabled ?? true)
       : (this.settings.liveChatEnabled ?? true);
   }
 
   private async toggleLiveEnabled() {
-    const isTwitch = typeof location !== 'undefined' && location.hostname.includes('twitch.tv');
+    const isTwitch = this.isTwitchPlatform();
     const currentVal = this.isLiveChatCurrentlyEnabled();
     const nextVal = !currentVal;
 
@@ -2425,6 +2504,10 @@ export class OverlayUi {
   private async toggleEnabled() {
     this.settings.enabled = !this.settings.enabled;
     await saveSettings({ enabled: this.settings.enabled });
+    if (!this.settings.enabled) {
+      this.clearAll();
+    }
+    this.updateQuickActions();
     this.applySettingsToContainer();
   }
 

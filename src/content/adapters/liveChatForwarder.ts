@@ -153,6 +153,7 @@ export class LiveChatForwarder {
         publishedTimeText: '今',
         timestamps: [],
         platform: 'youtube',
+        sourcePlatform: 'youtube',
         source: 'live_chat',
         userColor,
         badges,

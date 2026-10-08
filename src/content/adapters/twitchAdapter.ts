@@ -309,6 +309,7 @@ export class TwitchAdapter implements IPlatformAdapter {
         publishedTimeText: '今',
         timestamps: [], // リアルタイムチャット
         platform: 'twitch',
+        sourcePlatform: 'twitch',
         source: 'twitch_chat',
         userColor,
         badges,
