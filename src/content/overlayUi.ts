@@ -73,6 +73,11 @@ export class OverlayUi {
     return this.containerEl;
   }
 
+  /** 現在の設定オブジェクトを返す */
+  public getSettings(): OverlaySettings {
+    return this.settings;
+  }
+
   /** 有効な表示モードを取得 ('card' | 'flow' | 'chatbox') */
   public getEffectiveDisplayMode(): 'card' | 'flow' | 'chatbox' {
     if (this.settings.displayMode === 'chatbox') return 'chatbox';
@@ -80,12 +85,18 @@ export class OverlayUi {
     return 'card';
   }
 
+  /** 有効なライブ表示モードを取得 ('card' | 'flow' | 'chatbox') */
+  public getEffectiveLiveDisplayMode(): 'card' | 'flow' | 'chatbox' {
+    return this.settings.liveChatMode || 'flow';
+  }
+
   /** コメント流量が激しいかどうか (毎秒トラフィック判定) */
   public isHighTraffic(): boolean {
     const now = Date.now();
     this.recentCommentTimestamps = this.recentCommentTimestamps.filter((t) => now - t < 3000);
     this.recentCommentTimestamps.push(now);
-    const threshold = this.settings.flowDensity === 'low' ? 3 : this.settings.flowDensity === 'high' ? 12 : 6;
+    const density = this.settings.liveChatMaxDensity || this.settings.flowDensity || 'normal';
+    const threshold = density === 'low' ? 3 : density === 'high' ? 12 : 6;
     return this.recentCommentTimestamps.length > threshold;
   }
 
@@ -95,17 +106,19 @@ export class OverlayUi {
   }
 
   /** フローコメントの画面横断所要時間(ms)を計算 */
-  public getFlowDuration(playerWidth?: number): number {
+  public getFlowDuration(playerWidth?: number, isLive = false): number {
     const width = playerWidth || this.playerElement?.clientWidth || 640;
-    const speed = this.settings.flowSpeed || 'normal';
+    const speed = isLive
+      ? (this.settings.liveFlowSpeed || this.settings.flowSpeed || 'normal')
+      : (this.settings.flowSpeed || 'normal');
     const base = speed === 'slow' ? 9000 : speed === 'fast' ? 4500 : 6500;
     const scale = Math.max(0.85, Math.min(1.25, width / 960));
     return Math.round(base * scale);
   }
 
   /** タイムスタンプ秒の瞬間に画面中央手前付近(約40%地点)へ到達するための先行秒数を計算 */
-  public getFlowLeadTimeSeconds(playerWidth?: number): number {
-    const durationMs = this.getFlowDuration(playerWidth);
+  public getFlowLeadTimeSeconds(playerWidth?: number, isLive = false): number {
+    const durationMs = this.getFlowDuration(playerWidth, isLive);
     // 画面中央手前（右端から40%移動した地点）に達するまでの時間（秒）
     return (durationMs * 0.40) / 1000;
   }
@@ -386,8 +399,8 @@ export class OverlayUi {
    * テスト用吹き出し・流れるコメント表示 (ポップアップから要求時)
    * 選択中のモード（カード表示 / 流れるコメント）に応じて適切なプレビューを表示
    */
-  public showTestComment() {
-    console.log('[TimeBubble] showTestComment executing...');
+  public showTestComment(testKind?: 'timestamp' | 'live') {
+    console.log('[TimeBubble] showTestComment executing, kind:', testKind);
 
     // まだマウントされていない場合は強制探索してマウント (YouTube外の一般ページの場合は document.body)
     if (!this.containerEl || !this.containerEl.parentElement) {
@@ -404,6 +417,115 @@ export class OverlayUi {
       }
     }
 
+    const isLive = testKind === 'live';
+
+    if (isLive) {
+      const liveMode = this.getEffectiveLiveDisplayMode();
+      const liveSamples = [
+        { text: 'キターーーー！！配信待機してました！🎉', author: 'ライブファンA', badge: 'VIP', color: '#c084fc' },
+        { text: 'ナイス配信！いつも応援してます🔥', author: 'サポーターB', badge: 'SUPER', color: '#f59e0b', isSuper: true, amount: '¥1,000' },
+        { text: '荒らしは即座に対処します。楽しく見ましょう！', author: 'モデレーターC', badge: 'MOD', color: '#4ade80' },
+        { text: '音質めちゃくちゃクリアで最高です✨', author: 'リスナーD', badge: 'SUB', color: '#38bdf8' },
+      ];
+
+      if (liveMode === 'flow') {
+        liveSamples.forEach((sample, i) => {
+          setTimeout(() => {
+            this.testCommentCounter += 1;
+            const testTrigger: TimestampCommentTrigger = {
+              id: `test_live_flow_${Date.now()}_${i}_${this.testCommentCounter}`,
+              comment: {
+                id: `test_live_${this.testCommentCounter}`,
+                authorName: sample.author,
+                authorAvatarUrl: '',
+                authorChannelUrl: '',
+                contentHtml: sample.text,
+                rawText: sample.text,
+                userColor: sample.color,
+                badges: [sample.badge],
+                isSuperChat: !!sample.isSuper,
+                superChatAmount: sample.amount,
+                superChatColor: sample.isSuper ? '#f59e0b' : undefined,
+                likeCount: 0,
+                formattedLikeCount: '0',
+                publishedTimeText: 'Live',
+                timestamps: [{ seconds: 0, formatted: 'Live' }],
+                sourcePlatform: 'youtube',
+              },
+              timestamp: { seconds: 0, formatted: 'Live' },
+            };
+            this.showFlowComment(testTrigger, 0, true);
+          }, i * 350);
+        });
+        return;
+      }
+
+      if (liveMode === 'chatbox') {
+        liveSamples.forEach((sample, i) => {
+          setTimeout(() => {
+            this.testCommentCounter += 1;
+            this.enqueueChatboxComment({
+              id: `test_live_chat_${this.testCommentCounter}`,
+              authorName: sample.author,
+              authorAvatarUrl: '',
+              authorChannelUrl: '',
+              contentHtml: sample.text,
+              rawText: sample.text,
+              userColor: sample.color,
+              badges: [sample.badge],
+              isSuperChat: !!sample.isSuper,
+              superChatAmount: sample.amount,
+              superChatColor: sample.isSuper ? '#f59e0b' : undefined,
+              likeCount: 0,
+              formattedLikeCount: '0',
+              publishedTimeText: 'Live',
+              timestamps: [{ seconds: 0, formatted: 'Live' }],
+              sourcePlatform: 'youtube',
+              source: 'live_chat',
+            });
+          }, i * 250);
+        });
+        return;
+      }
+
+      // ライブ: カードモード
+      if (this.containerEl) {
+        this.containerEl.style.display = 'flex';
+        this.containerEl.style.opacity = '1';
+        this.applySettingsToContainer();
+      }
+      liveSamples.slice(0, 2).forEach((sample, i) => {
+        setTimeout(() => {
+          this.testCommentCounter += 1;
+          const testTrigger: TimestampCommentTrigger = {
+            id: `test_live_card_${Date.now()}_${i}_${this.testCommentCounter}`,
+            comment: {
+              id: `test_live_${this.testCommentCounter}`,
+              authorName: sample.author,
+              authorAvatarUrl: '',
+              authorChannelUrl: '',
+              contentHtml: sample.text,
+              rawText: sample.text,
+              userColor: sample.color,
+              badges: [sample.badge],
+              isSuperChat: !!sample.isSuper,
+              superChatAmount: sample.amount,
+              superChatColor: sample.isSuper ? '#f59e0b' : undefined,
+              likeCount: 0,
+              formattedLikeCount: '0',
+              publishedTimeText: 'Live',
+              timestamps: [{ seconds: 0, formatted: 'Live' }],
+              sourcePlatform: 'youtube',
+            },
+            timestamp: { seconds: 0, formatted: 'Live' },
+          };
+          this.showComment(testTrigger, true);
+        }, i * 240);
+      });
+      return;
+    }
+
+    // タイムスタンプコメントのテスト表示
     const testSamples = [
       { text: '01:23 ここが一番好きなシーン！何度見ても最高です✨', author: 'テスト視聴者A', likes: 350, time: '01:23' },
       { text: 'この演出鳥肌立った…神回すぎる！🔥 02:45', author: 'テスト視聴者B', likes: 1200, time: '02:45' },
@@ -412,8 +534,9 @@ export class OverlayUi {
       { text: '05:30 作画のクオリティが映画レベルで圧倒される🎬', author: 'テスト視聴者E', likes: 210, time: '05:30' },
     ];
 
-    if (this.isFlowModeEnabled()) {
-      // 流れるコメントモードのテスト表示
+    const effectiveMode = this.getEffectiveDisplayMode();
+
+    if (effectiveMode === 'flow') {
       const count = 4;
       for (let i = 0; i < count; i++) {
         setTimeout(() => {
@@ -438,6 +561,27 @@ export class OverlayUi {
           this.showFlowComment(testTrigger, 0, true);
         }, i * 350);
       }
+      return;
+    }
+
+    if (effectiveMode === 'chatbox') {
+      testSamples.slice(0, 3).forEach((sample, i) => {
+        setTimeout(() => {
+          this.testCommentCounter += 1;
+          this.enqueueChatboxComment({
+            id: `test_ts_chat_${this.testCommentCounter}`,
+            authorName: sample.author,
+            authorAvatarUrl: '',
+            authorChannelUrl: 'https://www.youtube.com',
+            contentHtml: sample.text,
+            rawText: sample.text,
+            likeCount: sample.likes,
+            formattedLikeCount: String(sample.likes),
+            publishedTimeText: '数分前',
+            timestamps: [{ seconds: 0, formatted: sample.time }],
+          });
+        }, i * 250);
+      });
       return;
     }
 
@@ -480,7 +624,17 @@ export class OverlayUi {
    * コメント吹き出しをスタックに追加して表示
    */
   public showComment(trigger: TimestampCommentTrigger, force = false) {
-    if (!this.settings.enabled && !force) return;
+    const isLive = trigger.timestamp.formatted === 'Live' || trigger.comment.sourcePlatform === 'twitch';
+    if (!force) {
+      if (isLive) {
+        const liveEnabled = trigger.comment.sourcePlatform === 'twitch' ? (this.settings.twitchEnabled ?? true) : (this.settings.liveChatEnabled ?? true);
+        if (!liveEnabled) return;
+        if (this.getEffectiveLiveDisplayMode() !== 'card') return;
+      } else {
+        if (!this.settings.enabled) return;
+        if (this.getEffectiveDisplayMode() !== 'card') return;
+      }
+    }
 
     if (!this.containerEl || !this.containerEl.parentElement) {
       const video = document.querySelector<HTMLVideoElement>('video');
@@ -507,7 +661,10 @@ export class OverlayUi {
     }
 
     const now = Date.now();
-    const durationMs = this.settings.displayDuration * 1000;
+    const durationSec = isLive
+      ? (this.settings.liveDisplayDuration ?? this.settings.displayDuration ?? 6)
+      : this.settings.displayDuration;
+    const durationMs = durationSec * 1000;
 
     const key = trigger.id;
     if (this.activeCards.has(key)) {
@@ -803,17 +960,34 @@ export class OverlayUi {
   private createBubbleElement(trigger: TimestampCommentTrigger): HTMLElement {
     const doc = this.getOwnerDocument();
     const { comment, timestamp } = trigger;
+    const isLive = timestamp.formatted === 'Live' || comment.sourcePlatform === 'twitch';
     const bubble = doc.createElement('div');
-    const size = this.settings.size || 'medium';
+    const size = isLive
+      ? (this.settings.liveSize || this.settings.size || 'medium')
+      : (this.settings.size || 'medium');
     bubble.className = `yt-co-bubble yt-co-size-${size}`;
     bubble.setAttribute('data-size', size);
 
-    if (this.settings.highlightPopular) {
+    if (isLive) {
+      if (typeof this.settings.liveOpacity === 'number') {
+        const bgAlpha = Math.max(0, Math.min(1, this.settings.liveOpacity / 100));
+        bubble.style.setProperty('--card-bg-alpha', bgAlpha.toString());
+      }
+    } else {
+      if (typeof this.settings.opacity === 'number') {
+        const bgAlpha = Math.max(0, Math.min(1, this.settings.opacity / 100));
+        bubble.style.setProperty('--card-bg-alpha', bgAlpha.toString());
+      }
+    }
+
+    if (!isLive && this.settings.highlightPopular) {
       if (comment.likeCount >= this.settings.topTierThreshold) {
         bubble.classList.add('is-toptier');
       } else if (comment.likeCount >= this.settings.popularThreshold) {
         bubble.classList.add('is-popular');
       }
+    } else if (isLive && comment.isSuperChat) {
+      bubble.classList.add('is-toptier');
     }
 
     bubble.addEventListener('click', (e) => {
@@ -830,6 +1004,9 @@ export class OverlayUi {
 
     const author = doc.createElement('span');
     author.className = 'yt-co-author';
+    if (isLive && comment.userColor) {
+      author.style.color = comment.userColor;
+    }
     author.textContent = comment.authorName;
 
     meta.appendChild(author);
@@ -841,11 +1018,33 @@ export class OverlayUi {
       meta.appendChild(descBadge);
     }
 
-    // ユーザーアイコン (共通設定 showAvatars)
-    const shouldShowAvatar = this.settings.showAvatars ?? this.settings.showLiveAvatars ?? true;
+    // ユーザーアイコン
+    const shouldShowAvatar = isLive
+      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? true)
+      : (this.settings.showAvatars ?? true);
     if (shouldShowAvatar) {
       const avatarEl = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
       header.appendChild(avatarEl);
+    }
+
+    // ライブバッジ
+    const shouldShowBadges = isLive
+      ? (this.settings.liveShowBadges ?? this.settings.showBadges ?? true)
+      : false;
+    if (shouldShowBadges && comment.badges && comment.badges.length > 0) {
+      comment.badges.forEach((b) => {
+        const badgeEl = this.createBadgeElement(b);
+        meta.appendChild(badgeEl);
+      });
+    }
+
+    if (isLive && comment.isSuperChat && comment.superChatAmount) {
+      const scBadge = doc.createElement('span');
+      scBadge.className = 'yt-co-chapter-badge';
+      scBadge.style.background = comment.superChatColor || '#f59e0b';
+      scBadge.style.color = '#fff';
+      scBadge.textContent = `💰 ${comment.superChatAmount}`;
+      meta.appendChild(scBadge);
     }
 
     header.appendChild(meta);
@@ -1483,8 +1682,17 @@ export class OverlayUi {
     force = false,
     preferredLaneIndex?: number
   ) {
-    if (!this.settings.enabled && !force) return;
-    if (!this.isFlowModeEnabled() && !force) return;
+    const isLive = trigger.timestamp.formatted === 'Live' || trigger.comment.sourcePlatform === 'twitch';
+    if (!force) {
+      if (isLive) {
+        const liveEnabled = trigger.comment.sourcePlatform === 'twitch' ? (this.settings.twitchEnabled ?? true) : (this.settings.liveChatEnabled ?? true);
+        if (!liveEnabled) return;
+        if (this.getEffectiveLiveDisplayMode() !== 'flow') return;
+      } else {
+        if (!this.settings.enabled) return;
+        if (!this.isFlowModeEnabled()) return;
+      }
+    }
 
     const playerEl = this.playerElement ||
       document.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
@@ -1520,33 +1728,58 @@ export class OverlayUi {
 
     const ownerDoc = playerEl.ownerDocument || document;
     const flowEl = ownerDoc.createElement('div');
-    const size = this.settings.flowSize || 'medium';
+    const size = isLive
+      ? (this.settings.liveFlowSize || this.settings.flowSize || 'medium')
+      : (this.settings.flowSize || 'medium');
     flowEl.className = `yt-co-flow-comment size-${size}`;
 
     // フロー背景不透明度の適用
-    const rawOpacity = typeof this.settings.flowOpacity === 'number' ? this.settings.flowOpacity : 65;
+    const rawOpacity = isLive
+      ? (this.settings.liveFlowOpacity ?? this.settings.flowOpacity ?? 65)
+      : (typeof this.settings.flowOpacity === 'number' ? this.settings.flowOpacity : 65);
     const bgAlpha = Math.max(0, Math.min(1, rawOpacity / 100));
     flowEl.style.setProperty('--yt-co-flow-bg-alpha', bgAlpha.toString());
 
-    // 人気コメントのカラー
-    if (this.settings.highlightPopular) {
+    // 人気コメントまたはスパチャのカラー
+    if (!isLive && this.settings.highlightPopular) {
       if (comment.likeCount >= this.settings.topTierThreshold) {
         flowEl.classList.add('is-toptier');
       } else if (comment.likeCount >= this.settings.popularThreshold) {
         flowEl.classList.add('is-popular');
       }
+    } else if (isLive && comment.isSuperChat) {
+      flowEl.classList.add('is-toptier');
+      if (comment.superChatColor) {
+        flowEl.style.borderColor = comment.superChatColor;
+      }
     }
 
-    // アバター + テキスト (共通設定 showAvatars)
-    const shouldShowAvatar = this.settings.showAvatars ?? this.settings.showLiveAvatars ?? true;
+    // アバター
+    const shouldShowAvatar = isLive
+      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? true)
+      : (this.settings.showAvatars ?? true);
     if (shouldShowAvatar) {
       const avatar = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
       avatar.classList.add('yt-co-flow-avatar');
       flowEl.appendChild(avatar);
     }
 
+    // ライブバッジ
+    const shouldShowBadges = isLive
+      ? (this.settings.liveShowBadges ?? this.settings.showBadges ?? true)
+      : false;
+    if (shouldShowBadges && comment.badges && comment.badges.length > 0) {
+      comment.badges.forEach((b) => {
+        const badgeEl = this.createBadgeElement(b);
+        flowEl.appendChild(badgeEl);
+      });
+    }
+
     const textEl = ownerDoc.createElement('span');
     textEl.className = 'yt-co-flow-text';
+    if (isLive && comment.userColor) {
+      textEl.style.color = comment.userColor;
+    }
     textEl.textContent = comment.rawText.replace(/\n/g, ' ');
 
     flowEl.appendChild(textEl);
@@ -1565,7 +1798,7 @@ export class OverlayUi {
 
     // アニメーション時間（flowSpeed設定に対応）
     const playerWidth = playerEl.clientWidth || win.innerWidth || 640;
-    const duration = this.getFlowDuration(playerWidth);
+    const duration = this.getFlowDuration(playerWidth, isLive);
     flowEl.style.setProperty('--yt-co-flow-duration', `${duration}ms`);
     flowEl.style.setProperty('--yt-co-flow-start-x', `${playerWidth}px`);
 
@@ -1725,7 +1958,16 @@ export class OverlayUi {
    * ミニチャットボックスモードへのコメント追加
    */
   public enqueueChatboxComment(comment: CommentData) {
-    if (!this.settings.enabled) return;
+    const isLive = comment.sourcePlatform === 'twitch' || comment.source === 'live_chat';
+    if (isLive) {
+      const liveEnabled = comment.sourcePlatform === 'twitch' ? (this.settings.twitchEnabled ?? true) : (this.settings.liveChatEnabled ?? true);
+      if (!liveEnabled) return;
+      if (this.getEffectiveLiveDisplayMode() !== 'chatbox') return;
+    } else {
+      if (!this.settings.enabled) return;
+      if (this.getEffectiveDisplayMode() !== 'chatbox') return;
+    }
+
     if (!this.playerElement) return;
 
     const ownerDoc = this.getOwnerDocument();
@@ -1756,16 +1998,20 @@ export class OverlayUi {
     rowEl.style.alignItems = 'center';
     rowEl.style.flexWrap = 'wrap';
 
-    // ユーザーアイコン (showAvatars 設定反映)
-    const shouldShowAvatar = this.settings.showAvatars ?? this.settings.showLiveAvatars ?? true;
+    // ユーザーアイコン
+    const shouldShowAvatar = isLive
+      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? true)
+      : (this.settings.showAvatars ?? true);
     if (shouldShowAvatar) {
       const avatarEl = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
       avatarEl.classList.add('yt-co-chatbox-avatar');
       rowEl.appendChild(avatarEl);
     }
 
-    // バッジ画像 / SVG (showBadges 設定反映)
-    const shouldShowBadges = this.settings.showBadges ?? this.settings.twitchShowBadges ?? true;
+    // バッジ画像 / SVG
+    const shouldShowBadges = isLive
+      ? (this.settings.liveShowBadges ?? this.settings.showBadges ?? true)
+      : false;
     if (shouldShowBadges && comment.badges && comment.badges.length > 0) {
       comment.badges.forEach((b) => {
         const badgeEl = this.createBadgeElement(b);

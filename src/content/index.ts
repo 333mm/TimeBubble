@@ -73,7 +73,7 @@ if (LiveChatForwarder.isLiveChatFrame()) {
             if (message.settings) {
               this.overlayUi.updateSettings(message.settings);
             }
-            this.ensurePlayerAndShowTest();
+            this.ensurePlayerAndShowTest(message.testKind);
             sendResponse({ success: true });
           } else if (message.type === 'TOGGLE_PIP') {
             const video = this.currentAdapter?.getVideoElement();
@@ -132,14 +132,14 @@ if (LiveChatForwarder.isLiveChatFrame()) {
       });
     }
 
-    private ensurePlayerAndShowTest() {
+    private ensurePlayerAndShowTest(testKind?: 'timestamp' | 'live') {
       if (!this.currentAdapter) this.initAdapter();
       const video = this.currentAdapter?.getVideoElement();
       const player = this.currentAdapter?.getPlayerContainer();
       if (player && video && !this.isInitialized) {
         this.setupPlayer(player, video);
       }
-      this.overlayUi.showTestComment();
+      this.overlayUi.showTestComment(testKind);
     }
 
     private handlePageTransition() {

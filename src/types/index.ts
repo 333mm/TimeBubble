@@ -21,26 +21,38 @@ export interface OverlaySettings {
   flowSpeed: FlowSpeed; // フロー速度 ('slow' | 'normal' | 'fast')
   flowDensity: FlowDensity; // 流量制限 ('low' | 'normal' | 'high')
 
+  // ─── タイムスタンプ専用オプション ───
   highlightPopular: boolean; // 人気コメントをハイライトするか
   popularThreshold: number; // 人気判定のいいね数しきい値 (例: 50)
   topTierThreshold: number; // 超人気判定のいいね数しきい値 (例: 300)
   language?: string; // UI表示言語 ('ja' | 'en' | 'es' | 'zh')
   flowMode: boolean; // 後方互換性用 (displayMode === 'flow' と連動)
 
-  // 共通表示オプション
-  showBadges: boolean; // バッジ・ユーザーカラー表示
+  // タイムスタンプ: アバター表示
   showAvatars: boolean; // ユーザーアイコン表示
 
-  // Twitch 関連設定
-  twitchEnabled: boolean;
-  twitchChatMode: DisplayMode;
-  twitchShowBadges: boolean; // 後方互換性用
-
-  // YouTube Live 関連設定
+  // ─── ライブ (YouTube Live & Twitch) 専用オプション ───
   liveChatEnabled: boolean;
-  liveChatMode: DisplayMode;
+  twitchEnabled: boolean;
+  liveChatMode: DisplayMode; // ライブの表示モード ('flow' | 'chatbox' | 'card')
+  liveFlowSize: OverlaySize; // ライブのフロー文字サイズ
+  liveFlowSpeed: FlowSpeed; // ライブの流れる速度
+  liveFlowOpacity: number; // ライブの背景不透明度
+  livePosition: OverlayPosition; // ライブのカード位置
+  liveSize: OverlaySize; // ライブのカードサイズ
+  liveDisplayDuration: number; // ライブのカード表示時間
+  liveOpacity: number; // ライブのカード不透明度
+  liveShowBadges: boolean; // ライブのバッジ・ユーザーカラー表示
+  liveShowAvatars: boolean; // ライブのユーザーアイコン表示
+  liveChatMaxDensity?: FlowDensity; // ライブチャット流量密度
+  livePipEnabled: boolean; // ライブのPiP表示
+
+  // 共通・後方互換フィールド
+  showBadges: boolean; // バッジ表示 (共通/互換用)
+  showLiveAvatars?: boolean; // 互換用
+  twitchChatMode: DisplayMode;
+  twitchShowBadges: boolean;
   showSuperChatOnly: boolean;
-  showLiveAvatars: boolean; // 後方互換性用
 
   // PiP (Picture-in-Picture) 設定
   pipEnabled: boolean;
@@ -66,17 +78,28 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   language: 'ja',
   flowMode: false,
 
-  showBadges: true,
   showAvatars: true,
 
+  liveChatEnabled: true,
   twitchEnabled: true,
+  liveChatMode: 'flow',
+  liveFlowSize: 'medium',
+  liveFlowSpeed: 'normal',
+  liveFlowOpacity: 65,
+  livePosition: 'bottom-right',
+  liveSize: 'medium',
+  liveDisplayDuration: 6,
+  liveOpacity: 80,
+  liveShowBadges: true,
+  liveShowAvatars: true,
+  liveChatMaxDensity: 'normal',
+  livePipEnabled: true,
+
+  showBadges: true,
+  showLiveAvatars: true,
   twitchChatMode: 'flow',
   twitchShowBadges: true,
-
-  liveChatEnabled: true,
-  liveChatMode: 'flow',
   showSuperChatOnly: false,
-  showLiveAvatars: true,
 
   pipEnabled: true,
   pipShowComments: true,
@@ -124,6 +147,7 @@ export interface CommentData {
 
   // プラットフォーム & リアルタイムチャット拡張
   platform?: PlatformType;
+  sourcePlatform?: PlatformType;
   source?: CommentSource;
   userColor?: string; // ユーザー名・アクセント色 (Twitch/YouTube)
   badges?: string[]; // バッジ名リスト (Moderator, Subscriber, VIP, Verified等)

@@ -6,6 +6,12 @@ type SupportedLang = 'ja' | 'en' | 'es' | 'zh';
 interface I18nStrings {
   title: string;
   subtitle: string;
+  tabTimestamp: string;
+  tabLive: string;
+  // タイムスタンプ
+  tsEnableTitle: string;
+  tsEnableDesc: string;
+  tsModeLabel: string;
   modeCard: string;
   modeFlow: string;
   modeChatbox: string;
@@ -29,20 +35,32 @@ interface I18nStrings {
   speedSlow: string;
   speedNormal: string;
   speedFast: string;
+  highlightTitle: string;
+  highlightDesc: string;
+  tsAvatarsTitle: string;
+  tsAvatarsDesc: string;
+  tsPipTitle: string;
+  tsPipDesc: string;
+  tsPipLaunch: string;
+  // ライブ
+  liveYtTitle: string;
+  liveYtDesc: string;
+  liveTwitchTitle: string;
+  liveTwitchDesc: string;
+  liveModeLabel: string;
+  density: string;
   densityLow: string;
   densityNormal: string;
   densityHigh: string;
-  badgesTitle: string;
-  badgesDesc: string;
-  avatarsTitle: string;
-  avatarsDesc: string;
+  liveBadgesTitle: string;
+  liveBadgesDesc: string;
   liveAvatarsTitle: string;
   liveAvatarsDesc: string;
-  highlightTitle: string;
-  highlightDesc: string;
-  testBtnCard: string;
-  testBtnFlow: string;
-  testBtnChatbox: string;
+  livePipTitle: string;
+  livePipDesc: string;
+  livePipLaunch: string;
+  // 共通
+  testBtn: string;
   savedText: string;
   savingText: string;
   testSending: string;
@@ -57,9 +75,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   ja: {
     title: 'TimeBubble',
     subtitle: 'YouTube & Twitch コメントオーバーレイ',
-    modeCard: 'カード表示',
-    modeFlow: '流れるコメント',
-    modeChatbox: 'ログ表示',
+    tabTimestamp: 'タイムスタンプ',
+    tabLive: 'ライブ',
+    tsEnableTitle: 'タイムスタンプコメント表示',
+    tsEnableDesc: '再生位置に合わせてコメントを画面上に表示',
+    tsModeLabel: '表示モード',
+    modeCard: 'カード',
+    modeFlow: '流れる',
+    modeChatbox: 'ログ',
     position: '表示位置',
     topLeft: '左上',
     topRight: '右上',
@@ -80,20 +103,30 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     speedSlow: '遅い',
     speedNormal: '普通',
     speedFast: '速い',
+    highlightTitle: '高評価コメントをハイライト',
+    highlightDesc: 'いいね数に応じてグラデーションと光彩を適用',
+    tsAvatarsTitle: 'ユーザーアイコンを表示',
+    tsAvatarsDesc: 'コメントに投稿者のアバターを表示',
+    tsPipTitle: 'PiP ウィンドウにコメントを表示',
+    tsPipDesc: 'ピクチャインピクチャ再生中もコメントを合成描画',
+    tsPipLaunch: '今すぐコメント付きPiPを開始',
+    liveYtTitle: 'YouTube Live チャット表示',
+    liveYtDesc: '生配信・アーカイブのリアルタイムチャットを動画上に流す',
+    liveTwitchTitle: 'Twitch 配信チャット表示',
+    liveTwitchDesc: 'Twitchのライブ配信・VODでチャットを動画上に流す',
+    liveModeLabel: '表示モード',
+    density: 'チャット流量密度 (負荷制御)',
     densityLow: '控えめ',
     densityNormal: '標準',
     densityHigh: 'すべて',
-    badgesTitle: 'バッジ・ユーザーカラー表示',
-    badgesDesc: '公式・モデレーター・VIP・メンバー等のバッジと色を表示',
-    avatarsTitle: 'ユーザーアイコンを表示',
-    avatarsDesc: 'コメントやチャットにユーザーのアバターを表示',
+    liveBadgesTitle: 'バッジ・ユーザーカラー表示',
+    liveBadgesDesc: '公式・モデレーター・VIP・メンバー等のバッジと色を表示',
     liveAvatarsTitle: 'ユーザーアイコンを表示',
-    liveAvatarsDesc: '流れるコメントや吹き出しにユーザーのアバターを表示',
-    highlightTitle: '高評価コメントをハイライト',
-    highlightDesc: 'いいね数に応じてグラデーションと光彩を適用',
-    testBtnCard: '現在の画面にテスト吹き出しを表示',
-    testBtnFlow: '現在の画面にテスト流れるコメントを表示',
-    testBtnChatbox: '現在の画面にテストチャットログを表示',
+    liveAvatarsDesc: 'チャットに投稿者のアバターを表示',
+    livePipTitle: 'PiP ウィンドウにチャットを表示',
+    livePipDesc: 'ピクチャインピクチャ再生中もチャットを合成描画',
+    livePipLaunch: '今すぐチャット付きPiPを開始',
+    testBtn: '現在の画面にテストコメントを表示',
     savedText: '設定は自動保存されます',
     savingText: '設定を保存しました',
     testSending: '送信中...',
@@ -106,9 +139,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   en: {
     title: 'TimeBubble',
     subtitle: 'YouTube & Twitch Comment Overlay',
-    modeCard: 'Card Overlay',
-    modeFlow: 'Flowing Comments',
-    modeChatbox: 'Chat Log',
+    tabTimestamp: 'Timestamps',
+    tabLive: 'Live Streams',
+    tsEnableTitle: 'Timestamp Comments',
+    tsEnableDesc: 'Show comments synced with playback position',
+    tsModeLabel: 'Display Mode',
+    modeCard: 'Card',
+    modeFlow: 'Flow',
+    modeChatbox: 'Log',
     position: 'Position',
     topLeft: 'Top Left',
     topRight: 'Top Right',
@@ -118,31 +156,41 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     sizeSmall: 'Small',
     sizeMedium: 'Medium',
     sizeLarge: 'Large',
-    duration: 'Display Duration',
+    duration: 'Duration',
     durationUnit: 's',
-    stack: 'Max Stack Count',
+    stack: 'Max Stack',
     stackUnit: '',
     opacity: 'Opacity',
     flowSize: 'Font Size',
-    flowSpeed: 'Scroll Speed',
+    flowSpeed: 'Speed',
     flowOpacity: 'Background Opacity',
     speedSlow: 'Slow',
     speedNormal: 'Normal',
     speedFast: 'Fast',
+    highlightTitle: 'Highlight Top Comments',
+    highlightDesc: 'Apply gradient and glow based on likes',
+    tsAvatarsTitle: 'Show User Avatars',
+    tsAvatarsDesc: 'Display user avatars in comments',
+    tsPipTitle: 'Show Comments in PiP',
+    tsPipDesc: 'Render comments inside Picture-in-Picture window',
+    tsPipLaunch: 'Start PiP with Comments Now',
+    liveYtTitle: 'YouTube Live Chat',
+    liveYtDesc: 'Display live and replay stream chats over video',
+    liveTwitchTitle: 'Twitch Chat',
+    liveTwitchDesc: 'Display Twitch live and VOD chats over video',
+    liveModeLabel: 'Display Mode',
+    density: 'Chat Density (Traffic Control)',
     densityLow: 'Low',
     densityNormal: 'Normal',
     densityHigh: 'All',
-    badgesTitle: 'Show Badges & Colors',
-    badgesDesc: 'Display moderator, VIP, member badges and user colors',
-    avatarsTitle: 'Show User Avatars',
-    avatarsDesc: 'Display user avatars in comments and live chats',
+    liveBadgesTitle: 'Show Badges & Colors',
+    liveBadgesDesc: 'Display moderator, VIP, member badges and user colors',
     liveAvatarsTitle: 'Show User Avatars',
-    liveAvatarsDesc: 'Display user avatars in flowing comments and bubbles',
-    highlightTitle: 'Highlight Top Comments',
-    highlightDesc: 'Apply gradient and glow based on likes',
-    testBtnCard: 'Show Test Comment on Screen',
-    testBtnFlow: 'Show Test Flowing Comment on Screen',
-    testBtnChatbox: 'Show Test Chat Log on Screen',
+    liveAvatarsDesc: 'Display user avatars in chat messages',
+    livePipTitle: 'Show Chat in PiP',
+    livePipDesc: 'Render live chat inside Picture-in-Picture window',
+    livePipLaunch: 'Start PiP with Chat Now',
+    testBtn: 'Show Test Comment on Screen',
     savedText: 'Settings are saved automatically',
     savingText: 'Settings saved',
     testSending: 'Sending...',
@@ -155,9 +203,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   es: {
     title: 'TimeBubble',
     subtitle: 'Comentarios de YouTube y Twitch',
-    modeCard: 'Modo Tarjeta',
-    modeFlow: 'Comentarios en Flujo',
-    modeChatbox: 'Registro de Chat',
+    tabTimestamp: 'Marcas de tiempo',
+    tabLive: 'En Vivo',
+    tsEnableTitle: 'Comentarios con Marca',
+    tsEnableDesc: 'Mostrar comentarios sincronizados con el video',
+    tsModeLabel: 'Modo de visualización',
+    modeCard: 'Tarjeta',
+    modeFlow: 'Flujo',
+    modeChatbox: 'Registro',
     position: 'Posición',
     topLeft: 'Arriba Izq.',
     topRight: 'Arriba Der.',
@@ -167,7 +220,7 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     sizeSmall: 'Pequeño',
     sizeMedium: 'Medio',
     sizeLarge: 'Grande',
-    duration: 'Duración en Pantalla',
+    duration: 'Duración',
     durationUnit: 's',
     stack: 'Pila Máxima',
     stackUnit: '',
@@ -178,20 +231,30 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     speedSlow: 'Lento',
     speedNormal: 'Normal',
     speedFast: 'Rápido',
+    highlightTitle: 'Destacar Populares',
+    highlightDesc: 'Aplica brillo según los likes',
+    tsAvatarsTitle: 'Mostrar avatares de usuario',
+    tsAvatarsDesc: 'Mostrar fotos de perfil en comentarios',
+    tsPipTitle: 'Mostrar en ventana PiP',
+    tsPipDesc: 'Dibujar comentarios en Picture-in-Picture',
+    tsPipLaunch: 'Iniciar PiP con Comentarios',
+    liveYtTitle: 'Chat de YouTube Live',
+    liveYtDesc: 'Mostrar chat en vivo sobre el reproductor',
+    liveTwitchTitle: 'Chat de Twitch',
+    liveTwitchDesc: 'Mostrar chat de transmisiones y VODs',
+    liveModeLabel: 'Modo de visualización',
+    density: 'Densidad del Chat',
     densityLow: 'Bajo',
     densityNormal: 'Normal',
     densityHigh: 'Todos',
-    badgesTitle: 'Mostrar insignias y colores',
-    badgesDesc: 'Mostrar insignias de moderador, VIP, miembro y colores',
-    avatarsTitle: 'Mostrar avatares de usuario',
-    avatarsDesc: 'Mostrar fotos de perfil en comentarios y chat en vivo',
+    liveBadgesTitle: 'Mostrar insignias y colores',
+    liveBadgesDesc: 'Mostrar insignias de moderador, VIP, miembro y colores',
     liveAvatarsTitle: 'Mostrar avatares de usuario',
-    liveAvatarsDesc: 'Mostrar avatares en comentarios flotantes y burbujas',
-    highlightTitle: 'Destacar Comentarios Populares',
-    highlightDesc: 'Aplica brillo y degradado según los likes',
-    testBtnCard: 'Mostrar Comentario de Prueba',
-    testBtnFlow: 'Mostrar Comentario Flotante de Prueba',
-    testBtnChatbox: 'Mostrar Registro de Prueba',
+    liveAvatarsDesc: 'Mostrar fotos de perfil en el chat',
+    livePipTitle: 'Mostrar Chat en PiP',
+    livePipDesc: 'Dibujar chat en Picture-in-Picture',
+    livePipLaunch: 'Iniciar PiP con Chat',
+    testBtn: 'Mostrar Comentario de Prueba',
     savedText: 'Los ajustes se guardan automáticamente',
     savingText: 'Ajustes guardados',
     testSending: 'Enviando...',
@@ -204,9 +267,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
   zh: {
     title: 'TimeBubble',
     subtitle: 'YouTube & Twitch 弹幕/评论覆盖',
-    modeCard: '卡片模式',
-    modeFlow: '弹幕模式',
-    modeChatbox: '聊天日志',
+    tabTimestamp: '时间戳评论',
+    tabLive: '直播弹幕',
+    tsEnableTitle: '时间戳评论显示',
+    tsEnableDesc: '根据播放进度在屏幕上同步显示精彩评论',
+    tsModeLabel: '显示模式',
+    modeCard: '卡片',
+    modeFlow: '弹幕',
+    modeChatbox: '日志',
     position: '显示位置',
     topLeft: '左上',
     topRight: '右上',
@@ -227,24 +295,34 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     speedSlow: '慢速',
     speedNormal: '标准',
     speedFast: '快速',
+    highlightTitle: '高赞评论高亮',
+    highlightDesc: '根据点赞数应用渐变与光晕效果',
+    tsAvatarsTitle: '显示用户头像',
+    tsAvatarsDesc: '在评论中显示作者头像',
+    tsPipTitle: '在画中画(PiP)窗口显示评论',
+    tsPipDesc: '画中画播放时同步合成绘制评论',
+    tsPipLaunch: '立即开启带评论的画中画',
+    liveYtTitle: 'YouTube Live 聊天显示',
+    liveYtDesc: '在视频上实时显示直播与回放聊天',
+    liveTwitchTitle: 'Twitch 弹幕显示',
+    liveTwitchDesc: '在视频上实时显示Twitch直播与录像聊天',
+    liveModeLabel: '显示模式',
+    density: '弹幕流量密度 (负载控制)',
     densityLow: '少量',
     densityNormal: '标准',
     densityHigh: '全部',
-    badgesTitle: '显示徽章与专属配色',
-    badgesDesc: '显示房管、VIP、会员徽章与专属用户名颜色',
-    avatarsTitle: '显示用户头像',
-    avatarsDesc: '在评论和弹幕中显示作者头像',
+    liveBadgesTitle: '显示徽章与专属配色',
+    liveBadgesDesc: '显示房管、VIP、会员徽章与专属用户名颜色',
     liveAvatarsTitle: '显示用户头像',
-    liveAvatarsDesc: '在弹幕和气泡中显示用户头像',
-    highlightTitle: '高赞评论高亮',
-    highlightDesc: '根据点赞数应用渐变与光晕效果',
-    testBtnCard: '在当前屏幕显示测试气泡',
-    testBtnFlow: '在当前屏幕显示测试弹幕',
-    testBtnChatbox: '在当前屏幕显示测试聊天日志',
+    liveAvatarsDesc: '在聊天弹幕中显示作者头像',
+    livePipTitle: '在画中画(PiP)窗口显示弹幕',
+    livePipDesc: '画中画播放时同步合成绘制聊天弹幕',
+    livePipLaunch: '立即开启带弹幕的画中画',
+    testBtn: '在当前屏幕显示测试评论',
     savedText: '设置已自动保存',
     savingText: '设置已保存',
     testSending: '发送中...',
-    testSuccess: '已在屏幕显示测试气泡',
+    testSuccess: '已在屏幕显示测试评论',
     testFallback: '已显示预览',
     testCommentText: '01:23 这是最精彩的片段！百看不厌✨',
     testAuthor: '测试观众',
@@ -256,77 +334,106 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const langSelect = document.getElementById('lang-select') as HTMLSelectElement | null;
-  const enabledToggle = document.getElementById('enabled-toggle') as HTMLInputElement | null;
 
-  // ナビゲーションタブ
-  const tabOverlayBtn = document.getElementById('tab-overlay-btn') as HTMLButtonElement | null;
+  // ─── ナビゲーションタブ (2大カテゴリ: タイムスタンプ / ライブ) ───
+  const tabTsBtn = document.getElementById('tab-ts-btn') as HTMLButtonElement | null;
   const tabLiveBtn = document.getElementById('tab-live-btn') as HTMLButtonElement | null;
-  const tabPipBtn = document.getElementById('tab-pip-btn') as HTMLButtonElement | null;
-  const tabOverlayPanel = document.getElementById('tab-overlay-panel') as HTMLElement | null;
+  const tabTsPanel = document.getElementById('tab-timestamp-panel') as HTMLElement | null;
   const tabLivePanel = document.getElementById('tab-live-panel') as HTMLElement | null;
-  const tabPipPanel = document.getElementById('tab-pip-panel') as HTMLElement | null;
 
-  // モード切り替えタブ
-  const modeCardBtn = document.getElementById('mode-card-btn') as HTMLButtonElement | null;
-  const modeFlowBtn = document.getElementById('mode-flow-btn') as HTMLButtonElement | null;
-  const modeChatboxBtn = document.getElementById('mode-chatbox-btn') as HTMLButtonElement | null;
-  const cardModeOptions = document.getElementById('card-mode-options') as HTMLElement | null;
-  const flowModeOptions = document.getElementById('flow-mode-options') as HTMLElement | null;
-  const chatboxModeOptions = document.getElementById('chatbox-mode-options') as HTMLElement | null;
+  let activeTab: 'timestamp' | 'live' = 'timestamp';
 
-  // カード表示用コントロール
-  const posButtons = document.querySelectorAll<HTMLButtonElement>('.pos-btn');
-  const sizeButtons = document.querySelectorAll<HTMLButtonElement>('#card-mode-options .size-btn');
-  const sizeVal = document.getElementById('size-val') as HTMLElement | null;
-  const durationSlider = document.getElementById('duration-slider') as HTMLInputElement | null;
-  const durationVal = document.getElementById('duration-val') as HTMLElement | null;
-  const stackSlider = document.getElementById('stack-slider') as HTMLInputElement | null;
-  const stackVal = document.getElementById('stack-val') as HTMLElement | null;
-  const opacitySlider = document.getElementById('opacity-slider') as HTMLInputElement | null;
-  const opacityVal = document.getElementById('opacity-val') as HTMLElement | null;
+  tabTsBtn?.addEventListener('click', () => {
+    activeTab = 'timestamp';
+    tabTsBtn.classList.add('active');
+    tabLiveBtn?.classList.remove('active');
+    if (tabTsPanel) tabTsPanel.style.display = 'block';
+    if (tabLivePanel) tabLivePanel.style.display = 'none';
+  });
 
-  // 流れるコメント用コントロール
-  const flowSizeButtons = document.querySelectorAll<HTMLButtonElement>('.flow-size-btn');
-  const flowSizeVal = document.getElementById('flow-size-val') as HTMLElement | null;
-  const flowSpeedButtons = document.querySelectorAll<HTMLButtonElement>('.speed-btn');
-  const flowSpeedVal = document.getElementById('flow-speed-val') as HTMLElement | null;
-  const flowOpacitySlider = document.getElementById('flow-opacity-slider') as HTMLInputElement | null;
-  const flowOpacityVal = document.getElementById('flow-opacity-val') as HTMLElement | null;
+  tabLiveBtn?.addEventListener('click', () => {
+    activeTab = 'live';
+    tabLiveBtn.classList.add('active');
+    tabTsBtn?.classList.remove('active');
+    if (tabLivePanel) tabLivePanel.style.display = 'block';
+    if (tabTsPanel) tabTsPanel.style.display = 'none';
+  });
 
-  // Live & Twitch コントロール
+  // ─── タイムスタンプ用コントロール ───
+  const tsEnabledToggle = document.getElementById('ts-enabled-toggle') as HTMLInputElement | null;
+  const tsModeCardBtn = document.getElementById('ts-mode-card-btn') as HTMLButtonElement | null;
+  const tsModeFlowBtn = document.getElementById('ts-mode-flow-btn') as HTMLButtonElement | null;
+  const tsModeChatboxBtn = document.getElementById('ts-mode-chatbox-btn') as HTMLButtonElement | null;
+  const tsCardOptions = document.getElementById('ts-card-options') as HTMLElement | null;
+  const tsFlowOptions = document.getElementById('ts-flow-options') as HTMLElement | null;
+  const tsChatboxOptions = document.getElementById('ts-chatbox-options') as HTMLElement | null;
+
+  // タイムスタンプ: カード
+  const tsPosButtons = document.querySelectorAll<HTMLButtonElement>('#ts-card-options .pos-btn');
+  const tsSizeButtons = document.querySelectorAll<HTMLButtonElement>('#ts-size-group .size-btn');
+  const tsSizeVal = document.getElementById('ts-size-val') as HTMLElement | null;
+  const tsDurationSlider = document.getElementById('ts-duration-slider') as HTMLInputElement | null;
+  const tsDurationVal = document.getElementById('ts-duration-val') as HTMLElement | null;
+  const tsStackSlider = document.getElementById('ts-stack-slider') as HTMLInputElement | null;
+  const tsStackVal = document.getElementById('ts-stack-val') as HTMLElement | null;
+  const tsOpacitySlider = document.getElementById('ts-opacity-slider') as HTMLInputElement | null;
+  const tsOpacityVal = document.getElementById('ts-opacity-val') as HTMLElement | null;
+
+  // タイムスタンプ: フロー
+  const tsFlowSizeButtons = document.querySelectorAll<HTMLButtonElement>('#ts-flow-size-group .flow-size-btn');
+  const tsFlowSizeVal = document.getElementById('ts-flow-size-val') as HTMLElement | null;
+  const tsFlowSpeedButtons = document.querySelectorAll<HTMLButtonElement>('#ts-flow-speed-group .speed-btn');
+  const tsFlowSpeedVal = document.getElementById('ts-flow-speed-val') as HTMLElement | null;
+  const tsFlowOpacitySlider = document.getElementById('ts-flow-opacity-slider') as HTMLInputElement | null;
+  const tsFlowOpacityVal = document.getElementById('ts-flow-opacity-val') as HTMLElement | null;
+
+  // タイムスタンプ: 共通 & PiP
+  const tsHighlightToggle = document.getElementById('ts-highlight-toggle') as HTMLInputElement | null;
+  const tsAvatarsToggle = document.getElementById('ts-avatars-toggle') as HTMLInputElement | null;
+  const tsPipToggle = document.getElementById('ts-pip-toggle') as HTMLInputElement | null;
+  const tsTriggerPipBtn = document.getElementById('ts-trigger-pip-btn') as HTMLButtonElement | null;
+
+  // ─── ライブ用コントロール ───
   const ytLiveToggle = document.getElementById('yt-live-toggle') as HTMLInputElement | null;
   const twitchToggle = document.getElementById('twitch-toggle') as HTMLInputElement | null;
-  const densityButtons = document.querySelectorAll<HTMLButtonElement>('.density-btn');
-  const densityVal = document.getElementById('density-val') as HTMLElement | null;
+  const liveModeFlowBtn = document.getElementById('live-mode-flow-btn') as HTMLButtonElement | null;
+  const liveModeChatboxBtn = document.getElementById('live-mode-chatbox-btn') as HTMLButtonElement | null;
+  const liveModeCardBtn = document.getElementById('live-mode-card-btn') as HTMLButtonElement | null;
+  const liveFlowOptions = document.getElementById('live-flow-options') as HTMLElement | null;
+  const liveChatboxOptions = document.getElementById('live-chatbox-options') as HTMLElement | null;
+  const liveCardOptions = document.getElementById('live-card-options') as HTMLElement | null;
 
-  // PiP コントロール
-  const pipEnabledToggle = document.getElementById('pip-enabled-toggle') as HTMLInputElement | null;
-  const triggerPipBtn = document.getElementById('trigger-pip-btn') as HTMLButtonElement | null;
+  // ライブ: フロー
+  const liveFlowSizeButtons = document.querySelectorAll<HTMLButtonElement>('#live-flow-size-group .live-flow-size-btn');
+  const liveFlowSizeVal = document.getElementById('live-flow-size-val') as HTMLElement | null;
+  const liveFlowSpeedButtons = document.querySelectorAll<HTMLButtonElement>('#live-flow-speed-group .speed-btn');
+  const liveFlowSpeedVal = document.getElementById('live-flow-speed-val') as HTMLElement | null;
+  const liveFlowOpacitySlider = document.getElementById('live-flow-opacity-slider') as HTMLInputElement | null;
+  const liveFlowOpacityVal = document.getElementById('live-flow-opacity-val') as HTMLElement | null;
+  const liveDensityButtons = document.querySelectorAll<HTMLButtonElement>('#live-density-group .density-btn');
+  const liveDensityVal = document.getElementById('live-density-val') as HTMLElement | null;
 
-  // 共通コントロール
-  const highlightToggle = document.getElementById('highlight-toggle') as HTMLInputElement | null;
-  const badgesToggle = document.getElementById('badges-toggle') as HTMLInputElement | null;
-  const avatarsToggle = document.getElementById('avatars-toggle') as HTMLInputElement | null;
+  // ライブ: ログ
+  const liveChatboxDensityButtons = document.querySelectorAll<HTMLButtonElement>('#live-chatbox-density-group .density-btn');
+  const liveChatboxDensityVal = document.getElementById('live-chatbox-density-val') as HTMLElement | null;
+
+  // ライブ: カード
+  const liveSizeButtons = document.querySelectorAll<HTMLButtonElement>('#live-size-group .size-btn');
+  const liveSizeVal = document.getElementById('live-size-val') as HTMLElement | null;
+  const liveDurationSlider = document.getElementById('live-duration-slider') as HTMLInputElement | null;
+  const liveDurationVal = document.getElementById('live-duration-val') as HTMLElement | null;
+  const liveOpacitySlider = document.getElementById('live-opacity-slider') as HTMLInputElement | null;
+  const liveOpacityVal = document.getElementById('live-opacity-val') as HTMLElement | null;
+
+  // ライブ: 共通 & PiP
+  const liveBadgesToggle = document.getElementById('live-badges-toggle') as HTMLInputElement | null;
+  const liveAvatarsToggle = document.getElementById('live-avatars-toggle') as HTMLInputElement | null;
+  const livePipToggle = document.getElementById('live-pip-toggle') as HTMLInputElement | null;
+  const liveTriggerPipBtn = document.getElementById('live-trigger-pip-btn') as HTMLButtonElement | null;
+
+  // ─── フッター & 共通 ───
   const testCommentBtn = document.getElementById('test-comment-btn') as HTMLButtonElement | null;
   const saveStatus = document.getElementById('save-status') as HTMLElement | null;
-
-  // ナビゲーションタブの切り替え
-  const navTabs = [
-    { btn: tabOverlayBtn, panel: tabOverlayPanel },
-    { btn: tabLiveBtn, panel: tabLivePanel },
-    { btn: tabPipBtn, panel: tabPipPanel },
-  ];
-
-  navTabs.forEach(({ btn, panel }) => {
-    btn?.addEventListener('click', () => {
-      navTabs.forEach((t) => {
-        t.btn?.classList.remove('active');
-        if (t.panel) t.panel.style.display = 'none';
-      });
-      btn.classList.add('active');
-      if (panel) panel.style.display = 'flex';
-    });
-  });
 
   // ロゴアイコンを chrome.runtime.getURL で正しく解決
   const logoImg = document.querySelector<HTMLImageElement>('.header-logo-img');
@@ -358,133 +465,198 @@ document.addEventListener('DOMContentLoaded', async () => {
     const elSubtitle = document.getElementById('i18n-subtitle');
     if (elSubtitle) elSubtitle.textContent = t.subtitle;
 
-    // モード切り替えタブ
-    const elModeCard = document.getElementById('i18n-mode-card');
-    if (elModeCard) elModeCard.textContent = t.modeCard;
-    const elModeFlow = document.getElementById('i18n-mode-flow');
-    if (elModeFlow) elModeFlow.textContent = t.modeFlow;
-    const elModeChatbox = document.getElementById('i18n-mode-chatbox');
-    if (elModeChatbox) elModeChatbox.textContent = t.modeChatbox;
+    // タブ名
+    const elTabTs = document.getElementById('i18n-tab-ts');
+    if (elTabTs) elTabTs.textContent = t.tabTimestamp;
+    const elTabLive = document.getElementById('i18n-tab-live');
+    if (elTabLive) elTabLive.textContent = t.tabLive;
 
-    // カードオプション言語
-    const elPos = document.getElementById('i18n-position');
-    if (elPos) elPos.textContent = t.position;
+    // タイムスタンプ側 i18n
+    const elTsEnableTitle = document.getElementById('i18n-ts-enable-title');
+    if (elTsEnableTitle) elTsEnableTitle.textContent = t.tsEnableTitle;
+    const elTsEnableDesc = document.getElementById('i18n-ts-enable-desc');
+    if (elTsEnableDesc) elTsEnableDesc.textContent = t.tsEnableDesc;
+    const elTsModeLabel = document.getElementById('i18n-ts-mode-label');
+    if (elTsModeLabel) elTsModeLabel.textContent = t.tsModeLabel;
+    const elTsModeCard = document.getElementById('i18n-ts-mode-card');
+    if (elTsModeCard) elTsModeCard.textContent = t.modeCard;
+    const elTsModeFlow = document.getElementById('i18n-ts-mode-flow');
+    if (elTsModeFlow) elTsModeFlow.textContent = t.modeFlow;
+    const elTsModeChatbox = document.getElementById('i18n-ts-mode-chatbox');
+    if (elTsModeChatbox) elTsModeChatbox.textContent = t.modeChatbox;
 
-    const elTopLeft = document.getElementById('i18n-top-left');
-    if (elTopLeft) elTopLeft.textContent = t.topLeft;
-    const elTopRight = document.getElementById('i18n-top-right');
-    if (elTopRight) elTopRight.textContent = t.topRight;
-    const elBottomLeft = document.getElementById('i18n-bottom-left');
-    if (elBottomLeft) elBottomLeft.textContent = t.bottomLeft;
-    const elBottomRight = document.getElementById('i18n-bottom-right');
-    if (elBottomRight) elBottomRight.textContent = t.bottomRight;
+    const elTsPosition = document.getElementById('i18n-ts-position');
+    if (elTsPosition) elTsPosition.textContent = t.position;
+    const elTsPosTl = document.getElementById('i18n-ts-pos-tl');
+    if (elTsPosTl) elTsPosTl.textContent = t.topLeft;
+    const elTsPosTr = document.getElementById('i18n-ts-pos-tr');
+    if (elTsPosTr) elTsPosTr.textContent = t.topRight;
+    const elTsPosBl = document.getElementById('i18n-ts-pos-bl');
+    if (elTsPosBl) elTsPosBl.textContent = t.bottomLeft;
+    const elTsPosBr = document.getElementById('i18n-ts-pos-br');
+    if (elTsPosBr) elTsPosBr.textContent = t.bottomRight;
 
-    const elSize = document.getElementById('i18n-size');
-    if (elSize) elSize.textContent = t.size;
-    const elSizeSmall = document.getElementById('i18n-size-small');
-    if (elSizeSmall) elSizeSmall.textContent = t.sizeSmall;
-    const elSizeMed = document.getElementById('i18n-size-medium');
-    if (elSizeMed) elSizeMed.textContent = t.sizeMedium;
-    const elSizeLarge = document.getElementById('i18n-size-large');
-    if (elSizeLarge) elSizeLarge.textContent = t.sizeLarge;
+    const elTsSize = document.getElementById('i18n-ts-size');
+    if (elTsSize) elTsSize.textContent = t.size;
+    const elTsDuration = document.getElementById('i18n-ts-duration');
+    if (elTsDuration) elTsDuration.textContent = t.duration;
+    const elTsStack = document.getElementById('i18n-ts-stack');
+    if (elTsStack) elTsStack.textContent = t.stack;
+    const elTsOpacity = document.getElementById('i18n-ts-opacity');
+    if (elTsOpacity) elTsOpacity.textContent = t.opacity;
 
-    const elDuration = document.getElementById('i18n-duration');
-    if (elDuration) elDuration.textContent = t.duration;
-    const elStack = document.getElementById('i18n-stack');
-    if (elStack) elStack.textContent = t.stack;
-    const elOpacity = document.getElementById('i18n-opacity');
-    if (elOpacity) elOpacity.textContent = t.opacity;
+    const elTsFlowSize = document.getElementById('i18n-ts-flow-size');
+    if (elTsFlowSize) elTsFlowSize.textContent = t.flowSize;
+    const elTsFlowSpeed = document.getElementById('i18n-ts-flow-speed');
+    if (elTsFlowSpeed) elTsFlowSpeed.textContent = t.flowSpeed;
+    const elTsFlowOpacity = document.getElementById('i18n-ts-flow-opacity');
+    if (elTsFlowOpacity) elTsFlowOpacity.textContent = t.flowOpacity;
 
-    // フローオプション言語
-    const elFlowSize = document.getElementById('i18n-flow-size');
-    if (elFlowSize) elFlowSize.textContent = t.flowSize;
-    const elFlowSizeSmall = document.getElementById('i18n-flow-size-small');
-    if (elFlowSizeSmall) elFlowSizeSmall.textContent = t.sizeSmall;
-    const elFlowSizeMed = document.getElementById('i18n-flow-size-medium');
-    if (elFlowSizeMed) elFlowSizeMed.textContent = t.sizeMedium;
-    const elFlowSizeLarge = document.getElementById('i18n-flow-size-large');
-    if (elFlowSizeLarge) elFlowSizeLarge.textContent = t.sizeLarge;
+    const elTsHighlightTitle = document.getElementById('i18n-ts-highlight-title');
+    if (elTsHighlightTitle) elTsHighlightTitle.textContent = t.highlightTitle;
+    const elTsHighlightDesc = document.getElementById('i18n-ts-highlight-desc');
+    if (elTsHighlightDesc) elTsHighlightDesc.textContent = t.highlightDesc;
+    const elTsAvatarsTitle = document.getElementById('i18n-ts-avatars-title');
+    if (elTsAvatarsTitle) elTsAvatarsTitle.textContent = t.tsAvatarsTitle;
+    const elTsAvatarsDesc = document.getElementById('i18n-ts-avatars-desc');
+    if (elTsAvatarsDesc) elTsAvatarsDesc.textContent = t.tsAvatarsDesc;
 
-    const elFlowSpeed = document.getElementById('i18n-flow-speed');
-    if (elFlowSpeed) elFlowSpeed.textContent = t.flowSpeed;
-    const elSpeedSlow = document.getElementById('i18n-speed-slow');
-    if (elSpeedSlow) elSpeedSlow.textContent = t.speedSlow;
-    const elSpeedNormal = document.getElementById('i18n-speed-normal');
-    if (elSpeedNormal) elSpeedNormal.textContent = t.speedNormal;
-    const elSpeedFast = document.getElementById('i18n-speed-fast');
-    if (elSpeedFast) elSpeedFast.textContent = t.speedFast;
+    const elTsPipTitle = document.getElementById('i18n-ts-pip-title');
+    if (elTsPipTitle) elTsPipTitle.textContent = t.tsPipTitle;
+    const elTsPipDesc = document.getElementById('i18n-ts-pip-desc');
+    if (elTsPipDesc) elTsPipDesc.textContent = t.tsPipDesc;
+    const elTsPipLaunch = document.getElementById('i18n-ts-pip-launch');
+    if (elTsPipLaunch) elTsPipLaunch.textContent = t.tsPipLaunch;
 
-    const elFlowOpacity = document.getElementById('i18n-flow-opacity');
-    if (elFlowOpacity) elFlowOpacity.textContent = t.flowOpacity;
+    // ライブ側 i18n
+    const elLiveYtTitle = document.getElementById('i18n-live-yt-title');
+    if (elLiveYtTitle) elLiveYtTitle.textContent = t.liveYtTitle;
+    const elLiveYtDesc = document.getElementById('i18n-live-yt-desc');
+    if (elLiveYtDesc) elLiveYtDesc.textContent = t.liveYtDesc;
+    const elLiveTwitchTitle = document.getElementById('i18n-live-twitch-title');
+    if (elLiveTwitchTitle) elLiveTwitchTitle.textContent = t.liveTwitchTitle;
+    const elLiveTwitchDesc = document.getElementById('i18n-live-twitch-desc');
+    if (elLiveTwitchDesc) elLiveTwitchDesc.textContent = t.liveTwitchDesc;
+    const elLiveModeLabel = document.getElementById('i18n-live-mode-label');
+    if (elLiveModeLabel) elLiveModeLabel.textContent = t.liveModeLabel;
+    const elLiveModeFlow = document.getElementById('i18n-live-mode-flow');
+    if (elLiveModeFlow) elLiveModeFlow.textContent = t.modeFlow;
+    const elLiveModeChatbox = document.getElementById('i18n-live-mode-chatbox');
+    if (elLiveModeChatbox) elLiveModeChatbox.textContent = t.modeChatbox;
+    const elLiveModeCard = document.getElementById('i18n-live-mode-card');
+    if (elLiveModeCard) elLiveModeCard.textContent = t.modeCard;
 
-    // 共通オプション言語
-    const elHighlightTitle = document.getElementById('i18n-highlight-title');
-    if (elHighlightTitle) elHighlightTitle.textContent = t.highlightTitle;
-    const elHighlightDesc = document.getElementById('i18n-highlight-desc');
-    if (elHighlightDesc) elHighlightDesc.textContent = t.highlightDesc;
+    const elLiveFlowSize = document.getElementById('i18n-live-flow-size');
+    if (elLiveFlowSize) elLiveFlowSize.textContent = t.flowSize;
+    const elLiveFlowSpeed = document.getElementById('i18n-live-flow-speed');
+    if (elLiveFlowSpeed) elLiveFlowSpeed.textContent = t.flowSpeed;
+    const elLiveFlowOpacity = document.getElementById('i18n-live-flow-opacity');
+    if (elLiveFlowOpacity) elLiveFlowOpacity.textContent = t.flowOpacity;
+    const elLiveDensity = document.getElementById('i18n-live-density');
+    if (elLiveDensity) elLiveDensity.textContent = t.density;
 
-    const elBadgesTitle = document.getElementById('i18n-badges-title');
-    if (elBadgesTitle) elBadgesTitle.textContent = t.badgesTitle;
-    const elBadgesDesc = document.getElementById('i18n-badges-desc');
-    if (elBadgesDesc) elBadgesDesc.textContent = t.badgesDesc;
-
-    const elAvatarsTitle = document.getElementById('i18n-avatars-title');
-    if (elAvatarsTitle) elAvatarsTitle.textContent = t.avatarsTitle;
-    const elAvatarsDesc = document.getElementById('i18n-avatars-desc');
-    if (elAvatarsDesc) elAvatarsDesc.textContent = t.avatarsDesc;
-
+    const elLiveBadgesTitle = document.getElementById('i18n-live-badges-title');
+    if (elLiveBadgesTitle) elLiveBadgesTitle.textContent = t.liveBadgesTitle;
+    const elLiveBadgesDesc = document.getElementById('i18n-live-badges-desc');
+    if (elLiveBadgesDesc) elLiveBadgesDesc.textContent = t.liveBadgesDesc;
     const elLiveAvatarsTitle = document.getElementById('i18n-live-avatars-title');
     if (elLiveAvatarsTitle) elLiveAvatarsTitle.textContent = t.liveAvatarsTitle;
     const elLiveAvatarsDesc = document.getElementById('i18n-live-avatars-desc');
     if (elLiveAvatarsDesc) elLiveAvatarsDesc.textContent = t.liveAvatarsDesc;
 
+    const elLivePipTitle = document.getElementById('i18n-live-pip-title');
+    if (elLivePipTitle) elLivePipTitle.textContent = t.livePipTitle;
+    const elLivePipDesc = document.getElementById('i18n-live-pip-desc');
+    if (elLivePipDesc) elLivePipDesc.textContent = t.livePipDesc;
+    const elLivePipLaunch = document.getElementById('i18n-live-pip-launch');
+    if (elLivePipLaunch) elLivePipLaunch.textContent = t.livePipLaunch;
+
+    // フッター & 共通
+    const elTestBtn = document.getElementById('i18n-test-btn');
+    if (elTestBtn) elTestBtn.textContent = t.testBtn;
     const elSupportDev = document.getElementById('i18n-support-dev');
     if (elSupportDev) elSupportDev.textContent = t.supportDev;
     const elSupportLink = document.getElementById('support-link');
     if (elSupportLink) elSupportLink.title = `${t.supportDev} (Ko-fi)`;
-
     if (saveStatus) saveStatus.textContent = t.savedText;
+
+    // ボタンのテキスト更新 (小/中/大、遅い/普通/速い、控えめ/標準/すべて)
+    document.querySelectorAll('.size-btn[data-size="small"]').forEach((btn) => { btn.textContent = t.sizeSmall; });
+    document.querySelectorAll('.size-btn[data-size="medium"]').forEach((btn) => { btn.textContent = t.sizeMedium; });
+    document.querySelectorAll('.size-btn[data-size="large"]').forEach((btn) => { btn.textContent = t.sizeLarge; });
+    document.querySelectorAll('.speed-btn[data-speed="slow"]').forEach((btn) => { btn.textContent = t.speedSlow; });
+    document.querySelectorAll('.speed-btn[data-speed="normal"]').forEach((btn) => { btn.textContent = t.speedNormal; });
+    document.querySelectorAll('.speed-btn[data-speed="fast"]').forEach((btn) => { btn.textContent = t.speedFast; });
+    document.querySelectorAll('.density-btn[data-density="low"]').forEach((btn) => { btn.textContent = t.densityLow; });
+    document.querySelectorAll('.density-btn[data-density="normal"]').forEach((btn) => { btn.textContent = t.densityNormal; });
+    document.querySelectorAll('.density-btn[data-density="high"]').forEach((btn) => { btn.textContent = t.densityHigh; });
 
     updateDynamicLabels();
   }
 
   function updateDynamicLabels() {
     const t = I18N_DATA[currentLang] || I18N_DATA.ja;
+
+    // ─── タイムスタンプ動的ラベル ───
     const s = currentSettings.size || 'medium';
-    if (sizeVal) {
-      sizeVal.textContent = s === 'small' ? t.sizeSmall : s === 'large' ? t.sizeLarge : t.sizeMedium;
+    if (tsSizeVal) {
+      tsSizeVal.textContent = s === 'small' ? t.sizeSmall : s === 'large' ? t.sizeLarge : t.sizeMedium;
     }
-    if (durationVal) {
-      durationVal.textContent = `${currentSettings.displayDuration}${t.durationUnit}`;
+    if (tsDurationVal) {
+      tsDurationVal.textContent = `${currentSettings.displayDuration}${t.durationUnit}`;
     }
-    if (stackVal) {
-      stackVal.textContent = `${currentSettings.maxStackCount}${t.stackUnit}`;
+    if (tsStackVal) {
+      tsStackVal.textContent = `${currentSettings.maxStackCount}${t.stackUnit}`;
+    }
+    if (tsOpacityVal) {
+      tsOpacityVal.textContent = `${currentSettings.opacity}%`;
     }
 
     const fs = currentSettings.flowSize || 'medium';
-    if (flowSizeVal) {
-      flowSizeVal.textContent = fs === 'small' ? t.sizeSmall : fs === 'large' ? t.sizeLarge : t.sizeMedium;
+    if (tsFlowSizeVal) {
+      tsFlowSizeVal.textContent = fs === 'small' ? t.sizeSmall : fs === 'large' ? t.sizeLarge : t.sizeMedium;
     }
-
     const spd = currentSettings.flowSpeed || 'normal';
-    if (flowSpeedVal) {
-      flowSpeedVal.textContent = spd === 'slow' ? t.speedSlow : spd === 'fast' ? t.speedFast : t.speedNormal;
+    if (tsFlowSpeedVal) {
+      tsFlowSpeedVal.textContent = spd === 'slow' ? t.speedSlow : spd === 'fast' ? t.speedFast : t.speedNormal;
+    }
+    if (tsFlowOpacityVal) {
+      tsFlowOpacityVal.textContent = `${currentSettings.flowOpacity ?? 65}%`;
     }
 
-    const d = currentSettings.flowDensity || 'normal';
-    if (densityVal) {
-      densityVal.textContent = d === 'low' ? t.densityLow : d === 'high' ? t.densityHigh : t.densityNormal;
+    // ─── ライブ動的ラベル ───
+    const lfs = currentSettings.liveFlowSize || currentSettings.flowSize || 'medium';
+    if (liveFlowSizeVal) {
+      liveFlowSizeVal.textContent = lfs === 'small' ? t.sizeSmall : lfs === 'large' ? t.sizeLarge : t.sizeMedium;
+    }
+    const lspd = currentSettings.liveFlowSpeed || currentSettings.flowSpeed || 'normal';
+    if (liveFlowSpeedVal) {
+      liveFlowSpeedVal.textContent = lspd === 'slow' ? t.speedSlow : lspd === 'fast' ? t.speedFast : t.speedNormal;
+    }
+    if (liveFlowOpacityVal) {
+      liveFlowOpacityVal.textContent = `${currentSettings.liveFlowOpacity ?? currentSettings.flowOpacity ?? 65}%`;
     }
 
-    const elTestBtn = document.getElementById('i18n-test-btn');
-    if (elTestBtn) {
-      if (currentSettings.displayMode === 'flow') {
-        elTestBtn.textContent = t.testBtnFlow;
-      } else if (currentSettings.displayMode === 'chatbox') {
-        elTestBtn.textContent = t.testBtnChatbox;
-      } else {
-        elTestBtn.textContent = t.testBtnCard;
-      }
+    const ld = currentSettings.liveChatMaxDensity || currentSettings.flowDensity || 'normal';
+    const ldText = ld === 'low' ? t.densityLow : ld === 'high' ? t.densityHigh : t.densityNormal;
+    if (liveDensityVal) {
+      liveDensityVal.textContent = ldText;
+    }
+    if (liveChatboxDensityVal) {
+      liveChatboxDensityVal.textContent = ldText;
+    }
+
+    const ls = currentSettings.liveSize || currentSettings.size || 'medium';
+    if (liveSizeVal) {
+      liveSizeVal.textContent = ls === 'small' ? t.sizeSmall : ls === 'large' ? t.sizeLarge : t.sizeMedium;
+    }
+    if (liveDurationVal) {
+      const dur = currentSettings.liveDisplayDuration ?? currentSettings.displayDuration ?? 6;
+      liveDurationVal.textContent = `${dur}${t.durationUnit}`;
+    }
+    if (liveOpacityVal) {
+      const op = currentSettings.liveOpacity ?? currentSettings.opacity ?? 80;
+      liveOpacityVal.textContent = `${op}%`;
     }
   }
 
@@ -495,6 +667,122 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => {
       saveStatus.textContent = t.savedText;
     }, duration);
+  }
+
+  // タイムスタンプ表示モード切替
+  function setTsMode(mode: DisplayMode) {
+    currentSettings.displayMode = mode;
+    currentSettings.flowMode = mode === 'flow';
+
+    tsModeCardBtn?.classList.toggle('active', mode === 'card');
+    tsModeFlowBtn?.classList.toggle('active', mode === 'flow');
+    tsModeChatboxBtn?.classList.toggle('active', mode === 'chatbox');
+
+    // 関係のないオプションを非表示、関係のあるオプションのみ表示
+    if (tsCardOptions) tsCardOptions.style.display = mode === 'card' ? 'block' : 'none';
+    if (tsFlowOptions) tsFlowOptions.style.display = mode === 'flow' ? 'block' : 'none';
+    if (tsChatboxOptions) tsChatboxOptions.style.display = mode === 'chatbox' ? 'block' : 'none';
+
+    updateDynamicLabels();
+  }
+
+  // ライブ表示モード切替
+  function setLiveMode(mode: DisplayMode) {
+    currentSettings.liveChatMode = mode;
+
+    liveModeFlowBtn?.classList.toggle('active', mode === 'flow');
+    liveModeChatboxBtn?.classList.toggle('active', mode === 'chatbox');
+    liveModeCardBtn?.classList.toggle('active', mode === 'card');
+
+    // 関係のないオプションを非表示、関係のあるオプションのみ表示
+    if (liveFlowOptions) liveFlowOptions.style.display = mode === 'flow' ? 'block' : 'none';
+    if (liveChatboxOptions) liveChatboxOptions.style.display = mode === 'chatbox' ? 'block' : 'none';
+    if (liveCardOptions) liveCardOptions.style.display = mode === 'card' ? 'block' : 'none';
+
+    updateDynamicLabels();
+  }
+
+  function applySettingsToUi(settings: OverlaySettings) {
+    // ─── タイムスタンプ設定の反映 ───
+    if (tsEnabledToggle) tsEnabledToggle.checked = settings.enabled;
+
+    const tsMode: DisplayMode = settings.displayMode || (settings.flowMode ? 'flow' : 'card');
+    setTsMode(tsMode);
+
+    tsPosButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-pos') === settings.position);
+    });
+
+    const currentTsSize = settings.size || 'medium';
+    tsSizeButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-size') === currentTsSize);
+    });
+
+    if (tsDurationSlider) tsDurationSlider.value = settings.displayDuration.toString();
+    if (tsStackSlider) tsStackSlider.value = settings.maxStackCount.toString();
+    if (tsOpacitySlider) tsOpacitySlider.value = settings.opacity.toString();
+
+    const currentTsFlowSize = settings.flowSize || 'medium';
+    tsFlowSizeButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-size') === currentTsFlowSize);
+    });
+
+    const currentTsFlowSpeed = settings.flowSpeed || 'normal';
+    tsFlowSpeedButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-speed') === currentTsFlowSpeed);
+    });
+
+    const currentTsFlowOpacity = settings.flowOpacity ?? 65;
+    if (tsFlowOpacitySlider) tsFlowOpacitySlider.value = currentTsFlowOpacity.toString();
+
+    if (tsHighlightToggle) tsHighlightToggle.checked = settings.highlightPopular;
+    if (tsAvatarsToggle) tsAvatarsToggle.checked = settings.showAvatars ?? true;
+    if (tsPipToggle) tsPipToggle.checked = settings.pipEnabled ?? true;
+
+    // ─── ライブ設定の反映 ───
+    if (ytLiveToggle) ytLiveToggle.checked = settings.liveChatEnabled ?? true;
+    if (twitchToggle) twitchToggle.checked = settings.twitchEnabled ?? true;
+
+    const liveMode: DisplayMode = settings.liveChatMode || 'flow';
+    setLiveMode(liveMode);
+
+    const currentLiveFlowSize = settings.liveFlowSize || settings.flowSize || 'medium';
+    liveFlowSizeButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-size') === currentLiveFlowSize);
+    });
+
+    const currentLiveFlowSpeed = settings.liveFlowSpeed || settings.flowSpeed || 'normal';
+    liveFlowSpeedButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-speed') === currentLiveFlowSpeed);
+    });
+
+    const currentLiveFlowOpacity = settings.liveFlowOpacity ?? settings.flowOpacity ?? 65;
+    if (liveFlowOpacitySlider) liveFlowOpacitySlider.value = currentLiveFlowOpacity.toString();
+
+    const currentLiveDensity = settings.liveChatMaxDensity || settings.flowDensity || 'normal';
+    liveDensityButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-density') === currentLiveDensity);
+    });
+    liveChatboxDensityButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-density') === currentLiveDensity);
+    });
+
+    const currentLiveSize = settings.liveSize || settings.size || 'medium';
+    liveSizeButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-size') === currentLiveSize);
+    });
+
+    const currentLiveDuration = settings.liveDisplayDuration ?? settings.displayDuration ?? 6;
+    if (liveDurationSlider) liveDurationSlider.value = currentLiveDuration.toString();
+
+    const currentLiveOpacity = settings.liveOpacity ?? settings.opacity ?? 80;
+    if (liveOpacitySlider) liveOpacitySlider.value = currentLiveOpacity.toString();
+
+    if (liveBadgesToggle) liveBadgesToggle.checked = settings.liveShowBadges ?? settings.showBadges ?? true;
+    if (liveAvatarsToggle) liveAvatarsToggle.checked = settings.liveShowAvatars ?? settings.showLiveAvatars ?? true;
+    if (livePipToggle) livePipToggle.checked = settings.livePipEnabled ?? settings.pipEnabled ?? true;
+
+    updateDynamicLabels();
   }
 
   // 1. 設定ロード
@@ -510,107 +798,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('Failed to load settings', err);
   }
 
-  function applySettingsToUi(settings: OverlaySettings) {
-    if (enabledToggle) enabledToggle.checked = settings.enabled;
+  async function updateSettings(partial: Partial<OverlaySettings>) {
+    Object.assign(currentSettings, partial);
+    const updated = await saveSettings(partial);
 
-    const mode: DisplayMode = settings.displayMode || (settings.flowMode ? 'flow' : 'card');
-    currentSettings.displayMode = mode;
-
-    // モードタブの切り替え
-    if (modeCardBtn) modeCardBtn.classList.toggle('active', mode === 'card');
-    if (modeFlowBtn) modeFlowBtn.classList.toggle('active', mode === 'flow');
-    if (modeChatboxBtn) modeChatboxBtn.classList.toggle('active', mode === 'chatbox');
-    if (cardModeOptions) cardModeOptions.style.display = mode === 'card' ? 'flex' : 'none';
-    if (flowModeOptions) flowModeOptions.style.display = mode === 'flow' ? 'flex' : 'none';
-    if (chatboxModeOptions) chatboxModeOptions.style.display = mode === 'chatbox' ? 'block' : 'none';
-
-    // カード: 位置
-    posButtons.forEach((btn) => {
-      const pos = btn.getAttribute('data-pos');
-      if (pos === settings.position) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
-    // カード: サイズ
-    const currentSize = settings.size || 'medium';
-    sizeButtons.forEach((btn) => {
-      const s = btn.getAttribute('data-size');
-      if (s === currentSize) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
-    // カード: スライダー群
-    if (durationSlider) durationSlider.value = settings.displayDuration.toString();
-    if (stackSlider) stackSlider.value = settings.maxStackCount.toString();
-    if (opacitySlider) opacitySlider.value = settings.opacity.toString();
-    if (opacityVal) opacityVal.textContent = `${settings.opacity}%`;
-
-    // フロー: サイズ
-    const currentFlowSize = settings.flowSize || 'medium';
-    flowSizeButtons.forEach((btn) => {
-      const s = btn.getAttribute('data-size');
-      if (s === currentFlowSize) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
-    // フロー: 速度
-    const currentFlowSpeed = settings.flowSpeed || 'normal';
-    flowSpeedButtons.forEach((btn) => {
-      const spd = btn.getAttribute('data-speed');
-      if (spd === currentFlowSpeed) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
-    // フロー: 不透明度
-    const currentFlowOpacity = settings.flowOpacity ?? 65;
-    if (flowOpacitySlider) flowOpacitySlider.value = currentFlowOpacity.toString();
-    if (flowOpacityVal) flowOpacityVal.textContent = `${currentFlowOpacity}%`;
-
-    // 共通: ハイライト・バッジ・アバター
-    if (highlightToggle) {
-      highlightToggle.checked = settings.highlightPopular;
-    }
-    if (badgesToggle) {
-      badgesToggle.checked = settings.showBadges ?? settings.twitchShowBadges ?? true;
-    }
-    if (avatarsToggle) {
-      avatarsToggle.checked = settings.showAvatars ?? settings.showLiveAvatars ?? true;
+    // 開かれている全タブに設定変更を通知（storage.onChangedでも自動同期される）
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query({}, (tabs) => {
+        tabs?.forEach((tab) => {
+          if (tab.id) {
+            chrome.tabs.sendMessage(tab.id, { type: 'UPDATE_SETTINGS', settings: updated }, () => {
+              if (chrome.runtime.lastError) { /* ignore */ }
+            });
+          }
+        });
+      });
     }
 
-    // Live & Twitch
-    if (ytLiveToggle) ytLiveToggle.checked = settings.liveChatEnabled ?? true;
-    if (twitchToggle) twitchToggle.checked = settings.twitchEnabled ?? true;
-
-    // 流量密度
-    const currentDensity = settings.flowDensity || 'normal';
-    densityButtons.forEach((btn) => {
-      const d = btn.getAttribute('data-density');
-      if (d === currentDensity) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
-    // PiP
-    if (pipEnabledToggle) pipEnabledToggle.checked = settings.pipEnabled ?? true;
-
-    updateDynamicLabels();
+    flashSaveStatus();
   }
 
-
+  async function updateSetting<K extends keyof OverlaySettings>(key: K, value: OverlaySettings[K]) {
+    await updateSettings({ [key]: value } as Partial<OverlaySettings>);
+  }
 
   /**
    * 現在アクティブなタブを取得
@@ -634,14 +844,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
-   * 現在のアクティブタブ（実際のブラウザ画面上）にテスト吹き出しを確実に表示する
+   * 現在のアクティブタブにテスト吹き出しを確実に表示する
    */
-  async function sendTestCommentToActiveTab(): Promise<boolean> {
+  async function sendTestCommentToActiveTab(testKind: 'timestamp' | 'live'): Promise<boolean> {
     const tab = await getActiveTab();
     if (!tab || !tab.id) return false;
 
     const url = tab.url || '';
-    // 特殊URL（chrome://, edge://, about: 等）はスクリプト注入不可
     const isInjectable = url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://');
     if (!isInjectable) {
       return false;
@@ -649,9 +858,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const tabId = tab.id;
 
-    // 1. まず既存の Content Script にメッセージ送信を試行（YouTube動画ページなど稼働中なら最優先）
+    // 1. Content Script へのメッセージ送信を試行
     const msgSuccess = await new Promise<boolean>((resolve) => {
-      chrome.tabs.sendMessage(tabId, { type: 'SHOW_TEST_COMMENT', settings: currentSettings }, (response) => {
+      chrome.tabs.sendMessage(tabId, { type: 'SHOW_TEST_COMMENT', settings: currentSettings, testKind }, (response) => {
         const lastErr = chrome.runtime.lastError;
         if (!lastErr && response?.success) {
           resolve(true);
@@ -665,14 +874,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       return true;
     }
 
-    // 2. メッセージ未応答（YouTube以外のページ、またはContent Script未起動のタブ）：
-    // chrome.scripting.executeScript を使って、そのWebページのブラウザ画面上に直接テスト吹き出しを生成・表示
+    // 2. メッセージ未応答（YouTube/Twitch以外のページ、またはContent Script未起動のタブ）：直接注入
     if (chrome.scripting && chrome.scripting.executeScript) {
       try {
         await chrome.scripting.executeScript({
           target: { tabId },
           func: injectBrowserTestOverlay,
-          args: [currentSettings, currentLang],
+          args: [currentSettings, currentLang, testKind],
         });
         return true;
       } catch (err) {
@@ -686,11 +894,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   /**
    * ブラウザのWebページ側で直接実行される自律型テスト吹き出し注入関数
    */
-  function injectBrowserTestOverlay(settings: any, lang: string) {
+  function injectBrowserTestOverlay(settings: any, lang: string, testKind: 'timestamp' | 'live') {
     const CONTAINER_ID = 'timebubble-browser-test-container';
     const STYLE_ID = 'timebubble-browser-test-style';
 
-    // 1. スタイルの注入
     let styleEl = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
     if (!styleEl) {
       styleEl = document.createElement('style');
@@ -708,30 +915,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           width: 320px !important;
           max-width: 90vw !important;
         }
-        #${CONTAINER_ID}.pos-top-right {
-          top: 20px !important;
-          right: 20px !important;
-          bottom: auto !important;
-          left: auto !important;
-        }
-        #${CONTAINER_ID}.pos-top-left {
-          top: 20px !important;
-          left: 20px !important;
-          bottom: auto !important;
-          right: auto !important;
-        }
-        #${CONTAINER_ID}.pos-bottom-right {
-          bottom: 20px !important;
-          right: 20px !important;
-          top: auto !important;
-          left: auto !important;
-        }
-        #${CONTAINER_ID}.pos-bottom-left {
-          bottom: 20px !important;
-          left: 20px !important;
-          top: auto !important;
-          right: auto !important;
-        }
+        #${CONTAINER_ID}.pos-top-right { top: 20px !important; right: 20px !important; bottom: auto !important; left: auto !important; }
+        #${CONTAINER_ID}.pos-top-left { top: 20px !important; left: 20px !important; bottom: auto !important; right: auto !important; }
+        #${CONTAINER_ID}.pos-bottom-right { bottom: 20px !important; right: 20px !important; top: auto !important; left: auto !important; }
+        #${CONTAINER_ID}.pos-bottom-left { bottom: 20px !important; left: 20px !important; top: auto !important; right: auto !important; }
         #${CONTAINER_ID}.size-small { width: 260px !important; }
         #${CONTAINER_ID}.size-medium { width: 320px !important; }
         #${CONTAINER_ID}.size-large { width: 380px !important; }
@@ -765,37 +952,18 @@ document.addEventListener('DOMContentLoaded', async () => {
           border-color: rgba(245, 158, 11, calc(var(--tb-border-op, 0.18) * 3)) !important;
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(245, 158, 11, 0.35) !important;
         }
-        .tb-test-card.size-small {
-          padding: 8px 10px !important;
-          font-size: 11.5px !important;
-          border-radius: 9px !important;
-          margin-bottom: 7px !important;
+        .tb-test-card.is-superchat {
+          border-color: rgba(245, 158, 11, 0.7) !important;
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(18, 24, 38, 0.9)) !important;
         }
-        .tb-test-card.size-large {
-          padding: 12px 16px !important;
-          font-size: 14.5px !important;
-          border-radius: 14px !important;
-          margin-bottom: 12px !important;
-        }
-        .tb-test-card.is-exiting {
-          opacity: 0 !important;
-          transform: scale(0.92) translateY(-10px) !important;
-        }
+        .tb-test-card.size-small { padding: 8px 10px !important; font-size: 11.5px !important; border-radius: 9px !important; margin-bottom: 7px !important; }
+        .tb-test-card.size-large { padding: 12px 16px !important; font-size: 14.5px !important; border-radius: 14px !important; margin-bottom: 12px !important; }
+        .tb-test-card.is-exiting { opacity: 0 !important; transform: scale(0.92) translateY(-10px) !important; }
         @keyframes tbCardEnter {
-          from {
-            opacity: 0;
-            transform: translateY(12px) scale(0.96);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(12px) scale(0.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .tb-test-hdr {
-          display: flex !important;
-          align-items: center !important;
-          gap: 8px !important;
-        }
+        .tb-test-hdr { display: flex !important; align-items: center !important; gap: 8px !important; }
         .tb-test-avatar {
           width: 24px !important;
           height: 24px !important;
@@ -809,11 +977,18 @@ document.addEventListener('DOMContentLoaded', async () => {
           font-weight: 700 !important;
           flex-shrink: 0 !important;
         }
-        .tb-test-name {
-          font-weight: 600 !important;
-          font-size: 12px !important;
-          color: #e2e8f0 !important;
+        .tb-test-name { font-weight: 600 !important; font-size: 12px !important; color: #e2e8f0 !important; }
+        .tb-test-badge-icon {
+          display: inline-flex !important;
+          align-items: center !important;
+          padding: 1px 5px !important;
+          font-size: 10px !important;
+          font-weight: 700 !important;
+          border-radius: 4px !important;
+          background: rgba(168, 85, 247, 0.25) !important;
+          color: #c084fc !important;
         }
+        .tb-test-badge-mod { background: rgba(34, 197, 94, 0.25) !important; color: #4ade80 !important; }
         .tb-test-likes {
           margin-left: auto !important;
           display: inline-flex !important;
@@ -826,10 +1001,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           padding: 1px 6px !important;
           border-radius: 10px !important;
         }
-        .tb-test-body {
-          color: #f8fafc !important;
-          word-break: break-word !important;
-        }
+        .tb-test-body { color: #f8fafc !important; word-break: break-word !important; }
         .tb-test-badge {
           display: inline-flex !important;
           align-items: center !important;
@@ -847,7 +1019,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       (document.head || document.documentElement).appendChild(styleEl);
     }
 
-    // 2. コンテナの取得または作成
     let container = document.getElementById(CONTAINER_ID);
     if (!container) {
       container = document.createElement('div');
@@ -856,16 +1027,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const pos = settings.position || 'top-right';
-    const size = settings.size || 'medium';
+    const isLive = testKind === 'live';
+    const size = isLive ? (settings.liveSize || settings.size || 'medium') : (settings.size || 'medium');
     container.className = `pos-${pos} size-${size}`;
 
-    const op = typeof settings.opacity === 'number' ? settings.opacity : 80;
+    const op = isLive ? (typeof settings.liveOpacity === 'number' ? settings.liveOpacity : 80) : (typeof settings.opacity === 'number' ? settings.opacity : 80);
     const bgOp = Math.max(0, Math.min(1, op / 100));
     container.style.setProperty('--tb-bg-op', bgOp.toString());
     container.style.setProperty('--tb-border-op', (bgOp * 0.22).toString());
 
-    // 3. テストサンプルの準備
-    const samplesByLang: Record<string, { text: string; time: string; author: string }[]> = {
+    // サンプルデータ
+    const tsSamplesByLang: Record<string, { text: string; time: string; author: string }[]> = {
       ja: [
         { text: '01:23 ここが一番好きなシーン！何度見ても最高です✨', time: '01:23', author: '視聴者A' },
         { text: 'この演出鳥肌立った…神回すぎる！🔥 02:45', time: '02:45', author: '視聴者B' },
@@ -888,62 +1060,96 @@ document.addEventListener('DOMContentLoaded', async () => {
       ],
     };
 
-    const sampleList = samplesByLang[lang] || samplesByLang.ja;
-    const count = Math.max(1, Math.min(settings.maxStackCount || 3, sampleList.length));
-    const duration = Math.max(3, Math.min(15, settings.displayDuration || 6));
-    const likesList = [420, 1500, 85];
+    const liveSamplesByLang: Record<string, { text: string; badge: string; author: string; isMod?: boolean; isSuper?: boolean }[]> = {
+      ja: [
+        { text: 'キターーーー！！配信待機してました！🎉', badge: 'VIP', author: 'ライブファンA' },
+        { text: 'スパチャ ¥1,000 ナイス配信！応援してます🔥', badge: 'SUPER', author: 'サポーターB', isSuper: true },
+        { text: '荒らしは即座に対処します。楽しく見ましょう！', badge: 'MOD', author: 'モデレーターC', isMod: true },
+      ],
+      en: [
+        { text: 'LETS GOOOOO! Hyped for this stream! 🎉', badge: 'VIP', author: 'LiveFan A' },
+        { text: 'Super Chat $10.00 Keep up the awesome work! 🔥', badge: 'SUPER', author: 'Supporter B', isSuper: true },
+        { text: 'Please keep chat friendly, enjoy the stream!', badge: 'MOD', author: 'Moderator C', isMod: true },
+      ],
+      es: [
+        { text: '¡Vamooos! ¡Esperando el directo! 🎉', badge: 'VIP', author: 'Fan A' },
+        { text: 'Super Chat €10 ¡Excelente transmisión! 🔥', badge: 'SUPER', author: 'Donador B', isSuper: true },
+        { text: 'Respeten las reglas del chat, ¡a disfrutar!', badge: 'MOD', author: 'Moderador C', isMod: true },
+      ],
+      zh: [
+        { text: '来啦来啦！等好久了！🎉', badge: 'VIP', author: '直播观众A' },
+        { text: '醒目留言 ¥100 主播加油！支持你🔥', badge: 'SUPER', author: '粉丝B', isSuper: true },
+        { text: '请大家遵守弹幕礼仪，文明观看！', badge: 'MOD', author: '房管C', isMod: true },
+      ],
+    };
 
-    // 既存カードを適宜クリーンアップ
+    const sampleList = isLive ? (liveSamplesByLang[lang] || liveSamplesByLang.ja) : (tsSamplesByLang[lang] || tsSamplesByLang.ja);
+    const count = isLive ? 2 : Math.max(1, Math.min(settings.maxStackCount || 3, sampleList.length));
+    const duration = isLive ? (settings.liveDisplayDuration || 6) : (settings.displayDuration || 6);
+
     while (container.children.length >= count) {
       container.removeChild(container.children[0]);
     }
 
     for (let i = 0; i < count; i++) {
       setTimeout(() => {
-        const item = sampleList[i % sampleList.length];
-        const likes = likesList[i % likesList.length];
+        const item: any = sampleList[i % sampleList.length];
         const card = document.createElement('div');
         card.className = `tb-test-card size-${size}`;
 
-        if (settings.highlightPopular) {
-          if (likes >= 1000) card.classList.add('is-toptier');
-          else if (likes >= 300) card.classList.add('is-popular');
+        if (!isLive && settings.highlightPopular) {
+          if (i === 1) card.classList.add('is-popular');
+        } else if (isLive && item.isSuper) {
+          card.classList.add('is-superchat');
         }
 
-        // ヘッダー
         const hdr = document.createElement('div');
         hdr.className = 'tb-test-hdr';
-        const avatar = document.createElement('div');
-        avatar.className = 'tb-test-avatar';
-        avatar.textContent = item.author.charAt(0);
+
+        const showAvatar = isLive ? (settings.liveShowAvatars ?? true) : (settings.showAvatars ?? true);
+        if (showAvatar) {
+          const avatar = document.createElement('div');
+          avatar.className = 'tb-test-avatar';
+          avatar.textContent = item.author.charAt(0);
+          hdr.appendChild(avatar);
+        }
+
         const name = document.createElement('span');
         name.className = 'tb-test-name';
-        name.textContent = `${item.author} (#${i + 1}/${count})`;
-
-        hdr.appendChild(avatar);
+        name.textContent = item.author;
         hdr.appendChild(name);
 
-        if (likes > 0) {
+        const showBadges = isLive ? (settings.liveShowBadges ?? true) : false;
+        if (isLive && showBadges && item.badge) {
+          const badgeIcon = document.createElement('span');
+          badgeIcon.className = `tb-test-badge-icon ${item.isMod ? 'tb-test-badge-mod' : ''}`;
+          badgeIcon.textContent = item.badge;
+          hdr.appendChild(badgeIcon);
+        }
+
+        if (!isLive) {
           const likesBadge = document.createElement('span');
           likesBadge.className = 'tb-test-likes';
-          likesBadge.textContent = `♥ ${likes}`;
+          likesBadge.textContent = `♥ ${[420, 1500, 85][i % 3]}`;
           hdr.appendChild(likesBadge);
         }
 
-        // 本文
         const body = document.createElement('div');
         body.className = 'tb-test-body';
-        const badge = document.createElement('span');
-        badge.className = 'tb-test-badge';
-        badge.textContent = `▶ ${item.time}`;
-        body.appendChild(badge);
-        body.appendChild(document.createTextNode(item.text.replace(item.time, '').trim()));
+        if (!isLive && item.time) {
+          const badge = document.createElement('span');
+          badge.className = 'tb-test-badge';
+          badge.textContent = `▶ ${item.time}`;
+          body.appendChild(badge);
+          body.appendChild(document.createTextNode(item.text.replace(item.time, '').trim()));
+        } else {
+          body.textContent = item.text;
+        }
 
         card.appendChild(hdr);
         card.appendChild(body);
         container?.appendChild(card);
 
-        // 自動退場タイマー
         setTimeout(() => {
           card.classList.add('is-exiting');
           setTimeout(() => {
@@ -953,95 +1159,129 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
           }, 360);
         }, duration * 1000);
-      }, i * 220);
+      }, i * 240);
     }
   }
 
-  async function updateSettings(partial: Partial<OverlaySettings>) {
-    Object.assign(currentSettings, partial);
-    const updated = await saveSettings(partial);
-
-    // 開かれている全タブに設定変更を通知（storage.onChangedでも自動同期される）
-    if (typeof chrome !== 'undefined' && chrome.tabs) {
-      chrome.tabs.query({}, (tabs) => {
-        tabs?.forEach((tab) => {
-          if (tab.id) {
-            chrome.tabs.sendMessage(tab.id, { type: 'UPDATE_SETTINGS', settings: updated }, () => {
-              // 握りつぶす
-              if (chrome.runtime.lastError) { /* ignore */ }
-            });
-          }
-        });
-      });
-    }
-
-    flashSaveStatus();
-  }
-
-  async function updateSetting<K extends keyof OverlaySettings>(key: K, value: OverlaySettings[K]) {
-    await updateSettings({ [key]: value } as Partial<OverlaySettings>);
-  }
-
-  // モード切り替えタブ
-  async function setMode(mode: DisplayMode) {
-    currentSettings.displayMode = mode;
-    currentSettings.flowMode = mode === 'flow';
-    applySettingsToUi(currentSettings);
-    await updateSettings({
-      displayMode: mode,
-      flowMode: mode === 'flow',
-    });
-  }
-
-  modeCardBtn?.addEventListener('click', () => setMode('card'));
-  modeFlowBtn?.addEventListener('click', () => setMode('flow'));
-  modeChatboxBtn?.addEventListener('click', () => setMode('chatbox'));
-
-  // Live & Twitch トグル
-  ytLiveToggle?.addEventListener('change', () => {
-    updateSetting('liveChatEnabled', ytLiveToggle.checked);
+  // ─── タイムスタンプ イベントリスナー ───
+  tsEnabledToggle?.addEventListener('change', () => {
+    updateSetting('enabled', tsEnabledToggle.checked);
   });
 
-  twitchToggle?.addEventListener('change', () => {
-    updateSetting('twitchEnabled', twitchToggle.checked);
+  tsModeCardBtn?.addEventListener('click', async () => {
+    setTsMode('card');
+    await updateSettings({ displayMode: 'card', flowMode: false });
   });
 
-  badgesToggle?.addEventListener('change', () => {
-    const val = badgesToggle.checked;
-    currentSettings.showBadges = val;
-    currentSettings.twitchShowBadges = val;
-    updateSetting('showBadges', val);
-    updateSetting('twitchShowBadges', val);
+  tsModeFlowBtn?.addEventListener('click', async () => {
+    setTsMode('flow');
+    await updateSettings({ displayMode: 'flow', flowMode: true });
   });
 
-  avatarsToggle?.addEventListener('change', () => {
-    const val = avatarsToggle.checked;
-    currentSettings.showAvatars = val;
-    currentSettings.showLiveAvatars = val;
-    updateSetting('showAvatars', val);
-    updateSetting('showLiveAvatars', val);
+  tsModeChatboxBtn?.addEventListener('click', async () => {
+    setTsMode('chatbox');
+    await updateSettings({ displayMode: 'chatbox', flowMode: false });
   });
 
-  // 流量密度ボタン
-  densityButtons.forEach((btn) => {
+  tsPosButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      const d = btn.getAttribute('data-density') as FlowDensity | null;
-      if (!d) return;
-
-      densityButtons.forEach((b) => b.classList.remove('active'));
+      const pos = btn.getAttribute('data-pos') as OverlayPosition | null;
+      if (!pos) return;
+      tsPosButtons.forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-      currentSettings.flowDensity = d;
-      updateDynamicLabels();
-      updateSetting('flowDensity', d);
+      updateSetting('position', pos);
     });
   });
 
-  // PiP コントロール
-  pipEnabledToggle?.addEventListener('change', () => {
-    updateSetting('pipEnabled', pipEnabledToggle.checked);
+  tsSizeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const s = btn.getAttribute('data-size') as OverlaySize | null;
+      if (!s) return;
+      tsSizeButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.size = s;
+      updateDynamicLabels();
+      updateSetting('size', s);
+    });
   });
 
-  triggerPipBtn?.addEventListener('click', async () => {
+  tsDurationSlider?.addEventListener('input', () => {
+    const val = parseInt(tsDurationSlider.value, 10);
+    currentSettings.displayDuration = val;
+    updateDynamicLabels();
+  });
+  tsDurationSlider?.addEventListener('change', () => {
+    const val = parseInt(tsDurationSlider.value, 10);
+    updateSetting('displayDuration', val);
+  });
+
+  tsStackSlider?.addEventListener('input', () => {
+    const val = parseInt(tsStackSlider.value, 10);
+    currentSettings.maxStackCount = val;
+    updateDynamicLabels();
+  });
+  tsStackSlider?.addEventListener('change', () => {
+    const val = parseInt(tsStackSlider.value, 10);
+    updateSetting('maxStackCount', val);
+  });
+
+  tsOpacitySlider?.addEventListener('input', () => {
+    const val = parseInt(tsOpacitySlider.value, 10);
+    currentSettings.opacity = val;
+    if (tsOpacityVal) tsOpacityVal.textContent = `${val}%`;
+  });
+  tsOpacitySlider?.addEventListener('change', () => {
+    const val = parseInt(tsOpacitySlider.value, 10);
+    updateSetting('opacity', val);
+  });
+
+  tsFlowSizeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const s = btn.getAttribute('data-size') as OverlaySize | null;
+      if (!s) return;
+      tsFlowSizeButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.flowSize = s;
+      updateDynamicLabels();
+      updateSetting('flowSize', s);
+    });
+  });
+
+  tsFlowSpeedButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const spd = btn.getAttribute('data-speed') as FlowSpeed | null;
+      if (!spd) return;
+      tsFlowSpeedButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.flowSpeed = spd;
+      updateDynamicLabels();
+      updateSetting('flowSpeed', spd);
+    });
+  });
+
+  tsFlowOpacitySlider?.addEventListener('input', () => {
+    const val = parseInt(tsFlowOpacitySlider.value, 10);
+    currentSettings.flowOpacity = val;
+    if (tsFlowOpacityVal) tsFlowOpacityVal.textContent = `${val}%`;
+  });
+  tsFlowOpacitySlider?.addEventListener('change', () => {
+    const val = parseInt(tsFlowOpacitySlider.value, 10);
+    updateSetting('flowOpacity', val);
+  });
+
+  tsHighlightToggle?.addEventListener('change', () => {
+    updateSetting('highlightPopular', tsHighlightToggle.checked);
+  });
+
+  tsAvatarsToggle?.addEventListener('change', () => {
+    updateSetting('showAvatars', tsAvatarsToggle.checked);
+  });
+
+  tsPipToggle?.addEventListener('change', () => {
+    updateSetting('pipEnabled', tsPipToggle.checked);
+  });
+
+  tsTriggerPipBtn?.addEventListener('click', async () => {
     const tab = await getActiveTab();
     if (tab?.id) {
       chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_PIP' }, () => {
@@ -1051,6 +1291,147 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // ─── ライブ イベントリスナー ───
+  ytLiveToggle?.addEventListener('change', () => {
+    updateSetting('liveChatEnabled', ytLiveToggle.checked);
+  });
+
+  twitchToggle?.addEventListener('change', () => {
+    updateSetting('twitchEnabled', twitchToggle.checked);
+  });
+
+  liveModeFlowBtn?.addEventListener('click', async () => {
+    setLiveMode('flow');
+    await updateSetting('liveChatMode', 'flow');
+  });
+
+  liveModeChatboxBtn?.addEventListener('click', async () => {
+    setLiveMode('chatbox');
+    await updateSetting('liveChatMode', 'chatbox');
+  });
+
+  liveModeCardBtn?.addEventListener('click', async () => {
+    setLiveMode('card');
+    await updateSetting('liveChatMode', 'card');
+  });
+
+  liveFlowSizeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const s = btn.getAttribute('data-size') as OverlaySize | null;
+      if (!s) return;
+      liveFlowSizeButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.liveFlowSize = s;
+      updateDynamicLabels();
+      updateSetting('liveFlowSize', s);
+    });
+  });
+
+  liveFlowSpeedButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const spd = btn.getAttribute('data-speed') as FlowSpeed | null;
+      if (!spd) return;
+      liveFlowSpeedButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.liveFlowSpeed = spd;
+      updateDynamicLabels();
+      updateSetting('liveFlowSpeed', spd);
+    });
+  });
+
+  liveFlowOpacitySlider?.addEventListener('input', () => {
+    const val = parseInt(liveFlowOpacitySlider.value, 10);
+    currentSettings.liveFlowOpacity = val;
+    if (liveFlowOpacityVal) liveFlowOpacityVal.textContent = `${val}%`;
+  });
+  liveFlowOpacitySlider?.addEventListener('change', () => {
+    const val = parseInt(liveFlowOpacitySlider.value, 10);
+    updateSetting('liveFlowOpacity', val);
+  });
+
+  const handleDensityChange = (d: FlowDensity) => {
+    liveDensityButtons.forEach((b) => b.classList.toggle('active', b.getAttribute('data-density') === d));
+    liveChatboxDensityButtons.forEach((b) => b.classList.toggle('active', b.getAttribute('data-density') === d));
+    currentSettings.liveChatMaxDensity = d;
+    currentSettings.flowDensity = d;
+    updateDynamicLabels();
+    updateSettings({ liveChatMaxDensity: d, flowDensity: d });
+  };
+
+  liveDensityButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = btn.getAttribute('data-density') as FlowDensity | null;
+      if (d) handleDensityChange(d);
+    });
+  });
+
+  liveChatboxDensityButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = btn.getAttribute('data-density') as FlowDensity | null;
+      if (d) handleDensityChange(d);
+    });
+  });
+
+  liveSizeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const s = btn.getAttribute('data-size') as OverlaySize | null;
+      if (!s) return;
+      liveSizeButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSettings.liveSize = s;
+      updateDynamicLabels();
+      updateSetting('liveSize', s);
+    });
+  });
+
+  liveDurationSlider?.addEventListener('input', () => {
+    const val = parseInt(liveDurationSlider.value, 10);
+    currentSettings.liveDisplayDuration = val;
+    updateDynamicLabels();
+  });
+  liveDurationSlider?.addEventListener('change', () => {
+    const val = parseInt(liveDurationSlider.value, 10);
+    updateSetting('liveDisplayDuration', val);
+  });
+
+  liveOpacitySlider?.addEventListener('input', () => {
+    const val = parseInt(liveOpacitySlider.value, 10);
+    currentSettings.liveOpacity = val;
+    if (liveOpacityVal) liveOpacityVal.textContent = `${val}%`;
+  });
+  liveOpacitySlider?.addEventListener('change', () => {
+    const val = parseInt(liveOpacitySlider.value, 10);
+    updateSetting('liveOpacity', val);
+  });
+
+  liveBadgesToggle?.addEventListener('change', () => {
+    const val = liveBadgesToggle.checked;
+    currentSettings.liveShowBadges = val;
+    currentSettings.showBadges = val;
+    currentSettings.twitchShowBadges = val;
+    updateSettings({ liveShowBadges: val, showBadges: val, twitchShowBadges: val });
+  });
+
+  liveAvatarsToggle?.addEventListener('change', () => {
+    const val = liveAvatarsToggle.checked;
+    currentSettings.liveShowAvatars = val;
+    currentSettings.showLiveAvatars = val;
+    updateSettings({ liveShowAvatars: val, showLiveAvatars: val });
+  });
+
+  livePipToggle?.addEventListener('change', () => {
+    updateSetting('livePipEnabled', livePipToggle.checked);
+  });
+
+  liveTriggerPipBtn?.addEventListener('click', async () => {
+    const tab = await getActiveTab();
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_PIP' }, () => {
+        if (chrome.runtime.lastError) { /* ignore */ }
+      });
+      flashSaveStatus(currentLang === 'ja' ? 'PiPを起動しました' : 'PiP launched');
+    }
+  });
 
   // 言語選択セレクター
   langSelect?.addEventListener('change', () => {
@@ -1059,117 +1440,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSetting('language', selected);
   });
 
-  // 有効/無効トグル
-  enabledToggle?.addEventListener('change', () => {
-    updateSetting('enabled', enabledToggle.checked);
-  });
-
-  // 位置ボタン
-  posButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const pos = btn.getAttribute('data-pos') as OverlayPosition | null;
-      if (!pos) return;
-
-      posButtons.forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateSetting('position', pos);
-    });
-  });
-
-  // カードサイズボタン
-  sizeButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const s = btn.getAttribute('data-size') as OverlaySize | null;
-      if (!s) return;
-
-      sizeButtons.forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentSettings.size = s;
-      updateDynamicLabels();
-      updateSetting('size', s);
-    });
-  });
-
-  // カードスライダー群
-  durationSlider?.addEventListener('input', () => {
-    const val = parseInt(durationSlider.value, 10);
-    currentSettings.displayDuration = val;
-    updateDynamicLabels();
-  });
-  durationSlider?.addEventListener('change', () => {
-    const val = parseInt(durationSlider.value, 10);
-    updateSetting('displayDuration', val);
-  });
-
-  stackSlider?.addEventListener('input', () => {
-    const val = parseInt(stackSlider.value, 10);
-    currentSettings.maxStackCount = val;
-    updateDynamicLabels();
-  });
-  stackSlider?.addEventListener('change', () => {
-    const val = parseInt(stackSlider.value, 10);
-    updateSetting('maxStackCount', val);
-  });
-
-  opacitySlider?.addEventListener('input', () => {
-    const val = parseInt(opacitySlider.value, 10);
-    currentSettings.opacity = val;
-    if (opacityVal) opacityVal.textContent = `${val}%`;
-  });
-  opacitySlider?.addEventListener('change', () => {
-    const val = parseInt(opacitySlider.value, 10);
-    updateSetting('opacity', val);
-  });
-
-  // フローサイズボタン
-  flowSizeButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const s = btn.getAttribute('data-size') as OverlaySize | null;
-      if (!s) return;
-      flowSizeButtons.forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentSettings.flowSize = s;
-      updateDynamicLabels();
-      updateSetting('flowSize', s);
-    });
-  });
-
-  // フロー速度ボタン
-  flowSpeedButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const spd = btn.getAttribute('data-speed') as FlowSpeed | null;
-      if (!spd) return;
-      flowSpeedButtons.forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentSettings.flowSpeed = spd;
-      updateDynamicLabels();
-      updateSetting('flowSpeed', spd);
-    });
-  });
-
-  // フロー不透明度スライダー
-  flowOpacitySlider?.addEventListener('input', () => {
-    const val = parseInt(flowOpacitySlider.value, 10);
-    currentSettings.flowOpacity = val;
-    if (flowOpacityVal) flowOpacityVal.textContent = `${val}%`;
-  });
-  flowOpacitySlider?.addEventListener('change', () => {
-    const val = parseInt(flowOpacitySlider.value, 10);
-    updateSetting('flowOpacity', val);
-  });
-
-  highlightToggle?.addEventListener('change', () => {
-    updateSetting('highlightPopular', highlightToggle.checked);
-  });
-
-
   // テスト吹き出し表示ボタン
   testCommentBtn?.addEventListener('click', async () => {
     const t = I18N_DATA[currentLang] || I18N_DATA.ja;
     flashSaveStatus(t.testSending, 1500);
 
-    // 実際のブラウザ（開いているWebページやYouTube画面上）にテスト吹き出しを表示
-    const ok = await sendTestCommentToActiveTab();
+    const ok = await sendTestCommentToActiveTab(activeTab);
     if (ok) {
       flashSaveStatus(t.testSuccess, 3000);
     } else {

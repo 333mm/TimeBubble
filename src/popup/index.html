@@ -37,58 +37,73 @@
       </div>
     </header>
 
-    <!-- ナビゲーションタブ -->
+    <!-- ナビゲーションタブ (2大カテゴリ: タイムスタンプ / ライブ) -->
     <div class="nav-tab-bar">
-      <button type="button" class="nav-tab-btn active" data-tab="overlay" id="tab-overlay-btn">オーバーレイ</button>
-      <button type="button" class="nav-tab-btn" data-tab="live" id="tab-live-btn">Live & Twitch</button>
-      <button type="button" class="nav-tab-btn" data-tab="pip" id="tab-pip-btn">PiP再生</button>
+      <button type="button" class="nav-tab-btn active" data-tab="timestamp" id="tab-ts-btn">
+        <span>📌</span>
+        <span id="i18n-tab-timestamp">タイムスタンプ</span>
+      </button>
+      <button type="button" class="nav-tab-btn" data-tab="live" id="tab-live-btn">
+        <span>🔴</span>
+        <span id="i18n-tab-live">ライブ</span>
+      </button>
     </div>
 
     <main class="popup-body">
-      <!-- ─── タブ 1: オーバーレイ表示設定 ─── -->
-      <div id="tab-overlay-panel" class="tab-panel active">
-        <!-- 表示モード切り替えタブ -->
+      <!-- ════════ タブ 1: タイムスタンプ (動画コメント) ════════ -->
+      <div id="tab-timestamp-panel" class="tab-panel active">
+        <!-- タイムスタンプ 有効/無効トグル -->
+        <section class="section-toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-title" id="i18n-ts-enable-title">タイムスタンプコメント表示</span>
+            <span class="toggle-desc" id="i18n-ts-enable-desc">再生位置に合わせてコメントを画面上に表示</span>
+          </div>
+          <label class="toggle-switch mini">
+            <input type="checkbox" id="ts-enabled-toggle" checked>
+            <span class="slider"></span>
+          </label>
+        </section>
+
+        <!-- 表示モード選択 -->
         <section class="section mode-selector-section">
-          <div class="mode-tab-group">
-            <button type="button" class="mode-tab-btn active" data-mode="card" id="mode-card-btn">
+          <label class="section-label" id="i18n-ts-mode-label">表示モード</label>
+          <div class="mode-tab-group" id="ts-mode-group">
+            <button type="button" class="mode-tab-btn active" data-mode="card" id="ts-mode-card-btn">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="3"></rect>
                 <line x1="7" y1="8" x2="17" y2="8"></line>
                 <line x1="7" y1="12" x2="13" y2="12"></line>
               </svg>
-              <span id="i18n-mode-card">カード</span>
+              <span id="i18n-ts-mode-card">カード</span>
             </button>
-            <button type="button" class="mode-tab-btn" data-mode="flow" id="mode-flow-btn">
+            <button type="button" class="mode-tab-btn" data-mode="flow" id="ts-mode-flow-btn">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 12h16M14 6l6 6-6 6"></path>
               </svg>
-              <span id="i18n-mode-flow">流れる</span>
+              <span id="i18n-ts-mode-flow">流れる</span>
             </button>
-            <button type="button" class="mode-tab-btn" data-mode="chatbox" id="mode-chatbox-btn">
+            <button type="button" class="mode-tab-btn" data-mode="chatbox" id="ts-mode-chatbox-btn">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               </svg>
-              <span id="i18n-mode-chatbox">ログ</span>
+              <span id="i18n-ts-mode-chatbox">ログ</span>
             </button>
           </div>
         </section>
 
-        <!-- カード表示専用オプション -->
-        <div id="card-mode-options">
-          <!-- 表示位置セレクター -->
+        <!-- ─── タイムスタンプ: カード表示専用オプション ─── -->
+        <div id="ts-card-options">
           <section class="section">
-            <label class="section-label">
-              <span id="i18n-position">表示位置</span>
-            </label>
+            <label class="section-label" id="i18n-ts-position">表示位置</label>
             <div class="screen-preview-box">
               <div class="screen-grid">
                 <button type="button" class="pos-btn" data-pos="top-left" title="左上">
                   <span class="pos-dot"></span>
-                  <span class="pos-text" id="i18n-top-left">左上</span>
+                  <span class="pos-text" id="i18n-ts-pos-tl">左上</span>
                 </button>
                 <button type="button" class="pos-btn" data-pos="top-right" title="右上">
                   <span class="pos-dot"></span>
-                  <span class="pos-text" id="i18n-top-right">右上</span>
+                  <span class="pos-text" id="i18n-ts-pos-tr">右上</span>
                 </button>
                 <div class="screen-center-icon">
                   <svg viewBox="0 0 24 24" fill="currentColor">
@@ -97,143 +112,149 @@
                 </div>
                 <button type="button" class="pos-btn" data-pos="bottom-left" title="左下">
                   <span class="pos-dot"></span>
-                  <span class="pos-text" id="i18n-bottom-left">左下</span>
+                  <span class="pos-text" id="i18n-ts-pos-bl">左下</span>
                 </button>
                 <button type="button" class="pos-btn" data-pos="bottom-right" title="右下">
                   <span class="pos-dot"></span>
-                  <span class="pos-text" id="i18n-bottom-right">右下</span>
+                  <span class="pos-text" id="i18n-ts-pos-br">右下</span>
                 </button>
               </div>
             </div>
           </section>
 
-          <!-- 表示サイズ -->
           <section class="section">
             <div class="slider-row">
-              <label class="section-label" id="i18n-size">表示サイズ</label>
-              <span class="slider-val" id="size-val">中</span>
+              <label class="section-label" id="i18n-ts-size">表示サイズ</label>
+              <span class="slider-val" id="ts-size-val">中</span>
             </div>
-            <div class="size-btn-group">
-              <button type="button" class="size-btn" data-size="small" id="i18n-size-small">小</button>
-              <button type="button" class="size-btn active" data-size="medium" id="i18n-size-medium">中</button>
-              <button type="button" class="size-btn" data-size="large" id="i18n-size-large">大</button>
+            <div class="size-btn-group" id="ts-size-group">
+              <button type="button" class="size-btn" data-size="small">小</button>
+              <button type="button" class="size-btn active" data-size="medium">中</button>
+              <button type="button" class="size-btn" data-size="large">大</button>
             </div>
           </section>
 
-          <!-- 表示時間スライダー -->
           <section class="section">
             <div class="slider-row">
-              <label for="duration-slider" class="section-label" id="i18n-duration">表示時間</label>
-              <span class="slider-val" id="duration-val">6秒</span>
+              <label for="ts-duration-slider" class="section-label" id="i18n-ts-duration">表示時間</label>
+              <span class="slider-val" id="ts-duration-val">6秒</span>
             </div>
-            <input type="range" id="duration-slider" min="3" max="15" step="1" value="6" class="range-input">
+            <input type="range" id="ts-duration-slider" min="3" max="15" step="1" value="6" class="range-input">
           </section>
 
-          <!-- 最大スタック数 -->
           <section class="section">
             <div class="slider-row">
-              <label for="stack-slider" class="section-label" id="i18n-stack">最大スタック件数</label>
-              <span class="slider-val" id="stack-val">3件</span>
+              <label for="ts-stack-slider" class="section-label" id="i18n-ts-stack">最大スタック件数</label>
+              <span class="slider-val" id="ts-stack-val">3件</span>
             </div>
-            <input type="range" id="stack-slider" min="1" max="5" step="1" value="3" class="range-input">
+            <input type="range" id="ts-stack-slider" min="1" max="5" step="1" value="3" class="range-input">
           </section>
 
-          <!-- 不透明度スライダー -->
           <section class="section">
             <div class="slider-row">
-              <label for="opacity-slider" class="section-label" id="i18n-opacity">不透明度</label>
-              <span class="slider-val" id="opacity-val">80%</span>
+              <label for="ts-opacity-slider" class="section-label" id="i18n-ts-opacity">不透明度</label>
+              <span class="slider-val" id="ts-opacity-val">80%</span>
             </div>
-            <input type="range" id="opacity-slider" min="0" max="100" step="5" value="80" class="range-input">
+            <input type="range" id="ts-opacity-slider" min="0" max="100" step="5" value="80" class="range-input">
           </section>
         </div>
 
-        <!-- 流れるコメント専用オプション -->
-        <div id="flow-mode-options" style="display: none;">
+        <!-- ─── タイムスタンプ: 流れるコメント専用オプション ─── -->
+        <div id="ts-flow-options" style="display: none;">
           <section class="section">
             <div class="slider-row">
-              <label class="section-label" id="i18n-flow-size">文字サイズ</label>
-              <span class="slider-val" id="flow-size-val">中</span>
+              <label class="section-label" id="i18n-ts-flow-size">文字サイズ</label>
+              <span class="slider-val" id="ts-flow-size-val">中</span>
             </div>
-            <div class="size-btn-group" id="flow-size-group">
-              <button type="button" class="size-btn flow-size-btn" data-size="small" id="i18n-flow-size-small">小</button>
-              <button type="button" class="size-btn flow-size-btn active" data-size="medium" id="i18n-flow-size-medium">中</button>
-              <button type="button" class="size-btn flow-size-btn" data-size="large" id="i18n-flow-size-large">大</button>
+            <div class="size-btn-group" id="ts-flow-size-group">
+              <button type="button" class="size-btn flow-size-btn" data-size="small">小</button>
+              <button type="button" class="size-btn flow-size-btn active" data-size="medium">中</button>
+              <button type="button" class="size-btn flow-size-btn" data-size="large">大</button>
             </div>
           </section>
 
           <section class="section">
             <div class="slider-row">
-              <label class="section-label" id="i18n-flow-speed">流れる速度</label>
-              <span class="slider-val" id="flow-speed-val">普通</span>
+              <label class="section-label" id="i18n-ts-flow-speed">流れる速度</label>
+              <span class="slider-val" id="ts-flow-speed-val">普通</span>
             </div>
-            <div class="size-btn-group" id="flow-speed-group">
-              <button type="button" class="size-btn speed-btn" data-speed="slow" id="i18n-speed-slow">遅い</button>
-              <button type="button" class="size-btn speed-btn active" data-speed="normal" id="i18n-speed-normal">普通</button>
-              <button type="button" class="size-btn speed-btn" data-speed="fast" id="i18n-speed-fast">速い</button>
+            <div class="size-btn-group" id="ts-flow-speed-group">
+              <button type="button" class="size-btn speed-btn" data-speed="slow">遅い</button>
+              <button type="button" class="size-btn speed-btn active" data-speed="normal">普通</button>
+              <button type="button" class="size-btn speed-btn" data-speed="fast">速い</button>
             </div>
           </section>
 
           <section class="section">
             <div class="slider-row">
-              <label for="flow-opacity-slider" class="section-label" id="i18n-flow-opacity">背景の不透明度</label>
-              <span class="slider-val" id="flow-opacity-val">65%</span>
+              <label for="ts-flow-opacity-slider" class="section-label" id="i18n-ts-flow-opacity">背景の不透明度</label>
+              <span class="slider-val" id="ts-flow-opacity-val">65%</span>
             </div>
-            <input type="range" id="flow-opacity-slider" min="0" max="100" step="5" value="65" class="range-input">
+            <input type="range" id="ts-flow-opacity-slider" min="0" max="100" step="5" value="65" class="range-input">
           </section>
         </div>
 
-        <!-- チャットボックス専用案内 -->
-        <div id="chatbox-mode-options" style="display: none;">
+        <!-- ─── タイムスタンプ: ログ表示専用案内 ─── -->
+        <div id="ts-chatbox-options" style="display: none;">
           <div class="info-card">
             <div class="info-icon">💬</div>
-            <div class="info-text">動画右下に半透明のコンパクトなチャットログを表示します。生配信やTwitchの視聴に最適です。</div>
+            <div class="info-text">動画右下に半透明のコンパクトなコメントログを表示します。</div>
           </div>
         </div>
 
-        <!-- 共通オプション: 高評価ハイライト -->
+        <!-- ─── タイムスタンプ表示オプション ─── -->
         <section class="section-toggle-row">
           <div class="toggle-info">
-            <span class="toggle-title" id="i18n-highlight-title">高評価コメントをハイライト</span>
-            <span class="toggle-desc" id="i18n-highlight-desc">いいね数に応じてグラデーションと光彩を適用</span>
+            <span class="toggle-title" id="i18n-ts-highlight-title">高評価コメントをハイライト</span>
+            <span class="toggle-desc" id="i18n-ts-highlight-desc">いいね数に応じてグラデーションと光彩を適用</span>
           </div>
           <label class="toggle-switch mini">
-            <input type="checkbox" id="highlight-toggle" checked>
+            <input type="checkbox" id="ts-highlight-toggle" checked>
             <span class="slider"></span>
           </label>
         </section>
 
-        <!-- 共通オプション: バッジ・カラー表示 -->
         <section class="section-toggle-row">
           <div class="toggle-info">
-            <span class="toggle-title" id="i18n-badges-title">バッジ・ユーザーカラー表示</span>
-            <span class="toggle-desc" id="i18n-badges-desc">公式・モデレーター・VIP・メンバー等のバッジと色を表示</span>
+            <span class="toggle-title" id="i18n-ts-avatars-title">ユーザーアイコンを表示</span>
+            <span class="toggle-desc" id="i18n-ts-avatars-desc">コメントに投稿者のアバターを表示</span>
           </div>
           <label class="toggle-switch mini">
-            <input type="checkbox" id="badges-toggle" checked>
+            <input type="checkbox" id="ts-avatars-toggle" checked>
             <span class="slider"></span>
           </label>
         </section>
 
-        <!-- 共通オプション: ユーザーアイコン表示 -->
+        <!-- ─── タイムスタンプ: PiP設定 ─── -->
         <section class="section-toggle-row">
           <div class="toggle-info">
-            <span class="toggle-title" id="i18n-avatars-title">ユーザーアイコンを表示</span>
-            <span class="toggle-desc" id="i18n-avatars-desc">コメントやチャットにユーザーのアバターを表示</span>
+            <span class="toggle-title" id="i18n-ts-pip-title">PiP ウィンドウにコメントを表示</span>
+            <span class="toggle-desc" id="i18n-ts-pip-desc">ピクチャインピクチャ再生中もコメントを合成描画</span>
           </div>
           <label class="toggle-switch mini">
-            <input type="checkbox" id="avatars-toggle" checked>
+            <input type="checkbox" id="ts-pip-toggle" checked>
             <span class="slider"></span>
           </label>
+        </section>
+
+        <section class="section" style="margin-top: 10px;">
+          <button type="button" id="ts-trigger-pip-btn" class="test-btn" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+              <rect x="12" y="9" width="8" height="6" rx="1" fill="currentColor"></rect>
+            </svg>
+            <span id="i18n-ts-pip-launch">今すぐコメント付きPiPを開始</span>
+          </button>
         </section>
       </div>
 
-      <!-- ─── タブ 2: Live & Twitch ─── -->
+      <!-- ════════ タブ 2: ライブ (YouTube Live & Twitch) ════════ -->
       <div id="tab-live-panel" class="tab-panel" style="display: none;">
+        <!-- プラットフォーム有効/無効トグル -->
         <section class="section-toggle-row">
           <div class="toggle-info">
-            <span class="toggle-title">YouTube Live チャット表示</span>
-            <span class="toggle-desc">生配信・アーカイブのリアルタイムチャットを動画上に流す</span>
+            <span class="toggle-title" id="i18n-live-yt-title">YouTube Live チャット表示</span>
+            <span class="toggle-desc" id="i18n-live-yt-desc">生配信・アーカイブのリアルタイムチャットを動画上に流す</span>
           </div>
           <label class="toggle-switch mini">
             <input type="checkbox" id="yt-live-toggle" checked>
@@ -243,8 +264,8 @@
 
         <section class="section-toggle-row">
           <div class="toggle-info">
-            <span class="toggle-title">Twitch 配信チャット表示</span>
-            <span class="toggle-desc">Twitchのライブ配信・VODでチャットを動画上に流す</span>
+            <span class="toggle-title" id="i18n-live-twitch-title">Twitch 配信チャット表示</span>
+            <span class="toggle-desc" id="i18n-live-twitch-desc">Twitchのライブ配信・VODでチャットを動画上に流す</span>
           </div>
           <label class="toggle-switch mini">
             <input type="checkbox" id="twitch-toggle" checked>
@@ -252,46 +273,172 @@
           </label>
         </section>
 
-        <section class="section">
-          <div class="slider-row">
-            <label class="section-label">チャット流量密度 (負荷制御)</label>
-            <span class="slider-val" id="density-val">標準</span>
-          </div>
-          <div class="size-btn-group" id="density-group">
-            <button type="button" class="size-btn density-btn" data-density="low">控えめ</button>
-            <button type="button" class="size-btn density-btn active" data-density="normal">標準</button>
-            <button type="button" class="size-btn density-btn" data-density="high">すべて</button>
+        <!-- ライブ表示モード選択 -->
+        <section class="section mode-selector-section">
+          <label class="section-label" id="i18n-live-mode-label">表示モード</label>
+          <div class="mode-tab-group" id="live-mode-group">
+            <button type="button" class="mode-tab-btn active" data-mode="flow" id="live-mode-flow-btn">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 12h16M14 6l6 6-6 6"></path>
+              </svg>
+              <span id="i18n-live-mode-flow">流れる</span>
+            </button>
+            <button type="button" class="mode-tab-btn" data-mode="chatbox" id="live-mode-chatbox-btn">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span id="i18n-live-mode-chatbox">ログ</span>
+            </button>
+            <button type="button" class="mode-tab-btn" data-mode="card" id="live-mode-card-btn">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                <line x1="7" y1="8" x2="17" y2="8"></line>
+                <line x1="7" y1="12" x2="13" y2="12"></line>
+              </svg>
+              <span id="i18n-live-mode-card">カード</span>
+            </button>
           </div>
         </section>
-      </div>
 
-      <!-- ─── タブ 3: PiP 再生 ─── -->
-      <div id="tab-pip-panel" class="tab-panel" style="display: none;">
+        <!-- ─── ライブ: 流れるコメント専用オプション ─── -->
+        <div id="live-flow-options">
+          <section class="section">
+            <div class="slider-row">
+              <label class="section-label" id="i18n-live-flow-size">文字サイズ</label>
+              <span class="slider-val" id="live-flow-size-val">中</span>
+            </div>
+            <div class="size-btn-group" id="live-flow-size-group">
+              <button type="button" class="size-btn live-flow-size-btn" data-size="small">小</button>
+              <button type="button" class="size-btn live-flow-size-btn active" data-size="medium">中</button>
+              <button type="button" class="size-btn live-flow-size-btn" data-size="large">大</button>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="slider-row">
+              <label class="section-label" id="i18n-live-flow-speed">流れる速度</label>
+              <span class="slider-val" id="live-flow-speed-val">普通</span>
+            </div>
+            <div class="size-btn-group" id="live-flow-speed-group">
+              <button type="button" class="size-btn speed-btn" data-speed="slow">遅い</button>
+              <button type="button" class="size-btn speed-btn active" data-speed="normal">普通</button>
+              <button type="button" class="size-btn speed-btn" data-speed="fast">速い</button>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="slider-row">
+              <label for="live-flow-opacity-slider" class="section-label" id="i18n-live-flow-opacity">背景の不透明度</label>
+              <span class="slider-val" id="live-flow-opacity-val">65%</span>
+            </div>
+            <input type="range" id="live-flow-opacity-slider" min="0" max="100" step="5" value="65" class="range-input">
+          </section>
+
+          <section class="section">
+            <div class="slider-row">
+              <label class="section-label" id="i18n-live-density">チャット流量密度 (負荷制御)</label>
+              <span class="slider-val" id="live-density-val">標準</span>
+            </div>
+            <div class="size-btn-group" id="live-density-group">
+              <button type="button" class="size-btn density-btn" data-density="low">控えめ</button>
+              <button type="button" class="size-btn density-btn active" data-density="normal">標準</button>
+              <button type="button" class="size-btn density-btn" data-density="high">すべて</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- ─── ライブ: ログ表示専用オプション ─── -->
+        <div id="live-chatbox-options" style="display: none;">
+          <div class="info-card">
+            <div class="info-icon">💬</div>
+            <div class="info-text">動画右下に半透明のコンパクトなチャットログを表示します。生配信の視聴に最適です。</div>
+          </div>
+          <section class="section" style="margin-top: 8px;">
+            <div class="slider-row">
+              <label class="section-label">チャット流量密度 (負荷制御)</label>
+              <span class="slider-val" id="live-chatbox-density-val">標準</span>
+            </div>
+            <div class="size-btn-group" id="live-chatbox-density-group">
+              <button type="button" class="size-btn density-btn" data-density="low">控えめ</button>
+              <button type="button" class="size-btn density-btn active" data-density="normal">標準</button>
+              <button type="button" class="size-btn density-btn" data-density="high">すべて</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- ─── ライブ: カード表示専用オプション ─── -->
+        <div id="live-card-options" style="display: none;">
+          <section class="section">
+            <div class="slider-row">
+              <label class="section-label">表示サイズ</label>
+              <span class="slider-val" id="live-size-val">中</span>
+            </div>
+            <div class="size-btn-group" id="live-size-group">
+              <button type="button" class="size-btn" data-size="small">小</button>
+              <button type="button" class="size-btn active" data-size="medium">中</button>
+              <button type="button" class="size-btn" data-size="large">大</button>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="slider-row">
+              <label for="live-duration-slider" class="section-label">表示時間</label>
+              <span class="slider-val" id="live-duration-val">6秒</span>
+            </div>
+            <input type="range" id="live-duration-slider" min="3" max="15" step="1" value="6" class="range-input">
+          </section>
+
+          <section class="section">
+            <div class="slider-row">
+              <label for="live-opacity-slider" class="section-label">不透明度</label>
+              <span class="slider-val" id="live-opacity-val">80%</span>
+            </div>
+            <input type="range" id="live-opacity-slider" min="0" max="100" step="5" value="80" class="range-input">
+          </section>
+        </div>
+
+        <!-- ─── ライブ共通表示オプション ─── -->
         <section class="section-toggle-row">
           <div class="toggle-info">
-            <span class="toggle-title">PiP ウィンドウにコメントを表示</span>
-            <span class="toggle-desc">ピクチャインピクチャ再生中もコメントを合成描画</span>
+            <span class="toggle-title" id="i18n-live-badges-title">バッジ・ユーザーカラー表示</span>
+            <span class="toggle-desc" id="i18n-live-badges-desc">公式・モデレーター・VIP・メンバー等のバッジと色を表示</span>
           </div>
           <label class="toggle-switch mini">
-            <input type="checkbox" id="pip-enabled-toggle" checked>
+            <input type="checkbox" id="live-badges-toggle" checked>
             <span class="slider"></span>
           </label>
         </section>
 
-        <div class="info-card">
-          <div class="info-icon">📺</div>
-          <div class="info-text">
-            <strong>操作方法:</strong> 動画コントロールバーの「TimeBubble PiP」ボタンを押すか、下のボタンから直接コメント付きPiPウィンドウを起動できます。
+        <section class="section-toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-title" id="i18n-live-avatars-title">ユーザーアイコンを表示</span>
+            <span class="toggle-desc" id="i18n-live-avatars-desc">チャットに投稿者のアバターを表示</span>
           </div>
-        </div>
+          <label class="toggle-switch mini">
+            <input type="checkbox" id="live-avatars-toggle" checked>
+            <span class="slider"></span>
+          </label>
+        </section>
 
-        <section class="section" style="margin-top: 12px;">
-          <button type="button" id="trigger-pip-btn" class="test-btn" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- ─── ライブ: PiP設定 ─── -->
+        <section class="section-toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-title" id="i18n-live-pip-title">PiP ウィンドウにチャットを表示</span>
+            <span class="toggle-desc" id="i18n-live-pip-desc">ピクチャインピクチャ再生中もチャットを合成描画</span>
+          </div>
+          <label class="toggle-switch mini">
+            <input type="checkbox" id="live-pip-toggle" checked>
+            <span class="slider"></span>
+          </label>
+        </section>
+
+        <section class="section" style="margin-top: 10px;">
+          <button type="button" id="live-trigger-pip-btn" class="test-btn" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="3" width="20" height="14" rx="2"></rect>
               <rect x="12" y="9" width="8" height="6" rx="1" fill="currentColor"></rect>
             </svg>
-            <span>今すぐコメント付きPiPを開始</span>
+            <span id="i18n-live-pip-launch">今すぐチャット付きPiPを開始</span>
           </button>
         </section>
       </div>

@@ -84,7 +84,7 @@ export class PlayerSync {
       id: comment.id,
     };
 
-    const mode = this.overlayUi.getEffectiveDisplayMode();
+    const mode = this.overlayUi.getEffectiveLiveDisplayMode();
     if (mode === 'flow') {
       this.overlayUi.showFlowComment(dummyTrigger, 0);
     } else if (mode === 'chatbox') {
