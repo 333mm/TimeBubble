@@ -452,7 +452,7 @@ export class OverlayUi {
 
     // 文字・アイコン・バッジは100%不透明を維持し、背景とアウトラインのみ透明度を適用
     this.containerEl.style.opacity = '1';
-    const rawOpacity = typeof this.settings.opacity === 'number' ? this.settings.opacity : 80;
+    const rawOpacity = typeof this.settings.opacity === 'number' ? this.settings.opacity : 30;
     const bgAlpha = Math.max(0, Math.min(1, rawOpacity / 100));
     this.containerEl.style.setProperty('--yt-co-bg-opacity', bgAlpha.toString());
     this.containerEl.style.setProperty('--yt-co-border-opacity', (bgAlpha * 0.22).toString());
@@ -1916,8 +1916,8 @@ export class OverlayUi {
 
     // フロー背景不透明度の適用
     const rawOpacity = isLive
-      ? (this.settings.liveFlowOpacity ?? this.settings.flowOpacity ?? 65)
-      : (typeof this.settings.flowOpacity === 'number' ? this.settings.flowOpacity : 65);
+      ? (this.settings.liveFlowOpacity ?? this.settings.flowOpacity ?? 30)
+      : (typeof this.settings.flowOpacity === 'number' ? this.settings.flowOpacity : 30);
     const bgAlpha = Math.max(0, Math.min(1, rawOpacity / 100));
     flowEl.style.setProperty('--yt-co-flow-bg-alpha', bgAlpha.toString());
 

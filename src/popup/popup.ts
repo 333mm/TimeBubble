@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       tsFlowSpeedVal.textContent = spd === 'slow' ? t.speedSlow : spd === 'fast' ? t.speedFast : t.speedNormal;
     }
     if (tsFlowOpacityVal) {
-      tsFlowOpacityVal.textContent = `${currentSettings.flowOpacity ?? 65}%`;
+      tsFlowOpacityVal.textContent = `${currentSettings.flowOpacity ?? 30}%`;
     }
 
     // ─── ライブ動的ラベル ───
@@ -649,7 +649,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       liveFlowSpeedVal.textContent = lspd === 'slow' ? t.speedSlow : lspd === 'fast' ? t.speedFast : t.speedNormal;
     }
     if (liveFlowOpacityVal) {
-      liveFlowOpacityVal.textContent = `${currentSettings.liveFlowOpacity ?? currentSettings.flowOpacity ?? 65}%`;
+      liveFlowOpacityVal.textContent = `${currentSettings.liveFlowOpacity ?? currentSettings.flowOpacity ?? 30}%`;
     }
 
     const ld = currentSettings.liveChatMaxDensity || currentSettings.flowDensity || 'normal';
@@ -670,7 +670,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       liveDurationVal.textContent = `${dur}${t.durationUnit}`;
     }
     if (liveOpacityVal) {
-      const op = currentSettings.liveOpacity ?? currentSettings.opacity ?? 80;
+      const op = currentSettings.liveOpacity ?? currentSettings.opacity ?? 30;
       liveOpacityVal.textContent = `${op}%`;
     }
   }
@@ -747,7 +747,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.classList.toggle('active', btn.getAttribute('data-speed') === currentTsFlowSpeed);
     });
 
-    const currentTsFlowOpacity = settings.flowOpacity ?? 65;
+    const currentTsFlowOpacity = settings.flowOpacity ?? 30;
     if (tsFlowOpacitySlider) tsFlowOpacitySlider.value = currentTsFlowOpacity.toString();
 
     if (tsHighlightToggle) tsHighlightToggle.checked = settings.highlightPopular;
@@ -771,7 +771,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.classList.toggle('active', btn.getAttribute('data-speed') === currentLiveFlowSpeed);
     });
 
-    const currentLiveFlowOpacity = settings.liveFlowOpacity ?? settings.flowOpacity ?? 65;
+    const currentLiveFlowOpacity = settings.liveFlowOpacity ?? settings.flowOpacity ?? 30;
     if (liveFlowOpacitySlider) liveFlowOpacitySlider.value = currentLiveFlowOpacity.toString();
 
     const currentLiveDensity = settings.liveChatMaxDensity || settings.flowDensity || 'normal';
@@ -790,7 +790,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentLiveDuration = settings.liveDisplayDuration ?? settings.displayDuration ?? 6;
     if (liveDurationSlider) liveDurationSlider.value = currentLiveDuration.toString();
 
-    const currentLiveOpacity = settings.liveOpacity ?? settings.opacity ?? 80;
+    const currentLiveOpacity = settings.liveOpacity ?? settings.opacity ?? 30;
     if (liveOpacitySlider) liveOpacitySlider.value = currentLiveOpacity.toString();
 
     if (liveBadgesToggle) liveBadgesToggle.checked = settings.liveShowBadges ?? settings.showBadges ?? true;
@@ -1047,7 +1047,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const size = isLive ? (settings.liveSize || settings.size || 'medium') : (settings.size || 'medium');
     container.className = `pos-${pos} size-${size}`;
 
-    const op = isLive ? (typeof settings.liveOpacity === 'number' ? settings.liveOpacity : 80) : (typeof settings.opacity === 'number' ? settings.opacity : 80);
+    const op = isLive ? (typeof settings.liveOpacity === 'number' ? settings.liveOpacity : 30) : (typeof settings.opacity === 'number' ? settings.opacity : 30);
     const bgOp = Math.max(0, Math.min(1, op / 100));
     container.style.setProperty('--tb-bg-op', bgOp.toString());
     container.style.setProperty('--tb-border-op', (bgOp * 0.22).toString());
