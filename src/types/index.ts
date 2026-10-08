@@ -36,6 +36,7 @@ export interface OverlaySettings {
   liveChatEnabled: boolean;
   liveChatMode: DisplayMode;
   showSuperChatOnly: boolean;
+  showLiveAvatars: boolean; // Live/Twitchでのユーザーアイコン表示
 
   // PiP (Picture-in-Picture) 設定
   pipEnabled: boolean;
@@ -68,6 +69,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   liveChatEnabled: true,
   liveChatMode: 'flow',
   showSuperChatOnly: false,
+  showLiveAvatars: true,
 
   pipEnabled: true,
   pipShowComments: true,

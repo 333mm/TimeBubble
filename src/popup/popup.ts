@@ -32,6 +32,8 @@ interface I18nStrings {
   densityLow: string;
   densityNormal: string;
   densityHigh: string;
+  liveAvatarsTitle: string;
+  liveAvatarsDesc: string;
   highlightTitle: string;
   highlightDesc: string;
   testBtnCard: string;
@@ -77,6 +79,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: '控えめ',
     densityNormal: '標準',
     densityHigh: 'すべて',
+    liveAvatarsTitle: 'ユーザーアイコンを表示',
+    liveAvatarsDesc: '流れるコメントや吹き出しにユーザーのアバターを表示',
     highlightTitle: '高評価コメントをハイライト',
     highlightDesc: 'いいね数に応じてグラデーションと光彩を適用',
     testBtnCard: '現在の画面にテスト吹き出しを表示',
@@ -120,6 +124,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: 'Low',
     densityNormal: 'Normal',
     densityHigh: 'All',
+    liveAvatarsTitle: 'Show User Avatars',
+    liveAvatarsDesc: 'Display user avatars in flowing comments and bubbles',
     highlightTitle: 'Highlight Top Comments',
     highlightDesc: 'Apply gradient and glow based on likes',
     testBtnCard: 'Show Test Comment on Screen',
@@ -163,6 +169,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: 'Bajo',
     densityNormal: 'Normal',
     densityHigh: 'Todos',
+    liveAvatarsTitle: 'Mostrar avatares de usuario',
+    liveAvatarsDesc: 'Mostrar avatares en comentarios flotantes y burbujas',
     highlightTitle: 'Destacar Comentarios Populares',
     highlightDesc: 'Aplica brillo y degradado según los likes',
     testBtnCard: 'Mostrar Comentario de Prueba',
@@ -206,6 +214,8 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: '少量',
     densityNormal: '标准',
     densityHigh: '全部',
+    liveAvatarsTitle: '显示用户头像',
+    liveAvatarsDesc: '在弹幕和气泡中显示用户头像',
     highlightTitle: '高赞评论高亮',
     highlightDesc: '根据点赞数应用渐变与光晕效果',
     testBtnCard: '在当前屏幕显示测试气泡',
@@ -267,6 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ytLiveToggle = document.getElementById('yt-live-toggle') as HTMLInputElement | null;
   const twitchToggle = document.getElementById('twitch-toggle') as HTMLInputElement | null;
   const twitchBadgesToggle = document.getElementById('twitch-badges-toggle') as HTMLInputElement | null;
+  const liveAvatarsToggle = document.getElementById('live-avatars-toggle') as HTMLInputElement | null;
   const densityButtons = document.querySelectorAll<HTMLButtonElement>('.density-btn');
   const densityVal = document.getElementById('density-val') as HTMLElement | null;
 
@@ -391,6 +402,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elHighlightTitle) elHighlightTitle.textContent = t.highlightTitle;
     const elHighlightDesc = document.getElementById('i18n-highlight-desc');
     if (elHighlightDesc) elHighlightDesc.textContent = t.highlightDesc;
+
+    const elLiveAvatarsTitle = document.getElementById('i18n-live-avatars-title');
+    if (elLiveAvatarsTitle) elLiveAvatarsTitle.textContent = t.liveAvatarsTitle;
+    const elLiveAvatarsDesc = document.getElementById('i18n-live-avatars-desc');
+    if (elLiveAvatarsDesc) elLiveAvatarsDesc.textContent = t.liveAvatarsDesc;
 
     const elSupportDev = document.getElementById('i18n-support-dev');
     if (elSupportDev) elSupportDev.textContent = t.supportDev;
@@ -541,6 +557,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (ytLiveToggle) ytLiveToggle.checked = settings.liveChatEnabled ?? true;
     if (twitchToggle) twitchToggle.checked = settings.twitchEnabled ?? true;
     if (twitchBadgesToggle) twitchBadgesToggle.checked = settings.twitchShowBadges ?? true;
+    if (liveAvatarsToggle) liveAvatarsToggle.checked = settings.showLiveAvatars ?? true;
 
     // 流量密度
     const currentDensity = settings.flowDensity || 'normal';
@@ -957,6 +974,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   twitchBadgesToggle?.addEventListener('change', () => {
     updateSetting('twitchShowBadges', twitchBadgesToggle.checked);
+  });
+
+  liveAvatarsToggle?.addEventListener('change', () => {
+    updateSetting('showLiveAvatars', liveAvatarsToggle.checked);
   });
 
   // 流量密度ボタン

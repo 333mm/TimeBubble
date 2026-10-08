@@ -818,9 +818,6 @@ export class OverlayUi {
       this.openExpandedComment(trigger);
     });
 
-    // ユーザーアイコン
-    const avatarEl = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
-
     // ヘッダー構造
     const header = doc.createElement('div');
     header.className = 'yt-co-header';
@@ -841,7 +838,14 @@ export class OverlayUi {
       meta.appendChild(descBadge);
     }
 
-    header.appendChild(avatarEl);
+    // ユーザーアイコン (Live/Twitch で無効化されている場合は非表示)
+    const isLiveComment = comment.source === 'live_chat' || comment.source === 'twitch_chat';
+    const shouldShowAvatar = isLiveComment ? (this.settings.showLiveAvatars ?? true) : true;
+    if (shouldShowAvatar) {
+      const avatarEl = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
+      header.appendChild(avatarEl);
+    }
+
     header.appendChild(meta);
 
     // いいね数バッジ
@@ -1531,15 +1535,19 @@ export class OverlayUi {
       }
     }
 
-    // アバター + テキスト
-    const avatar = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
-    avatar.classList.add('yt-co-flow-avatar');
+    // アバター + テキスト (Live/Twitch で無効化されている場合は非表示)
+    const isLive = comment.source === 'live_chat' || comment.source === 'twitch_chat';
+    const shouldShowAvatar = isLive ? (this.settings.showLiveAvatars ?? true) : true;
+    if (shouldShowAvatar) {
+      const avatar = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
+      avatar.classList.add('yt-co-flow-avatar');
+      flowEl.appendChild(avatar);
+    }
 
     const textEl = ownerDoc.createElement('span');
     textEl.className = 'yt-co-flow-text';
     textEl.textContent = comment.rawText.replace(/\n/g, ' ');
 
-    flowEl.appendChild(avatar);
     flowEl.appendChild(textEl);
 
     // レーン位置（プレイヤー高さの均等分割）
