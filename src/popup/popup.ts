@@ -32,6 +32,10 @@ interface I18nStrings {
   densityLow: string;
   densityNormal: string;
   densityHigh: string;
+  badgesTitle: string;
+  badgesDesc: string;
+  avatarsTitle: string;
+  avatarsDesc: string;
   liveAvatarsTitle: string;
   liveAvatarsDesc: string;
   highlightTitle: string;
@@ -79,6 +83,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: '控えめ',
     densityNormal: '標準',
     densityHigh: 'すべて',
+    badgesTitle: 'バッジ・ユーザーカラー表示',
+    badgesDesc: '公式・モデレーター・VIP・メンバー等のバッジと色を表示',
+    avatarsTitle: 'ユーザーアイコンを表示',
+    avatarsDesc: 'コメントやチャットにユーザーのアバターを表示',
     liveAvatarsTitle: 'ユーザーアイコンを表示',
     liveAvatarsDesc: '流れるコメントや吹き出しにユーザーのアバターを表示',
     highlightTitle: '高評価コメントをハイライト',
@@ -124,6 +132,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: 'Low',
     densityNormal: 'Normal',
     densityHigh: 'All',
+    badgesTitle: 'Show Badges & Colors',
+    badgesDesc: 'Display moderator, VIP, member badges and user colors',
+    avatarsTitle: 'Show User Avatars',
+    avatarsDesc: 'Display user avatars in comments and live chats',
     liveAvatarsTitle: 'Show User Avatars',
     liveAvatarsDesc: 'Display user avatars in flowing comments and bubbles',
     highlightTitle: 'Highlight Top Comments',
@@ -169,6 +181,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: 'Bajo',
     densityNormal: 'Normal',
     densityHigh: 'Todos',
+    badgesTitle: 'Mostrar insignias y colores',
+    badgesDesc: 'Mostrar insignias de moderador, VIP, miembro y colores',
+    avatarsTitle: 'Mostrar avatares de usuario',
+    avatarsDesc: 'Mostrar fotos de perfil en comentarios y chat en vivo',
     liveAvatarsTitle: 'Mostrar avatares de usuario',
     liveAvatarsDesc: 'Mostrar avatares en comentarios flotantes y burbujas',
     highlightTitle: 'Destacar Comentarios Populares',
@@ -214,6 +230,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: '少量',
     densityNormal: '标准',
     densityHigh: '全部',
+    badgesTitle: '显示徽章与专属配色',
+    badgesDesc: '显示房管、VIP、会员徽章与专属用户名颜色',
+    avatarsTitle: '显示用户头像',
+    avatarsDesc: '在评论和弹幕中显示作者头像',
     liveAvatarsTitle: '显示用户头像',
     liveAvatarsDesc: '在弹幕和气泡中显示用户头像',
     highlightTitle: '高赞评论高亮',
@@ -276,8 +296,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Live & Twitch コントロール
   const ytLiveToggle = document.getElementById('yt-live-toggle') as HTMLInputElement | null;
   const twitchToggle = document.getElementById('twitch-toggle') as HTMLInputElement | null;
-  const twitchBadgesToggle = document.getElementById('twitch-badges-toggle') as HTMLInputElement | null;
-  const liveAvatarsToggle = document.getElementById('live-avatars-toggle') as HTMLInputElement | null;
   const densityButtons = document.querySelectorAll<HTMLButtonElement>('.density-btn');
   const densityVal = document.getElementById('density-val') as HTMLElement | null;
 
@@ -287,6 +305,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 共通コントロール
   const highlightToggle = document.getElementById('highlight-toggle') as HTMLInputElement | null;
+  const badgesToggle = document.getElementById('badges-toggle') as HTMLInputElement | null;
+  const avatarsToggle = document.getElementById('avatars-toggle') as HTMLInputElement | null;
   const testCommentBtn = document.getElementById('test-comment-btn') as HTMLButtonElement | null;
   const saveStatus = document.getElementById('save-status') as HTMLElement | null;
 
@@ -402,6 +422,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elHighlightTitle) elHighlightTitle.textContent = t.highlightTitle;
     const elHighlightDesc = document.getElementById('i18n-highlight-desc');
     if (elHighlightDesc) elHighlightDesc.textContent = t.highlightDesc;
+
+    const elBadgesTitle = document.getElementById('i18n-badges-title');
+    if (elBadgesTitle) elBadgesTitle.textContent = t.badgesTitle;
+    const elBadgesDesc = document.getElementById('i18n-badges-desc');
+    if (elBadgesDesc) elBadgesDesc.textContent = t.badgesDesc;
+
+    const elAvatarsTitle = document.getElementById('i18n-avatars-title');
+    if (elAvatarsTitle) elAvatarsTitle.textContent = t.avatarsTitle;
+    const elAvatarsDesc = document.getElementById('i18n-avatars-desc');
+    if (elAvatarsDesc) elAvatarsDesc.textContent = t.avatarsDesc;
 
     const elLiveAvatarsTitle = document.getElementById('i18n-live-avatars-title');
     if (elLiveAvatarsTitle) elLiveAvatarsTitle.textContent = t.liveAvatarsTitle;
@@ -548,16 +578,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (flowOpacitySlider) flowOpacitySlider.value = currentFlowOpacity.toString();
     if (flowOpacityVal) flowOpacityVal.textContent = `${currentFlowOpacity}%`;
 
-    // 共通: ハイライト
+    // 共通: ハイライト・バッジ・アバター
     if (highlightToggle) {
       highlightToggle.checked = settings.highlightPopular;
+    }
+    if (badgesToggle) {
+      badgesToggle.checked = settings.showBadges ?? settings.twitchShowBadges ?? true;
+    }
+    if (avatarsToggle) {
+      avatarsToggle.checked = settings.showAvatars ?? settings.showLiveAvatars ?? true;
     }
 
     // Live & Twitch
     if (ytLiveToggle) ytLiveToggle.checked = settings.liveChatEnabled ?? true;
     if (twitchToggle) twitchToggle.checked = settings.twitchEnabled ?? true;
-    if (twitchBadgesToggle) twitchBadgesToggle.checked = settings.twitchShowBadges ?? true;
-    if (liveAvatarsToggle) liveAvatarsToggle.checked = settings.showLiveAvatars ?? true;
 
     // 流量密度
     const currentDensity = settings.flowDensity || 'normal';
@@ -972,12 +1006,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSetting('twitchEnabled', twitchToggle.checked);
   });
 
-  twitchBadgesToggle?.addEventListener('change', () => {
-    updateSetting('twitchShowBadges', twitchBadgesToggle.checked);
+  badgesToggle?.addEventListener('change', () => {
+    const val = badgesToggle.checked;
+    currentSettings.showBadges = val;
+    currentSettings.twitchShowBadges = val;
+    updateSetting('showBadges', val);
+    updateSetting('twitchShowBadges', val);
   });
 
-  liveAvatarsToggle?.addEventListener('change', () => {
-    updateSetting('showLiveAvatars', liveAvatarsToggle.checked);
+  avatarsToggle?.addEventListener('change', () => {
+    const val = avatarsToggle.checked;
+    currentSettings.showAvatars = val;
+    currentSettings.showLiveAvatars = val;
+    updateSetting('showAvatars', val);
+    updateSetting('showLiveAvatars', val);
   });
 
   // 流量密度ボタン

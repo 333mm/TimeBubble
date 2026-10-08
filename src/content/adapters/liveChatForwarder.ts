@@ -109,6 +109,39 @@ export class LiveChatForwarder {
 
       const id = el.getAttribute('id') || `yt_live_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
+      // バッジとユーザーカラーの抽出
+      const badges: string[] = [];
+      const badgeElements = el.querySelectorAll('yt-live-chat-author-badge-renderer, #chat-badges [type]');
+      badgeElements.forEach((badge) => {
+        const type = (badge.getAttribute('type') || '').toLowerCase();
+        const ariaLabel = badge.getAttribute('aria-label') || '';
+        const img = badge.querySelector('img');
+        if (img?.src && img.src.startsWith('http')) {
+          badges.push(img.src);
+        } else if (type === 'moderator' || ariaLabel.includes('モデレーター') || ariaLabel.includes('Moderator')) {
+          badges.push('moderator');
+        } else if (type === 'owner' || ariaLabel.includes('オーナー') || ariaLabel.includes('Owner')) {
+          badges.push('broadcaster');
+        } else if (type === 'member' || ariaLabel.includes('メンバー') || ariaLabel.includes('Member')) {
+          badges.push('subscriber');
+        } else if (type === 'verified' || ariaLabel.includes('確認済み') || ariaLabel.includes('Verified')) {
+          badges.push('verified');
+        }
+      });
+
+      const authorType = el.getAttribute('author-type') || '';
+      if (!badges.includes('moderator') && authorType === 'moderator') badges.push('moderator');
+      if (!badges.includes('broadcaster') && authorType === 'owner') badges.push('broadcaster');
+      if (!badges.includes('subscriber') && authorType === 'member') badges.push('subscriber');
+
+      let userColor = '';
+      if (authorEl) {
+        const computed = window.getComputedStyle(authorEl).color;
+        if (computed && computed !== 'rgb(255, 255, 255)' && computed !== 'rgba(255, 255, 255, 1)') {
+          userColor = computed;
+        }
+      }
+
       const comment: CommentData = {
         id,
         authorName,
@@ -121,6 +154,8 @@ export class LiveChatForwarder {
         timestamps: [],
         platform: 'youtube',
         source: 'live_chat',
+        userColor,
+        badges,
         isSuperChat,
         superChatAmount,
         superChatColor,

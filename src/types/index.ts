@@ -27,16 +27,20 @@ export interface OverlaySettings {
   language?: string; // UI表示言語 ('ja' | 'en' | 'es' | 'zh')
   flowMode: boolean; // 後方互換性用 (displayMode === 'flow' と連動)
 
+  // 共通表示オプション
+  showBadges: boolean; // バッジ・ユーザーカラー表示
+  showAvatars: boolean; // ユーザーアイコン表示
+
   // Twitch 関連設定
   twitchEnabled: boolean;
   twitchChatMode: DisplayMode;
-  twitchShowBadges: boolean;
+  twitchShowBadges: boolean; // 後方互換性用
 
   // YouTube Live 関連設定
   liveChatEnabled: boolean;
   liveChatMode: DisplayMode;
   showSuperChatOnly: boolean;
-  showLiveAvatars: boolean; // Live/Twitchでのユーザーアイコン表示
+  showLiveAvatars: boolean; // 後方互換性用
 
   // PiP (Picture-in-Picture) 設定
   pipEnabled: boolean;
@@ -61,6 +65,9 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   topTierThreshold: 300,
   language: 'ja',
   flowMode: false,
+
+  showBadges: true,
+  showAvatars: true,
 
   twitchEnabled: true,
   twitchChatMode: 'flow',
