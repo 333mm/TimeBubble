@@ -42,7 +42,8 @@ export interface OverlaySettings {
   liveSize: OverlaySize; // ライブのカードサイズ
   liveDisplayDuration: number; // ライブのカード表示時間
   liveOpacity: number; // ライブのカード不透明度
-  liveShowBadges: boolean; // ライブのバッジ・ユーザーカラー表示
+  liveShowBadges: boolean; // ライブのバッジ表示
+  liveShowUserColor: boolean; // ライブのユーザーカラー表示
   liveShowAvatars: boolean; // ライブのユーザーアイコン表示
   liveChatMaxDensity?: FlowDensity; // ライブチャット流量密度
   livePipEnabled: boolean; // ライブのPiP表示
@@ -91,6 +92,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   liveDisplayDuration: 6,
   liveOpacity: 80,
   liveShowBadges: true,
+  liveShowUserColor: true,
   liveShowAvatars: true,
   liveChatMaxDensity: 'normal',
   livePipEnabled: true,

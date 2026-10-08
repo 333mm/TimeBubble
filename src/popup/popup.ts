@@ -54,6 +54,8 @@ interface I18nStrings {
   densityHigh: string;
   liveBadgesTitle: string;
   liveBadgesDesc: string;
+  liveUserColorTitle: string;
+  liveUserColorDesc: string;
   liveAvatarsTitle: string;
   liveAvatarsDesc: string;
   livePipTitle: string;
@@ -119,8 +121,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: '控えめ',
     densityNormal: '標準',
     densityHigh: 'すべて',
-    liveBadgesTitle: 'バッジ・ユーザーカラー表示',
-    liveBadgesDesc: '公式・モデレーター・VIP・メンバー等のバッジと色を表示',
+    liveBadgesTitle: 'バッジ表示',
+    liveBadgesDesc: '公式・モデレーター・VIP・メンバー等のバッジを表示',
+    liveUserColorTitle: 'ユーザーカラー表示',
+    liveUserColorDesc: '投稿者のネームカラー・文字色の着色を表示',
     liveAvatarsTitle: 'ユーザーアイコンを表示',
     liveAvatarsDesc: 'チャットに投稿者のアバターを表示',
     livePipTitle: 'PiP ウィンドウにチャットを表示',
@@ -183,8 +187,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: 'Low',
     densityNormal: 'Normal',
     densityHigh: 'All',
-    liveBadgesTitle: 'Show Badges & Colors',
-    liveBadgesDesc: 'Display moderator, VIP, member badges and user colors',
+    liveBadgesTitle: 'Show Badges',
+    liveBadgesDesc: 'Display moderator, VIP, and member badges',
+    liveUserColorTitle: 'Show User Colors',
+    liveUserColorDesc: 'Color user names and chat text',
     liveAvatarsTitle: 'Show User Avatars',
     liveAvatarsDesc: 'Display user avatars in chat messages',
     livePipTitle: 'Show Chat in PiP',
@@ -247,8 +253,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: 'Bajo',
     densityNormal: 'Normal',
     densityHigh: 'Todos',
-    liveBadgesTitle: 'Mostrar insignias y colores',
-    liveBadgesDesc: 'Mostrar insignias de moderador, VIP, miembro y colores',
+    liveBadgesTitle: 'Mostrar insignias',
+    liveBadgesDesc: 'Mostrar insignias de moderador, VIP y miembro',
+    liveUserColorTitle: 'Mostrar colores de usuario',
+    liveUserColorDesc: 'Colorear nombres de usuario y texto del chat',
     liveAvatarsTitle: 'Mostrar avatares de usuario',
     liveAvatarsDesc: 'Mostrar fotos de perfil en el chat',
     livePipTitle: 'Mostrar Chat en PiP',
@@ -311,8 +319,10 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: '少量',
     densityNormal: '标准',
     densityHigh: '全部',
-    liveBadgesTitle: '显示徽章与专属配色',
-    liveBadgesDesc: '显示房管、VIP、会员徽章与专属用户名颜色',
+    liveBadgesTitle: '显示徽章',
+    liveBadgesDesc: '显示房管、VIP、会员等徽章',
+    liveUserColorTitle: '显示用户颜色',
+    liveUserColorDesc: '显示发言者昵称与文字颜色',
     liveAvatarsTitle: '显示用户头像',
     liveAvatarsDesc: '在聊天弹幕中显示作者头像',
     livePipTitle: '在画中画(PiP)窗口显示弹幕',
@@ -427,6 +437,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ライブ: 共通 & PiP
   const liveBadgesToggle = document.getElementById('live-badges-toggle') as HTMLInputElement | null;
+  const liveUserColorToggle = document.getElementById('live-user-color-toggle') as HTMLInputElement | null;
   const liveAvatarsToggle = document.getElementById('live-avatars-toggle') as HTMLInputElement | null;
   const livePipToggle = document.getElementById('live-pip-toggle') as HTMLInputElement | null;
   const liveTriggerPipBtn = document.getElementById('live-trigger-pip-btn') as HTMLButtonElement | null;
@@ -559,6 +570,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elLiveBadgesTitle) elLiveBadgesTitle.textContent = t.liveBadgesTitle;
     const elLiveBadgesDesc = document.getElementById('i18n-live-badges-desc');
     if (elLiveBadgesDesc) elLiveBadgesDesc.textContent = t.liveBadgesDesc;
+    const elLiveUserColorTitle = document.getElementById('i18n-live-user-color-title');
+    if (elLiveUserColorTitle) elLiveUserColorTitle.textContent = t.liveUserColorTitle;
+    const elLiveUserColorDesc = document.getElementById('i18n-live-user-color-desc');
+    if (elLiveUserColorDesc) elLiveUserColorDesc.textContent = t.liveUserColorDesc;
     const elLiveAvatarsTitle = document.getElementById('i18n-live-avatars-title');
     if (elLiveAvatarsTitle) elLiveAvatarsTitle.textContent = t.liveAvatarsTitle;
     const elLiveAvatarsDesc = document.getElementById('i18n-live-avatars-desc');
@@ -779,6 +794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (liveOpacitySlider) liveOpacitySlider.value = currentLiveOpacity.toString();
 
     if (liveBadgesToggle) liveBadgesToggle.checked = settings.liveShowBadges ?? settings.showBadges ?? true;
+    if (liveUserColorToggle) liveUserColorToggle.checked = settings.liveShowUserColor ?? true;
     if (liveAvatarsToggle) liveAvatarsToggle.checked = settings.liveShowAvatars ?? settings.showLiveAvatars ?? true;
     if (livePipToggle) livePipToggle.checked = settings.livePipEnabled ?? settings.pipEnabled ?? true;
 
@@ -1116,6 +1132,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const name = document.createElement('span');
         name.className = 'tb-test-name';
+        const showUserColor = isLive ? (settings.liveShowUserColor ?? true) : false;
+        if (showUserColor && item.color) {
+          name.style.color = item.color;
+        }
         name.textContent = item.author;
         hdr.appendChild(name);
 
@@ -1410,6 +1430,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentSettings.showBadges = val;
     currentSettings.twitchShowBadges = val;
     updateSettings({ liveShowBadges: val, showBadges: val, twitchShowBadges: val });
+  });
+
+  liveUserColorToggle?.addEventListener('change', () => {
+    const val = liveUserColorToggle.checked;
+    currentSettings.liveShowUserColor = val;
+    updateSettings({ liveShowUserColor: val });
   });
 
   liveAvatarsToggle?.addEventListener('change', () => {

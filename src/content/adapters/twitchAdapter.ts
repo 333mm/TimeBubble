@@ -1,6 +1,19 @@
 import { CommentData, PlatformType } from '../../types';
 import { IPlatformAdapter, OnNewCommentCallback } from './platformAdapter';
 
+const TWITCH_GLOBAL_BADGES: Record<string, string> = {
+  broadcaster: 'https://static-cdn.jtvnw.net/badges/v1/5527c58c-fb7d-422d-b71b-f309d084010d/1',
+  moderator: 'https://static-cdn.jtvnw.net/badges/v1/32680ba8-ff54-414d-93c4-e4fc627e04f9/1',
+  vip: 'https://static-cdn.jtvnw.net/badges/v1/b817aba4-fad8-49e2-b88a-7cc744dfa6ec/1',
+  subscriber: 'https://static-cdn.jtvnw.net/badges/v1/5d9f286a-7d19-48ea-b3d9-453b1e0a5501/1',
+  turbo: 'https://static-cdn.jtvnw.net/badges/v1/bd444ec6-8f34-4bf9-abac-f6c13f849dd4/1',
+  verified: 'https://static-cdn.jtvnw.net/badges/v1/d12a2e27-16f6-41d0-ab77-b780518f00a3/1',
+  partner: 'https://static-cdn.jtvnw.net/badges/v1/7434775d-3540-424a-8742-df873428ecad/1',
+  staff: 'https://static-cdn.jtvnw.net/badges/v1/d97c37bd-a6f5-4c38-8f57-4e4bef88af34/1',
+  prime: 'https://static-cdn.jtvnw.net/badges/v1/a1dd5073-19c3-4911-834c-87b376913d0d/1',
+  premium: 'https://static-cdn.jtvnw.net/badges/v1/a1dd5073-19c3-4911-834c-87b376913d0d/1',
+};
+
 export class TwitchAdapter implements IPlatformAdapter {
   private onNewCommentsCallback: OnNewCommentCallback | null = null;
   private ws: WebSocket | null = null;
@@ -10,6 +23,7 @@ export class TwitchAdapter implements IPlatformAdapter {
   private reconnectTimer: number | null = null;
   private isDestroyed = false;
   private pingInterval: number | null = null;
+  private domBadgeCache = new Map<string, string>();
 
   public getPlatform(): PlatformType {
     return 'twitch';
@@ -263,9 +277,12 @@ export class TwitchAdapter implements IPlatformAdapter {
       const badgesRaw = tags['badges'] || '';
       const badges: string[] = [];
       if (badgesRaw) {
+        this.harvestDomBadges();
         badgesRaw.split(',').forEach((b) => {
           const bName = b.split('/')[0];
-          if (bName) badges.push(bName);
+          if (bName) {
+            badges.push(this.resolveBadgeImageUrl(bName));
+          }
         });
       }
 
@@ -313,6 +330,60 @@ export class TwitchAdapter implements IPlatformAdapter {
   }
 
   /**
+   * Twitchチャット欄にレンダリングされている本物のバッジ画像URLを走査・キャッシュ
+   */
+  private harvestDomBadges() {
+    try {
+      const badgeImgs = document.querySelectorAll<HTMLImageElement>(
+        'img.chat-badge, [data-a-target="chat-badge"] img, .chat-line__message--badges img'
+      );
+      badgeImgs.forEach((img) => {
+        const src = img.src || img.getAttribute('src');
+        if (!src || !src.startsWith('http')) return;
+        const alt = (img.alt || '').toLowerCase();
+
+        if (alt.includes('subscriber') || alt.includes('サブスクライバー') || alt.includes('tier') || alt.includes('sub')) {
+          this.domBadgeCache.set('subscriber', src);
+        } else if (alt.includes('moderator') || alt.includes('モデレーター') || alt.includes('mod')) {
+          this.domBadgeCache.set('moderator', src);
+        } else if (alt.includes('vip')) {
+          this.domBadgeCache.set('vip', src);
+        } else if (alt.includes('broadcaster') || alt.includes('配信者') || alt.includes('owner')) {
+          this.domBadgeCache.set('broadcaster', src);
+        } else if (alt.includes('verified') || alt.includes('認証')) {
+          this.domBadgeCache.set('verified', src);
+        } else if (alt.includes('turbo') || alt.includes('prime')) {
+          this.domBadgeCache.set('turbo', src);
+        }
+
+        // バッジ画像URL内のIDハッシュを抽出してマッピング
+        const idMatch = src.match(/badges\/v1\/([^/]+)/);
+        if (idMatch) {
+          this.domBadgeCache.set(idMatch[1].toLowerCase(), src);
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * バッジ識別子から本物の画像URLを解決
+   */
+  private resolveBadgeImageUrl(rawBadge: string): string {
+    const key = rawBadge.toLowerCase();
+    // 1. チャット欄から収集した本物画像
+    if (this.domBadgeCache.has(key)) {
+      return this.domBadgeCache.get(key)!;
+    }
+    // 2. Twitch公式CDNバッジURL
+    if (TWITCH_GLOBAL_BADGES[key]) {
+      return TWITCH_GLOBAL_BADGES[key];
+    }
+    return rawBadge;
+  }
+
+  /**
    * DOM チャット欄の MutationObserver (WebSocket フォールバック & VOD 用)
    */
   private setupDomChatFallback() {
@@ -323,6 +394,9 @@ export class TwitchAdapter implements IPlatformAdapter {
       if (!container || this.domObserver) return;
 
       this.domObserver = new MutationObserver((mutations) => {
+        // DOMからバッジ画像を常に最新収集
+        this.harvestDomBadges();
+
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           // WebSocket が元気に動いている場合はDOM処理をスキップして二重取得を防止
           return;
@@ -358,6 +432,24 @@ export class TwitchAdapter implements IPlatformAdapter {
       const rawText = textEl?.textContent?.trim() || '';
       if (!rawText) return null;
 
+      // チャット欄の実DOMから直接バッジ画像URLを抽出
+      const badges: string[] = [];
+      const badgeImgs = el.querySelectorAll<HTMLImageElement>(
+        'img.chat-badge, [data-a-target="chat-badge"] img, .chat-line__message--badges img'
+      );
+      badgeImgs.forEach((img) => {
+        const src = img.src || img.getAttribute('src');
+        if (src && src.startsWith('http')) {
+          badges.push(src);
+          // キャッシュにも即時反映
+          const alt = (img.alt || '').toLowerCase();
+          if (alt.includes('sub')) this.domBadgeCache.set('subscriber', src);
+          if (alt.includes('mod')) this.domBadgeCache.set('moderator', src);
+          if (alt.includes('vip')) this.domBadgeCache.set('vip', src);
+          if (alt.includes('broadcaster')) this.domBadgeCache.set('broadcaster', src);
+        }
+      });
+
       const commentId = `twitch_dom_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
       return {
@@ -374,6 +466,7 @@ export class TwitchAdapter implements IPlatformAdapter {
         platform: 'twitch',
         source: 'twitch_chat',
         userColor,
+        badges,
         receivedAt: Date.now(),
       };
     } catch {

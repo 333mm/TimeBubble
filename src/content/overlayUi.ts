@@ -137,6 +137,95 @@ export class OverlayUi {
   }
 
   /**
+   * プレイヤー内の実際の映像描画領域（レターボックス・ピラーボックス除外）を計算
+   * TwitchやYouTubeでの黒帯（アスペクト比のズレ）による下部見切れや枠外はみ出しを防止
+   */
+  public getVideoDisplayRect(): {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    topInset: number;
+    bottomInset: number;
+    leftInset: number;
+    rightInset: number;
+  } {
+    const defaultRect = {
+      left: 0,
+      top: 0,
+      width: this.playerElement?.clientWidth || 640,
+      height: this.playerElement?.clientHeight || 360,
+      topInset: 0,
+      bottomInset: 0,
+      leftInset: 0,
+      rightInset: 0,
+    };
+
+    if (!this.playerElement) return defaultRect;
+
+    const video = this.playerElement.querySelector<HTMLVideoElement>('video') ||
+      this.getOwnerDocument().querySelector<HTMLVideoElement>('video');
+
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      return defaultRect;
+    }
+
+    try {
+      const playerBounding = this.playerElement.getBoundingClientRect();
+      const videoBounding = video.getBoundingClientRect();
+
+      // playerElement に対する video 要素の相対座標
+      const vOffsetLeft = Math.max(0, videoBounding.left - playerBounding.left);
+      const vOffsetTop = Math.max(0, videoBounding.top - playerBounding.top);
+      const vDisplayWidth = videoBounding.width || this.playerElement.clientWidth;
+      const vDisplayHeight = videoBounding.height || this.playerElement.clientHeight;
+
+      if (vDisplayWidth <= 0 || vDisplayHeight <= 0) return defaultRect;
+
+      const videoRatio = video.videoWidth / video.videoHeight;
+      const displayRatio = vDisplayWidth / vDisplayHeight;
+
+      let actualWidth = vDisplayWidth;
+      let actualHeight = vDisplayHeight;
+      let horizontalInset = 0;
+      let verticalInset = 0;
+
+      // object-fit: contain (ブラウザの標準動画レンダリング挙動) の計算
+      if (displayRatio > videoRatio) {
+        // プレイヤー/コンテナの方が横長 -> 左右に黒帯（ピラーボックス）
+        actualHeight = vDisplayHeight;
+        actualWidth = actualHeight * videoRatio;
+        horizontalInset = Math.max(0, (vDisplayWidth - actualWidth) / 2);
+      } else if (displayRatio < videoRatio) {
+        // プレイヤー/コンテナの方が縦長 -> 上下に黒帯（レターボックス）
+        actualWidth = vDisplayWidth;
+        actualHeight = actualWidth / videoRatio;
+        verticalInset = Math.max(0, (vDisplayHeight - actualHeight) / 2);
+      }
+
+      const actualTop = vOffsetTop + verticalInset;
+      const actualLeft = vOffsetLeft + horizontalInset;
+      const bottomInset = Math.max(0, playerBounding.height - (actualTop + actualHeight));
+      const rightInset = Math.max(0, playerBounding.width - (actualLeft + actualWidth));
+      const topInset = Math.max(0, actualTop);
+      const leftInset = Math.max(0, actualLeft);
+
+      return {
+        left: Math.round(actualLeft),
+        top: Math.round(actualTop),
+        width: Math.round(actualWidth),
+        height: Math.round(actualHeight),
+        topInset: Math.round(topInset),
+        bottomInset: Math.round(bottomInset),
+        leftInset: Math.round(leftInset),
+        rightInset: Math.round(rightInset),
+      };
+    } catch {
+      return defaultRect;
+    }
+  }
+
+  /**
    * 動画再生一時停止時: コメントの流れとカードの表示残りカウントを一時停止
    */
   public pausePlayback() {
@@ -1023,7 +1112,8 @@ export class OverlayUi {
 
     const author = doc.createElement('span');
     author.className = 'yt-co-author';
-    if (isLive && comment.userColor) {
+    const showUserColor = this.settings.liveShowUserColor ?? true;
+    if (isLive && showUserColor && comment.userColor) {
       author.style.color = comment.userColor;
     }
     author.textContent = comment.authorName;
@@ -1731,10 +1821,12 @@ export class OverlayUi {
     const playerHeight = playerEl.clientHeight || win.innerHeight || 360;
     const playerWidth = playerEl.clientWidth || win.innerWidth || 640;
 
-    // セーフエリア（上部5%、下部12%コントロールバーマージン）
-    const safeTop = Math.max(16, Math.floor(playerHeight * 0.05));
-    const safeBottom = Math.max(68, Math.floor(playerHeight * 0.12));
-    const usableHeight = Math.max(120, playerHeight - safeTop - safeBottom);
+    // 映像実表示領域（上下黒帯・ピラーボックス除外）を考慮したセーフエリア
+    const vRect = this.getVideoDisplayRect();
+    const effectiveTop = Math.max(vRect.top + 12, Math.floor(vRect.top + vRect.height * 0.04));
+    const contentBottomMargin = Math.max(52, Math.floor(vRect.height * 0.07));
+    const effectiveBottomInset = vRect.bottomInset + contentBottomMargin;
+    const usableHeight = Math.max(80, playerHeight - effectiveTop - effectiveBottomInset);
 
     const size = isLive
       ? (this.settings.liveFlowSize || this.settings.flowSize || 'medium')
@@ -1860,7 +1952,8 @@ export class OverlayUi {
 
     const textEl = ownerDoc.createElement('span');
     textEl.className = 'yt-co-flow-text';
-    if (isLive && comment.userColor) {
+    const showUserColor = this.settings.liveShowUserColor ?? true;
+    if (isLive && showUserColor && comment.userColor) {
       textEl.style.color = comment.userColor;
     }
     textEl.textContent = comment.rawText.replace(/\n/g, ' ');
@@ -1868,11 +1961,12 @@ export class OverlayUi {
     flowEl.appendChild(textEl);
 
     // ─── 垂直位置の計算（自然なジッター・散らし効果） ───
-    const baseTop = safeTop + (laneIndex * (usableHeight / laneCount));
+    const baseTop = effectiveTop + (laneIndex * (usableHeight / laneCount));
     // ±3px 〜 ±5px の微細なランダム揺らぎを加え、規則正しすぎる「線路・自動車レーン」感を自然に解消
     const maxJitter = Math.min(5, Math.max(2, Math.floor(lanePitch * 0.15)));
     const randomJitter = (Math.random() - 0.5) * (maxJitter * 2);
-    const topPx = Math.max(safeTop, Math.min(playerHeight - safeBottom - lanePitch, Math.round(baseTop + randomJitter)));
+    const maxTop = Math.max(effectiveTop, playerHeight - effectiveBottomInset - lanePitch);
+    const topPx = Math.max(effectiveTop, Math.min(maxTop, Math.round(baseTop + randomJitter)));
     flowEl.style.top = `${topPx}px`;
 
     playerEl.appendChild(flowEl);
@@ -1938,10 +2032,7 @@ export class OverlayUi {
       img.loading = 'lazy';
       img.onerror = () => {
         if (img.parentElement) {
-          const fallback = ownerDoc.createElement('span');
-          fallback.className = 'yt-co-chatbox-badge';
-          fallback.textContent = '★';
-          img.parentElement.replaceChild(fallback, img);
+          img.remove();
         }
       };
       return img;
@@ -2060,6 +2151,13 @@ export class OverlayUi {
       this.chatboxContainerEl = box;
     }
 
+    // 映像表示領域（上下黒帯・左右黒帯除外）に合わせてチャットボックス位置を動的に設定
+    const vRect = this.getVideoDisplayRect();
+    const chatboxBottom = Math.max(76, vRect.bottomInset + 20);
+    const chatboxRight = Math.max(16, vRect.rightInset + 16);
+    this.chatboxContainerEl.style.setProperty('--yt-co-chatbox-bottom', `${chatboxBottom}px`);
+    this.chatboxContainerEl.style.setProperty('--yt-co-chatbox-right', `${chatboxRight}px`);
+
     const itemEl = ownerDoc.createElement('div');
     itemEl.className = `yt-co-chatbox-item ${comment.isSuperChat ? 'is-superchat' : ''}`;
 
@@ -2099,7 +2197,8 @@ export class OverlayUi {
 
     const authorSpan = ownerDoc.createElement('span');
     authorSpan.className = 'yt-co-chatbox-author';
-    if (comment.userColor) {
+    const showUserColor = this.settings.liveShowUserColor ?? true;
+    if (showUserColor && comment.userColor) {
       authorSpan.style.color = comment.userColor;
     }
     authorSpan.textContent = `${comment.authorName || 'ユーザー'}:`;
