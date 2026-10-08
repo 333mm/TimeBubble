@@ -39,7 +39,8 @@ if (LiveChatForwarder.isLiveChatFrame()) {
         this.overlayUi.updateSettings(newSettings);
       });
 
-      // 3. PiP トグル連携
+      // 3. PiP トグル連携 & 状態判定
+      this.overlayUi.setIsPipActiveCallback(() => this.pipController.isPipActive());
       this.overlayUi.setOnPipToggleCallback(async () => {
         const video = this.currentAdapter?.getVideoElement();
         if (video) {
@@ -212,6 +213,9 @@ if (LiveChatForwarder.isLiveChatFrame()) {
 
       // 動画同期エンジンのアタッチ
       this.playerSync.attach(videoEl);
+
+      // ブラウザ標準PiPへの介入・アップグレードリスナー
+      this.pipController.setupNativePipListener(videoEl, this.overlayUi);
 
       // YouTube の場合は VOD コメント・チャプターフェッチャーの開始
       if (this.currentAdapter?.getPlatform() === 'youtube') {

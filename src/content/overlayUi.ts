@@ -18,11 +18,13 @@ export class OverlayUi {
   private playerElement: HTMLElement | null = null;
   private modalRootEl: HTMLElement | null = null;
   private quickToggleBtnEl: HTMLElement | null = null;
+  private quickPipBtnEl: HTMLElement | null = null;
   private chatboxContainerEl: HTMLElement | null = null;
   private playerControlsBarEl: HTMLElement | null = null;
   private recentCommentTimestamps: number[] = [];
   private onPipToggleCallback: (() => void) | null = null;
   private onModeCycleCallback: (() => void) | null = null;
+  private isPipActiveCallback: (() => boolean) | null = null;
   private likedCommentIds = new Set<string>();
   private settings: OverlaySettings = DEFAULT_SETTINGS;
   private activeCards = new Map<string, {
@@ -52,6 +54,16 @@ export class OverlayUi {
   /** PiPトグルコールバックを設定 */
   public setOnPipToggleCallback(cb: () => void) {
     this.onPipToggleCallback = cb;
+  }
+
+  /** PiPアクティブ判定コールバックを設定 */
+  public setIsPipActiveCallback(cb: () => boolean) {
+    this.isPipActiveCallback = cb;
+  }
+
+  /** PiPがアクティブかどうかを判定 */
+  public isPipActive(): boolean {
+    return this.isPipActiveCallback ? this.isPipActiveCallback() : false;
   }
 
   /** モード切替コールバックを設定 */
@@ -264,7 +276,7 @@ export class OverlayUi {
 
     if (targetContainer) {
       this.containerEl = targetContainer;
-      this.mountQuickToggleButton(playerElement);
+      this.mountQuickActions(playerElement);
       this.applySettingsToContainer();
       return true;
     }
@@ -277,19 +289,20 @@ export class OverlayUi {
 
     this.containerEl = container;
     playerElement.appendChild(container);
-    this.mountQuickToggleButton(playerElement);
+    this.mountQuickActions(playerElement);
     this.applySettingsToContainer();
 
-    console.log('[YT-Comment-Overlay] Successfully mounted container to:', playerElement);
+    console.log('[TimeBubble] Successfully mounted container to:', playerElement);
     return true;
   }
 
   public destroy() {
     this.closeExpandedComment();
-    this.removeQuickToggleButton();
+    this.removeQuickActions();
     this.removePlayerControlsBar();
     this.clearAll();
-    const existingContainers = document.querySelectorAll<HTMLElement>(`#${CONTAINER_ID}`);
+    const ownerDoc = this.getOwnerDocument();
+    const existingContainers = ownerDoc.querySelectorAll<HTMLElement>(`#${CONTAINER_ID}`);
     existingContainers.forEach((el) => el.parentElement?.removeChild(el));
     this.containerEl = null;
   }
@@ -325,9 +338,11 @@ export class OverlayUi {
   }
 
 
-  private applySettingsToContainer() {
-    // ページ上に重複コンテナがあれば1つを残して削除
-    const existingContainers = document.querySelectorAll<HTMLElement>(`#${CONTAINER_ID}`);
+  public applySettingsToContainer() {
+    const ownerDoc = this.getOwnerDocument();
+
+    // ターゲットドキュメント内に重複コンテナがあれば1つを残して削除
+    const existingContainers = ownerDoc.querySelectorAll<HTMLElement>(`#${CONTAINER_ID}`);
     if (existingContainers.length > 1) {
       for (let i = 1; i < existingContainers.length; i++) {
         existingContainers[i].parentElement?.removeChild(existingContainers[i]);
@@ -353,8 +368,8 @@ export class OverlayUi {
     this.containerEl.style.setProperty('--yt-co-bg-opacity', bgAlpha.toString());
     this.containerEl.style.setProperty('--yt-co-border-opacity', (bgAlpha * 0.22).toString());
 
-    // YouTube外の一般ページ（document.bodyマウント）の場合は画面四隅に固定配置
-    if (this.containerEl.parentElement === document.body) {
+    // YouTube外の一般ページ（ownerDoc.bodyマウント）の場合は画面四隅に固定配置
+    if (this.containerEl.parentElement === ownerDoc.body) {
       this.containerEl.style.position = 'fixed';
       this.containerEl.style.zIndex = '2147483647';
       this.containerEl.style.pointerEvents = 'none';
@@ -388,7 +403,7 @@ export class OverlayUi {
       this.containerEl.style.removeProperty('left');
     }
 
-    this.updateQuickToggleButton();
+    this.updateQuickActions();
   }
 
   public setPosition(pos: OverlayPosition) {
@@ -403,15 +418,17 @@ export class OverlayUi {
   public showTestComment(testKind?: 'timestamp' | 'live') {
     console.log('[TimeBubble] showTestComment executing, kind:', testKind);
 
-    // まだマウントされていない場合は強制探索してマウント (YouTube外の一般ページの場合は document.body)
+    // まだマウントされていない場合は強制探索してマウント (YouTube外の一般ページの場合は ownerDoc.body)
     if (!this.containerEl || !this.containerEl.parentElement) {
-      const video = document.querySelector<HTMLVideoElement>('video');
+      const ownerDoc = this.getOwnerDocument();
+      const video = ownerDoc.querySelector<HTMLVideoElement>('video');
       const playerCandidate =
+        this.playerElement ||
         video?.closest<HTMLElement>('#movie_player, .html5-video-player') ||
-        document.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
+        ownerDoc.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
         video?.parentElement ||
-        document.querySelector<HTMLElement>('#player-container, #ytd-player, ytd-watch-flexy') ||
-        document.body;
+        ownerDoc.querySelector<HTMLElement>('#player-container, #ytd-player, ytd-watch-flexy') ||
+        ownerDoc.body;
 
       if (playerCandidate) {
         this.mount(playerCandidate);
@@ -638,13 +655,14 @@ export class OverlayUi {
     }
 
     if (!this.containerEl || !this.containerEl.parentElement) {
-      const video = document.querySelector<HTMLVideoElement>('video');
+      const ownerDoc = this.getOwnerDocument();
+      const video = ownerDoc.querySelector<HTMLVideoElement>('video');
       const playerCandidate =
         this.playerElement ||
         video?.closest<HTMLElement>('#movie_player, .html5-video-player') ||
-        document.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
+        ownerDoc.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
         video?.parentElement ||
-        document.body;
+        ownerDoc.body;
 
       if (playerCandidate) {
         this.mount(playerCandidate);
@@ -1700,14 +1718,14 @@ export class OverlayUi {
       }
     }
 
+    const ownerDoc = this.getOwnerDocument();
     const playerEl = this.playerElement ||
-      document.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
-      document.body;
+      ownerDoc.querySelector<HTMLElement>('#movie_player, .html5-video-player') ||
+      ownerDoc.body;
     if (!playerEl) return;
 
     const { comment } = trigger;
     const now = Date.now();
-    const ownerDoc = playerEl.ownerDocument || document;
     const win = ownerDoc.defaultView || window;
 
     const playerHeight = playerEl.clientHeight || win.innerHeight || 360;
@@ -2135,39 +2153,74 @@ export class OverlayUi {
   }
 
   /**
-   * プレイヤー上のクイックON/OFFトグルボタンを初期化・マウント
+   * プレイヤー上のクイックアクションボタン（ON/OFFトグル & PiP切り替え）を初期化・マウント
    */
-  private mountQuickToggleButton(playerElement: HTMLElement) {
-    this.removeQuickToggleButton();
+  private mountQuickActions(playerElement: HTMLElement) {
+    this.removeQuickActions();
 
-    // YouTubeプレイヤー、または動画の親要素上でのみ表示
-    const isYtPlayer =
+    const ownerDoc = this.getOwnerDocument();
+
+    // YouTubeプレイヤー、Twitch、または動画の親要素上でのみ表示
+    const isVideoPlayer =
       playerElement.id === 'movie_player' ||
       playerElement.classList.contains('html5-video-player') ||
+      playerElement.classList.contains('pip-player-wrapper') ||
       Boolean(playerElement.querySelector('video'));
 
-    if (!isYtPlayer && playerElement === document.body) {
+    if (!isVideoPlayer && playerElement === ownerDoc.body) {
       return;
     }
 
-    const btn = document.createElement('button');
-    btn.id = 'yt-co-quick-toggle-btn';
-    btn.type = 'button';
-    btn.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${this.settings.enabled ? 'is-enabled' : 'is-disabled'}`;
+    // 1. クイックON/OFFトグルボタン
+    const toggleBtn = ownerDoc.createElement('button');
+    toggleBtn.id = 'yt-co-quick-toggle-btn';
+    toggleBtn.type = 'button';
+    toggleBtn.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${this.settings.enabled ? 'is-enabled' : 'is-disabled'}`;
 
-    this.renderQuickToggleContent(btn);
+    this.renderQuickToggleContent(toggleBtn);
 
-    btn.addEventListener('click', (e) => {
+    toggleBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
       this.toggleEnabled();
     });
 
-    playerElement.appendChild(btn);
-    this.quickToggleBtnEl = btn;
+    // 2. クイックPiP切り替えボタン
+    const pipBtn = ownerDoc.createElement('button');
+    pipBtn.id = 'yt-co-quick-pip-btn';
+    pipBtn.type = 'button';
+    pipBtn.className = `yt-co-quick-pip-btn yt-co-quick-pos-${this.settings.position}`;
+
+    this.renderQuickPipContent(pipBtn);
+
+    pipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (this.onPipToggleCallback) {
+        this.onPipToggleCallback();
+      }
+    });
+
+    // マウスホバー監視で、セレクタに依らずカーソルがプレイヤー上にあるときに100%確実に表示
+    const handleMouseEnter = () => {
+      toggleBtn.classList.add('is-hovered');
+      pipBtn.classList.add('is-hovered');
+    };
+    const handleMouseLeave = () => {
+      toggleBtn.classList.remove('is-hovered');
+      pipBtn.classList.remove('is-hovered');
+    };
+    playerElement.addEventListener('mouseenter', handleMouseEnter);
+    playerElement.addEventListener('mouseleave', handleMouseLeave);
+
+    playerElement.appendChild(toggleBtn);
+    playerElement.appendChild(pipBtn);
+    this.quickToggleBtnEl = toggleBtn;
+    this.quickPipBtnEl = pipBtn;
   }
 
   private renderQuickToggleContent(btn: HTMLElement) {
+    const ownerDoc = this.getOwnerDocument();
     const isEn = this.settings.enabled;
     btn.title = isEn ? 'TimeBubble: ON (クリックで非表示)' : 'TimeBubble: OFF (クリックで表示)';
 
@@ -2182,19 +2235,19 @@ export class OverlayUi {
     svg.setAttribute('stroke-linecap', 'round');
     svg.setAttribute('stroke-linejoin', 'round');
 
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const path = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z');
     svg.appendChild(path);
 
     if (isEn) {
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      const circle = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'circle');
       circle.setAttribute('cx', '12');
       circle.setAttribute('cy', '10');
       circle.setAttribute('r', '2');
       circle.setAttribute('fill', 'currentColor');
       svg.appendChild(circle);
     } else {
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      const line = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('x1', '2');
       line.setAttribute('y1', '2');
       line.setAttribute('x2', '22');
@@ -2205,20 +2258,74 @@ export class OverlayUi {
     btn.appendChild(svg);
   }
 
-  private updateQuickToggleButton() {
-    if (!this.quickToggleBtnEl) return;
-    const isEn = this.settings.enabled;
-    this.quickToggleBtnEl.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${isEn ? 'is-enabled' : 'is-disabled'}`;
-    this.renderQuickToggleContent(this.quickToggleBtnEl);
+  private renderQuickPipContent(btn: HTMLElement) {
+    const ownerDoc = this.getOwnerDocument();
+    const isPip = this.isPipActive();
+    btn.title = isPip ? 'TimeBubble: PiP終了 (通常画面に戻す)' : 'TimeBubble: コメント付きPiP再生 (ミニウィンドウ)';
+
+    if (isPip) {
+      btn.classList.add('is-active');
+    } else {
+      btn.classList.remove('is-active');
+    }
+
+    while (btn.firstChild) {
+      btn.removeChild(btn.firstChild);
+    }
+
+    const svg = this.createSvgElement('0 0 24 24', 13, 13);
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2.2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+
+    const outerRect = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    outerRect.setAttribute('x', '2');
+    outerRect.setAttribute('y', '3');
+    outerRect.setAttribute('width', '20');
+    outerRect.setAttribute('height', '14');
+    outerRect.setAttribute('rx', '2');
+    outerRect.setAttribute('ry', '2');
+    svg.appendChild(outerRect);
+
+    const innerRect = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    innerRect.setAttribute('x', '11');
+    innerRect.setAttribute('y', '9');
+    innerRect.setAttribute('width', '9');
+    innerRect.setAttribute('height', '6');
+    innerRect.setAttribute('rx', '1');
+    innerRect.setAttribute('ry', '1');
+    innerRect.setAttribute('fill', 'currentColor');
+    svg.appendChild(innerRect);
+
+    btn.appendChild(svg);
   }
 
-  private removeQuickToggleButton() {
+  public updateQuickActions() {
+    if (this.quickToggleBtnEl) {
+      const isEn = this.settings.enabled;
+      this.quickToggleBtnEl.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${isEn ? 'is-enabled' : 'is-disabled'}`;
+      this.renderQuickToggleContent(this.quickToggleBtnEl);
+    }
+    if (this.quickPipBtnEl) {
+      this.quickPipBtnEl.className = `yt-co-quick-pip-btn yt-co-quick-pos-${this.settings.position}`;
+      this.renderQuickPipContent(this.quickPipBtnEl);
+    }
+  }
+
+  private removeQuickActions() {
+    const ownerDoc = this.getOwnerDocument();
     if (this.quickToggleBtnEl && this.quickToggleBtnEl.parentElement) {
       this.quickToggleBtnEl.parentElement.removeChild(this.quickToggleBtnEl);
     }
-    const existing = document.querySelectorAll('#yt-co-quick-toggle-btn');
+    if (this.quickPipBtnEl && this.quickPipBtnEl.parentElement) {
+      this.quickPipBtnEl.parentElement.removeChild(this.quickPipBtnEl);
+    }
+    const existing = ownerDoc.querySelectorAll('#yt-co-quick-toggle-btn, #yt-co-quick-pip-btn');
     existing.forEach((el) => el.parentElement?.removeChild(el));
     this.quickToggleBtnEl = null;
+    this.quickPipBtnEl = null;
   }
 
   private async toggleEnabled() {

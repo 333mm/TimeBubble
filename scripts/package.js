@@ -18,10 +18,17 @@ execSync('node scripts/build.js all', { cwd: rootDir, stdio: 'inherit' });
 const baseManifest = JSON.parse(fs.readFileSync(path.resolve(rootDir, 'manifest.base.json'), 'utf8'));
 const versionStr = baseManifest.version_name || baseManifest.version;
 
+// Edge 用 dist ディレクトリを同期生成
+const edgeDir = path.resolve(rootDir, 'dist/edge');
+if (fs.existsSync(edgeDir)) {
+  fs.rmSync(edgeDir, { recursive: true, force: true });
+}
+fs.cpSync(path.resolve(rootDir, 'dist/chrome'), edgeDir, { recursive: true });
+
 const targets = [
   { name: 'chrome', dist: 'dist/chrome' },
   { name: 'firefox', dist: 'dist/firefox' },
-  { name: 'edge', dist: 'dist/chrome' },
+  { name: 'edge', dist: 'dist/edge' },
 ];
 for (const target of targets) {
   const distDir = path.resolve(rootDir, target.dist);

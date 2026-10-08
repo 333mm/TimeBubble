@@ -870,10 +870,11 @@
 }
 
 /* ==========================================================================
-   プレイヤー上クイックON/OFFトグルボタン
-   (YouTube操作パネル表示時/カーソルが動画上にあるときのみ小さく表示)
+   プレイヤー上クイックアクションボタン (ON/OFFトグル & PiP切り替え)
+   (YouTube/Twitch操作パネル表示時/カーソルがプレイヤー上にあるときのみ表示)
    ========================================================================== */
-.yt-co-quick-toggle-btn {
+.yt-co-quick-toggle-btn,
+.yt-co-quick-pip-btn {
   position: absolute !important;
   z-index: 2005 !important;
   width: 28px !important;
@@ -895,16 +896,29 @@
   transition: opacity 0.22s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-/* YouTube操作パネル表示時（.ytp-autohideがない時）またはプレイヤーホバー時に小さく表示 */
+/* YouTube操作パネル表示時またはプレイヤーホバー時（マウスが画面上にある時）に表示 */
 #movie_player:hover .yt-co-quick-toggle-btn,
 .html5-video-player:hover .yt-co-quick-toggle-btn,
+.pip-player-wrapper:hover .yt-co-quick-toggle-btn,
+.video-player:hover .yt-co-quick-toggle-btn,
+[data-a-target="video-player"]:hover .yt-co-quick-toggle-btn,
 #movie_player:not(.ytp-autohide) .yt-co-quick-toggle-btn,
-.html5-video-player:not(.ytp-autohide) .yt-co-quick-toggle-btn {
+.html5-video-player:not(.ytp-autohide) .yt-co-quick-toggle-btn,
+.yt-co-quick-toggle-btn.is-hovered,
+#movie_player:hover .yt-co-quick-pip-btn,
+.html5-video-player:hover .yt-co-quick-pip-btn,
+.pip-player-wrapper:hover .yt-co-quick-pip-btn,
+.video-player:hover .yt-co-quick-pip-btn,
+[data-a-target="video-player"]:hover .yt-co-quick-pip-btn,
+#movie_player:not(.ytp-autohide) .yt-co-quick-pip-btn,
+.html5-video-player:not(.ytp-autohide) .yt-co-quick-pip-btn,
+.yt-co-quick-pip-btn.is-hovered {
   opacity: 0.85 !important;
   pointer-events: auto !important;
 }
 
-.yt-co-quick-toggle-btn:hover {
+.yt-co-quick-toggle-btn:hover,
+.yt-co-quick-pip-btn:hover {
   opacity: 1 !important;
   transform: scale(1.12) !important;
   background: rgba(30, 41, 59, 0.95) !important;
@@ -912,11 +926,12 @@
   box-shadow: 0 0 12px rgba(99, 102, 241, 0.4) !important;
 }
 
-.yt-co-quick-toggle-btn:active {
+.yt-co-quick-toggle-btn:active,
+.yt-co-quick-pip-btn:active {
   transform: scale(0.95) !important;
 }
 
-/* 状態ごとのスタイル */
+/* ON/OFFボタン 状態スタイル */
 .yt-co-quick-toggle-btn.is-enabled {
   color: #818cf8 !important;
 }
@@ -932,25 +947,47 @@
   color: #cbd5e1 !important;
 }
 
-/* 表示位置に連動した配置 */
+/* PiPボタン 状態スタイル (PiP起動中はパープル点灯) */
+.yt-co-quick-pip-btn.is-active {
+  color: #c084fc !important;
+  border-color: rgba(192, 132, 252, 0.6) !important;
+  box-shadow: 0 0 10px rgba(192, 132, 252, 0.35) !important;
+}
+
+/* 表示位置に連動した配置: ON/OFFボタン (外側端) */
 .yt-co-quick-toggle-btn.yt-co-quick-pos-top-right {
   top: 14px !important;
   right: 14px !important;
 }
-
 .yt-co-quick-toggle-btn.yt-co-quick-pos-top-left {
   top: 14px !important;
   left: 14px !important;
 }
-
 .yt-co-quick-toggle-btn.yt-co-quick-pos-bottom-right {
   bottom: 56px !important;
   right: 14px !important;
 }
-
 .yt-co-quick-toggle-btn.yt-co-quick-pos-bottom-left {
   bottom: 56px !important;
   left: 14px !important;
+}
+
+/* 表示位置に連動した配置: PiPボタン (ON/OFFボタンの隣に34pxオフセット配置) */
+.yt-co-quick-pip-btn.yt-co-quick-pos-top-right {
+  top: 14px !important;
+  right: 48px !important;
+}
+.yt-co-quick-pip-btn.yt-co-quick-pos-top-left {
+  top: 14px !important;
+  left: 48px !important;
+}
+.yt-co-quick-pip-btn.yt-co-quick-pos-bottom-right {
+  bottom: 56px !important;
+  right: 48px !important;
+}
+.yt-co-quick-pip-btn.yt-co-quick-pos-bottom-left {
+  bottom: 56px !important;
+  left: 48px !important;
 }
 
 /* ==========================================================================

@@ -36,26 +36,54 @@ export class PipController {
    * PiP の開始/終了を切り替え
    */
   public async togglePiP(video: HTMLVideoElement, overlayUi: OverlayUi): Promise<boolean> {
+    let result = false;
     if (this.isPipActive()) {
       await this.exitPiP(video);
-      return false;
+      result = false;
     } else {
-      return await this.enterPiP(video, overlayUi);
+      result = await this.enterPiP(video, overlayUi);
     }
+    overlayUi.updateQuickActions();
+    return result;
+  }
+
+  /**
+   * ブラウザ標準PiPが起動された場合にDocument PiPへシームレスに誘導・切り替えるリスナーを設置
+   */
+  public setupNativePipListener(video: HTMLVideoElement, overlayUi: OverlayUi) {
+    video.addEventListener('enterpictureinpicture', async () => {
+      // 拡張機能自身の canvas ピクチャーインピクチャーの場合は何もしない
+      if (this.pipVideoEl === video) return;
+      if (this.isPipActive()) return;
+
+      console.log('[TimeBubble:PiP] Standard native PiP detected. Upgrading to interactive comment-enabled PiP...');
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        }
+        await this.enterPiP(video, overlayUi);
+      } catch (e) {
+        console.warn('[TimeBubble:PiP] Auto-upgrade from standard PiP failed:', e);
+      }
+    });
   }
 
   /**
    * PiP 開始
    */
   public async enterPiP(video: HTMLVideoElement, overlayUi: OverlayUi): Promise<boolean> {
+    let success = false;
     if (this.isDocumentPipSupported()) {
-      return await this.enterDocumentPiP(video, overlayUi);
+      success = await this.enterDocumentPiP(video, overlayUi);
     } else {
-      return await this.enterCanvasPiP(video, overlayUi);
+      success = await this.enterCanvasPiP(video, overlayUi);
     }
+    overlayUi.updateQuickActions();
+    return success;
   }
 
   private originalPlayerElement: HTMLElement | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   /**
    * 1. Document Picture-in-Picture (Chrome, Edge 向け最高画質・フルインタラクティブ)
@@ -91,40 +119,40 @@ export class PipController {
       });
 
       // 3. PiP ウィンドウ固有のリセット & オーバーレイスタイル
+      // Flexbox による中央揃えの副作用を排除し、通常プレイヤーと同様の position: relative ブロックに設計
       const pipStyle = pipWin.document.createElement('style');
       pipStyle.textContent = `
-        body {
+        html, body {
           margin: 0 !important;
           padding: 0 !important;
-          background: #000 !important;
-          overflow: hidden !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
           width: 100vw !important;
           height: 100vh !important;
+          background: #000 !important;
+          overflow: hidden !important;
           user-select: none !important;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
         }
         .pip-player-wrapper {
           position: relative !important;
           width: 100% !important;
           height: 100% !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
+          display: block !important;
           background: #000 !important;
           overflow: hidden !important;
         }
         .pip-player-wrapper video {
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
           width: 100% !important;
           height: 100% !important;
           object-fit: contain !important;
+          z-index: 1 !important;
         }
         #yt-comment-overlay-container {
           position: absolute !important;
           z-index: 2147483647 !important;
           pointer-events: none !important;
-          max-width: 90% !important;
         }
         #yt-comment-overlay-container * {
           pointer-events: auto !important;
@@ -201,13 +229,27 @@ export class PipController {
       pipWin.document.body.appendChild(wrapper);
 
       // 7. オーバーレイUIを PiP のプレイヤーラッパーに再マウント！
-      // これによりカード、流れるコメント、チャットボックスがすべて PiP ウィンドウ内の wrapper に描画される
       overlayUi.mount(wrapper);
 
-      // 8. 終了イベントリスナー
-      pipWin.addEventListener('pagehide', () => {
-        this.restoreFromDocumentPiP(video, overlayUi);
+      // 8. 動画再生の確実な継続
+      if (!video.paused) {
+        video.play().catch(() => {});
+      }
+
+      // 9. ウィンドウリサイズの追従（ResizeObserver）
+      this.resizeObserver = new ResizeObserver(() => {
+        if (overlayUi.getPlayerElement() === wrapper) {
+          overlayUi.applySettingsToContainer();
+        }
       });
+      this.resizeObserver.observe(wrapper);
+
+      // 10. 終了イベントリスナー（pagehide & unload）
+      const onExit = () => {
+        this.restoreFromDocumentPiP(video, overlayUi);
+      };
+      pipWin.addEventListener('pagehide', onExit);
+      pipWin.addEventListener('unload', onExit);
 
       console.log('[TimeBubble:PiP] Document PiP started successfully');
       return true;
@@ -218,6 +260,14 @@ export class PipController {
   }
 
   private restoreFromDocumentPiP(video: HTMLVideoElement, overlayUi: OverlayUi) {
+    if (!this.pipWindow && !this.originalVideoParent) return;
+    this.pipWindow = null;
+
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+
     if (this.placeholderEl && this.placeholderEl.parentElement) {
       this.placeholderEl.remove();
       this.placeholderEl = null;
@@ -235,7 +285,11 @@ export class PipController {
       this.originalPlayerElement = null;
     }
 
-    this.pipWindow = null;
+    if (!video.paused) {
+      video.play().catch(() => {});
+    }
+
+    overlayUi.updateQuickActions();
     console.log('[TimeBubble:PiP] Document PiP restored to main window');
   }
 
@@ -324,8 +378,10 @@ export class PipController {
     h: number,
     _overlayUi: OverlayUi
   ) {
+    const doc = _overlayUi.getContainerElement()?.ownerDocument || document;
+
     // 1. 流れるコメントの描画 (.yt-co-flow-comment)
-    const flowElements = document.querySelectorAll<HTMLElement>('.yt-co-flow-comment');
+    const flowElements = doc.querySelectorAll<HTMLElement>('.yt-co-flow-comment');
     if (flowElements.length > 0) {
       ctx.save();
       const fontSize = Math.max(14, Math.round(h * 0.055));
@@ -355,7 +411,7 @@ export class PipController {
     }
 
     // 2. カードコメントの描画 (.yt-co-bubble)
-    const cards = document.querySelectorAll<HTMLElement>('.yt-co-bubble');
+    const cards = doc.querySelectorAll<HTMLElement>('.yt-co-bubble');
     if (cards.length > 0) {
       ctx.save();
       const cardHeight = Math.round(h * 0.22);
@@ -397,7 +453,7 @@ export class PipController {
     }
 
     // 3. チャットボックスの描画 (.yt-co-chatbox-item)
-    const chatItems = document.querySelectorAll<HTMLElement>('.yt-co-chatbox-item');
+    const chatItems = doc.querySelectorAll<HTMLElement>('.yt-co-chatbox-item');
     if (chatItems.length > 0) {
       ctx.save();
       const chatWidth = Math.round(w * 0.45);
