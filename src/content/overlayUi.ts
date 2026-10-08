@@ -1112,7 +1112,7 @@ export class OverlayUi {
 
     const author = doc.createElement('span');
     author.className = 'yt-co-author';
-    const showUserColor = this.settings.liveShowUserColor ?? true;
+    const showUserColor = this.settings.liveShowUserColor ?? false;
     if (isLive && showUserColor && comment.userColor) {
       author.style.color = comment.userColor;
     }
@@ -1129,22 +1129,11 @@ export class OverlayUi {
 
     // ユーザーアイコン
     const shouldShowAvatar = isLive
-      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? true)
-      : (this.settings.showAvatars ?? true);
+      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? false)
+      : (this.settings.showAvatars ?? false);
     if (shouldShowAvatar) {
       const avatarEl = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
       header.appendChild(avatarEl);
-    }
-
-    // ライブバッジ
-    const shouldShowBadges = isLive
-      ? (this.settings.liveShowBadges ?? this.settings.showBadges ?? true)
-      : false;
-    if (shouldShowBadges && comment.badges && comment.badges.length > 0) {
-      comment.badges.forEach((b) => {
-        const badgeEl = this.createBadgeElement(b);
-        meta.appendChild(badgeEl);
-      });
     }
 
     if (isLive && comment.isSuperChat && comment.superChatAmount) {
@@ -1845,24 +1834,19 @@ export class OverlayUi {
 
     const duration = this.getFlowDuration(playerWidth, isLive);
 
-    // アバター・バッジ表示判定
+    // アバター表示判定
     const shouldShowAvatar = isLive
-      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? true)
-      : (this.settings.showAvatars ?? true);
+      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? false)
+      : (this.settings.showAvatars ?? false);
 
-    const shouldShowBadges = isLive
-      ? (this.settings.liveShowBadges ?? this.settings.showBadges ?? true)
-      : false;
-
-    // コメントの推定表示幅（全角文字約15px, 半角約8px, アバター, バッジ, パディング）
+    // コメントの推定表示幅（全角文字約15px, 半角約8px, アバター, パディング）
     const charWidth = size === 'large' ? 18 : size === 'small' ? 12 : 15;
     const estimatedTextWidth = Array.from(comment.rawText).reduce(
       (acc, c) => acc + (c.charCodeAt(0) > 255 ? charWidth : Math.round(charWidth * 0.55)),
       0
     );
     const avatarWidth = shouldShowAvatar ? (size === 'large' ? 32 : size === 'small' ? 20 : 26) : 0;
-    const badgesWidth = (shouldShowBadges && comment.badges && comment.badges.length > 0) ? (comment.badges.length * 28) : 0;
-    const estimatedTotalWidth = Math.max(80, estimatedTextWidth + avatarWidth + badgesWidth + 24);
+    const estimatedTotalWidth = Math.max(80, estimatedTextWidth + avatarWidth + 24);
 
     // コメント移動速度 (px/ms)
     const speedPxPerMs = (playerWidth + estimatedTotalWidth) / duration;
@@ -1942,17 +1926,9 @@ export class OverlayUi {
       flowEl.appendChild(avatar);
     }
 
-    // ライブバッジ
-    if (shouldShowBadges && comment.badges && comment.badges.length > 0) {
-      comment.badges.forEach((b) => {
-        const badgeEl = this.createBadgeElement(b);
-        flowEl.appendChild(badgeEl);
-      });
-    }
-
     const textEl = ownerDoc.createElement('span');
     textEl.className = 'yt-co-flow-text';
-    const showUserColor = this.settings.liveShowUserColor ?? true;
+    const showUserColor = this.settings.liveShowUserColor ?? false;
     if (isLive && showUserColor && comment.userColor) {
       textEl.style.color = comment.userColor;
     }
@@ -2017,111 +1993,6 @@ export class OverlayUi {
   /**
    * ミニチャットボックスモードへのコメント追加
    */
-  /**
-   * Twitch / YouTube Live のバッジ（画像URLまたはSVGアイコン）要素を生成
-   */
-  private createBadgeElement(badgeStr: string): HTMLElement {
-    const ownerDoc = this.getOwnerDocument();
-
-    // 1. 画像URL形式 (YouTubeメンバーシップカスタムバッジ / Twitch画像CDN)
-    if (badgeStr.startsWith('http://') || badgeStr.startsWith('https://') || badgeStr.startsWith('//')) {
-      const img = ownerDoc.createElement('img');
-      img.className = 'yt-co-chatbox-badge-img';
-      img.src = badgeStr;
-      img.alt = 'badge';
-      img.loading = 'lazy';
-      img.onerror = () => {
-        if (img.parentElement) {
-          img.remove();
-        }
-      };
-      return img;
-    }
-
-    // 2. 組み込みバッジSVGアイコン (Twitch / YouTube標準バッジ)
-    const key = badgeStr.toLowerCase().trim();
-    const wrap = ownerDoc.createElement('span');
-    wrap.className = `yt-co-chatbox-badge-wrap badge-${key}`;
-    wrap.title = badgeStr;
-
-    if (key === 'broadcaster' || key === 'owner' || key === 'creator') {
-      // 配信者・オーナー: 赤/ゴールド 王冠
-      const svg = this.createSvgElement('0 0 24 24', 14, 14);
-      svg.classList.add('yt-co-chatbox-badge-icon', 'badge-broadcaster');
-      const p = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('fill', '#e11d48');
-      p.setAttribute('d', 'M2.5 19h19v2h-19v-2zm1.5-3.5L2 6.5l6 4 4-6 4 6 6-4-2 9h-16z');
-      svg.appendChild(p);
-      wrap.appendChild(svg);
-      return wrap;
-    }
-
-    if (key === 'moderator' || key === 'mod') {
-      // モデレーター: エメラルドグリーン 剣/レンチ
-      const svg = this.createSvgElement('0 0 24 24', 14, 14);
-      svg.classList.add('yt-co-chatbox-badge-icon', 'badge-moderator');
-      const p = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('fill', '#10b981');
-      p.setAttribute('d', 'M14.5 2.5L12 5l2.5 2.5-1.5 1.5-2.5-2.5L3 14v4h4l7.5-7.5 2.5 2.5 1.5-1.5-2.5-2.5 2.5-2.5-4-4zM5 16.5l-1-1L10.5 9 12 10.5 5.5 17H5v-.5z');
-      svg.appendChild(p);
-      wrap.appendChild(svg);
-      return wrap;
-    }
-
-    if (key === 'vip') {
-      // VIP: パープル/ピンク ダイヤモンド
-      const svg = this.createSvgElement('0 0 24 24', 14, 14);
-      svg.classList.add('yt-co-chatbox-badge-icon', 'badge-vip');
-      const p = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('fill', '#c026d3');
-      p.setAttribute('d', 'M12 2L4 9l8 13 8-13-8-13zm0 3.2L16.4 9H7.6L12 5.2zM6.5 10.5h11L12 18.5 6.5 10.5z');
-      svg.appendChild(p);
-      wrap.appendChild(svg);
-      return wrap;
-    }
-
-    if (key === 'subscriber' || key === 'member' || key === 'sub') {
-      // サブスクライバー / メンバー: 星バッジ
-      const svg = this.createSvgElement('0 0 24 24', 14, 14);
-      svg.classList.add('yt-co-chatbox-badge-icon', 'badge-subscriber');
-      const p = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('fill', '#0ea5e9');
-      p.setAttribute('d', 'M12 2l2.9 6.6 7.1.6-5.3 4.8 1.6 7-6.3-3.7-6.3 3.7 1.6-7-5.3-4.8 7.1-.6L12 2z');
-      svg.appendChild(p);
-      wrap.appendChild(svg);
-      return wrap;
-    }
-
-    if (key === 'verified') {
-      // 認証済み: ブルー チェックマーク
-      const svg = this.createSvgElement('0 0 24 24', 14, 14);
-      svg.classList.add('yt-co-chatbox-badge-icon', 'badge-verified');
-      const p = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('fill', '#38bdf8');
-      p.setAttribute('d', 'M12 2l2.4 2.1 3.2-.4 1.3 2.9 3 .9-.2 3.2 2.1 2.4-1.7 2.7.9 3-2.9 1.3-.4 3.2-3.2-.2-2.4 2.1-2.7-1.7-3 .9-1.3-2.9-3.2-.4.2-3.2L2.1 12l1.7-2.7-.9-3 2.9-1.3.4-3.2 3.2.2L12 2zm-1.5 13.5l6-6-1.4-1.4-4.6 4.6-2.1-2.1-1.4 1.4 3.5 3.5z');
-      svg.appendChild(p);
-      wrap.appendChild(svg);
-      return wrap;
-    }
-
-    if (key === 'turbo' || key === 'premium') {
-      // Turbo / Premium: パープル 稲妻
-      const svg = this.createSvgElement('0 0 24 24', 14, 14);
-      svg.classList.add('yt-co-chatbox-badge-icon', 'badge-turbo');
-      const p = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('fill', '#8b5cf6');
-      p.setAttribute('d', 'M11 21h-1l1-7H7.5c-.9 0-1.2-.6-.9-1.2L13 3h1l-1 7h3.5c.9 0 1.1.7.7 1.3L11 21z');
-      svg.appendChild(p);
-      wrap.appendChild(svg);
-      return wrap;
-    }
-
-    // 3. その他未知のバッジ文字列: スタイリッシュな小型タグ
-    const fallbackSpan = ownerDoc.createElement('span');
-    fallbackSpan.className = 'yt-co-chatbox-badge';
-    fallbackSpan.textContent = badgeStr;
-    return fallbackSpan;
-  }
 
   /**
    * ミニチャットボックスモードへのコメント追加
@@ -2176,28 +2047,17 @@ export class OverlayUi {
 
     // ユーザーアイコン
     const shouldShowAvatar = isLive
-      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? true)
-      : (this.settings.showAvatars ?? true);
+      ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? false)
+      : (this.settings.showAvatars ?? false);
     if (shouldShowAvatar) {
       const avatarEl = this.createAvatarElement(comment.authorName, comment.authorAvatarUrl);
       avatarEl.classList.add('yt-co-chatbox-avatar');
       rowEl.appendChild(avatarEl);
     }
 
-    // バッジ画像 / SVG
-    const shouldShowBadges = isLive
-      ? (this.settings.liveShowBadges ?? this.settings.showBadges ?? true)
-      : false;
-    if (shouldShowBadges && comment.badges && comment.badges.length > 0) {
-      comment.badges.forEach((b) => {
-        const badgeEl = this.createBadgeElement(b);
-        rowEl.appendChild(badgeEl);
-      });
-    }
-
     const authorSpan = ownerDoc.createElement('span');
     authorSpan.className = 'yt-co-chatbox-author';
-    const showUserColor = this.settings.liveShowUserColor ?? true;
+    const showUserColor = this.settings.liveShowUserColor ?? false;
     if (showUserColor && comment.userColor) {
       authorSpan.style.color = comment.userColor;
     }

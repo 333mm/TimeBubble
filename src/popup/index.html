@@ -220,7 +220,7 @@
             <span class="toggle-desc" id="i18n-ts-avatars-desc">コメントに投稿者のアバターを表示</span>
           </div>
           <label class="toggle-switch mini">
-            <input type="checkbox" id="ts-avatars-toggle" checked>
+            <input type="checkbox" id="ts-avatars-toggle">
             <span class="slider"></span>
           </label>
         </section>
@@ -235,27 +235,6 @@
             <input type="checkbox" id="ts-pip-toggle" checked>
             <span class="slider"></span>
           </label>
-        </section>
-
-        <section class="section" style="margin-top: 6px;">
-          <div class="slider-row">
-            <label class="section-label" id="i18n-ts-pip-type">PiP ウィンドウ形式</label>
-            <span class="slider-val" id="ts-pip-type-val">ネイティブ</span>
-          </div>
-          <div class="size-btn-group" id="ts-pip-type-group" style="grid-template-columns: 1fr 1fr;">
-            <button type="button" class="size-btn pip-type-btn active" data-type="native" title="タイトルバーなし、OS比率完全固定（視聴専用）" id="i18n-ts-pip-native-btn">ネイティブ</button>
-            <button type="button" class="size-btn pip-type-btn" data-type="interactive" title="タイトルバーあり、返信やいいね操作が可能" id="i18n-ts-pip-popup-btn">ポップアップ</button>
-          </div>
-        </section>
-
-        <section class="section" style="margin-top: 10px;">
-          <button type="button" id="ts-trigger-pip-btn" class="test-btn" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-              <rect x="12" y="9" width="8" height="6" rx="1" fill="currentColor"></rect>
-            </svg>
-            <span id="i18n-ts-pip-launch">今すぐコメント付きPiPを開始</span>
-          </button>
         </section>
       </div>
 
@@ -411,22 +390,11 @@
         <!-- ─── ライブ共通表示オプション ─── -->
         <section class="section-toggle-row">
           <div class="toggle-info">
-            <span class="toggle-title" id="i18n-live-badges-title">バッジ表示</span>
-            <span class="toggle-desc" id="i18n-live-badges-desc">公式・モデレーター・VIP・メンバー等のバッジを表示</span>
-          </div>
-          <label class="toggle-switch mini">
-            <input type="checkbox" id="live-badges-toggle" checked>
-            <span class="slider"></span>
-          </label>
-        </section>
-
-        <section class="section-toggle-row">
-          <div class="toggle-info">
             <span class="toggle-title" id="i18n-live-user-color-title">ユーザーカラー表示</span>
             <span class="toggle-desc" id="i18n-live-user-color-desc">投稿者のネームカラー・文字色の着色を表示</span>
           </div>
           <label class="toggle-switch mini">
-            <input type="checkbox" id="live-user-color-toggle" checked>
+            <input type="checkbox" id="live-user-color-toggle">
             <span class="slider"></span>
           </label>
         </section>
@@ -437,7 +405,7 @@
             <span class="toggle-desc" id="i18n-live-avatars-desc">チャットに投稿者のアバターを表示</span>
           </div>
           <label class="toggle-switch mini">
-            <input type="checkbox" id="live-avatars-toggle" checked>
+            <input type="checkbox" id="live-avatars-toggle">
             <span class="slider"></span>
           </label>
         </section>
@@ -453,38 +421,7 @@
             <span class="slider"></span>
           </label>
         </section>
-
-        <section class="section" style="margin-top: 6px;">
-          <div class="slider-row">
-            <label class="section-label" id="i18n-live-pip-type">PiP ウィンドウ形式</label>
-            <span class="slider-val" id="live-pip-type-val">ネイティブ</span>
-          </div>
-          <div class="size-btn-group" id="live-pip-type-group" style="grid-template-columns: 1fr 1fr;">
-            <button type="button" class="size-btn pip-type-btn active" data-type="native" title="タイトルバーなし、OS比率完全固定（視聴専用）" id="i18n-live-pip-native-btn">ネイティブ</button>
-            <button type="button" class="size-btn pip-type-btn" data-type="interactive" title="タイトルバーあり、返信やいいね操作が可能" id="i18n-live-pip-popup-btn">ポップアップ</button>
-          </div>
-        </section>
-
-        <section class="section" style="margin-top: 10px;">
-          <button type="button" id="live-trigger-pip-btn" class="test-btn" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-              <rect x="12" y="9" width="8" height="6" rx="1" fill="currentColor"></rect>
-            </svg>
-            <span id="i18n-live-pip-launch">今すぐチャット付きPiPを開始</span>
-          </button>
-        </section>
       </div>
-
-      <!-- テスト表示ボタン -->
-      <section class="section" style="margin-top: 8px;">
-        <button type="button" id="test-comment-btn" class="test-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          <span id="i18n-test-btn">現在の画面にテストコメントを表示</span>
-        </button>
-      </section>
     </main>
 
     <!-- フッター -->

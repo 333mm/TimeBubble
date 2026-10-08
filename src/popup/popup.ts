@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, DisplayMode, FlowDensity, FlowSpeed, OverlayPosition, OverlaySettings, OverlaySize, PipWindowType } from '../types';
+import { DEFAULT_SETTINGS, DisplayMode, FlowDensity, FlowSpeed, OverlayPosition, OverlaySettings, OverlaySize } from '../types';
 import { getSettings, saveSettings } from '../utils/storage';
 
 type SupportedLang = 'ja' | 'en' | 'es' | 'zh';
@@ -41,10 +41,6 @@ interface I18nStrings {
   tsAvatarsDesc: string;
   tsPipTitle: string;
   tsPipDesc: string;
-  tsPipLaunch: string;
-  pipTypeTitle: string;
-  pipTypeNative: string;
-  pipTypeInteractive: string;
   // ライブ
   liveYtTitle: string;
   liveYtDesc: string;
@@ -55,24 +51,15 @@ interface I18nStrings {
   densityLow: string;
   densityNormal: string;
   densityHigh: string;
-  liveBadgesTitle: string;
-  liveBadgesDesc: string;
   liveUserColorTitle: string;
   liveUserColorDesc: string;
   liveAvatarsTitle: string;
   liveAvatarsDesc: string;
   livePipTitle: string;
   livePipDesc: string;
-  livePipLaunch: string;
   // 共通
-  testBtn: string;
   savedText: string;
   savingText: string;
-  testSending: string;
-  testSuccess: string;
-  testFallback: string;
-  testCommentText: string;
-  testAuthor: string;
   supportDev: string;
 }
 
@@ -114,10 +101,6 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     tsAvatarsDesc: 'コメントに投稿者のアバターを表示',
     tsPipTitle: 'PiP ウィンドウにコメントを表示',
     tsPipDesc: 'ピクチャインピクチャ再生中もコメントを合成描画',
-    tsPipLaunch: '今すぐコメント付きPiPを開始',
-    pipTypeTitle: 'PiP ウィンドウ形式',
-    pipTypeNative: 'ネイティブ',
-    pipTypeInteractive: 'ポップアップ',
     liveYtTitle: 'YouTube Live チャット表示',
     liveYtDesc: '生配信・アーカイブのリアルタイムチャットを動画上に流す',
     liveTwitchTitle: 'Twitch 配信チャット表示',
@@ -127,23 +110,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: '控えめ',
     densityNormal: '標準',
     densityHigh: 'すべて',
-    liveBadgesTitle: 'バッジ表示',
-    liveBadgesDesc: '公式・モデレーター・VIP・メンバー等のバッジを表示',
     liveUserColorTitle: 'ユーザーカラー表示',
     liveUserColorDesc: '投稿者のネームカラー・文字色の着色を表示',
     liveAvatarsTitle: 'ユーザーアイコンを表示',
     liveAvatarsDesc: 'チャットに投稿者のアバターを表示',
     livePipTitle: 'PiP ウィンドウにチャットを表示',
     livePipDesc: 'ピクチャインピクチャ再生中もチャットを合成描画',
-    livePipLaunch: '今すぐチャット付きPiPを開始',
-    testBtn: '現在の画面にテストコメントを表示',
     savedText: '設定は自動保存されます',
     savingText: '設定を保存しました',
-    testSending: '送信中...',
-    testSuccess: '現在の画面にテスト表示しました',
-    testFallback: 'プレビューを表示しました',
-    testCommentText: '01:23 ここが一番好きなシーン！何度見ても最高です✨',
-    testAuthor: 'テスト視聴者',
     supportDev: '開発者をサポート',
   },
   en: {
@@ -183,10 +157,6 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     tsAvatarsDesc: 'Display user avatars in comments',
     tsPipTitle: 'Show Comments in PiP',
     tsPipDesc: 'Render comments inside Picture-in-Picture window',
-    tsPipLaunch: 'Start PiP with Comments Now',
-    pipTypeTitle: 'PiP Window Type',
-    pipTypeNative: 'Native',
-    pipTypeInteractive: 'Popup',
     liveYtTitle: 'YouTube Live Chat',
     liveYtDesc: 'Display live and replay stream chats over video',
     liveTwitchTitle: 'Twitch Chat',
@@ -196,23 +166,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: 'Low',
     densityNormal: 'Normal',
     densityHigh: 'All',
-    liveBadgesTitle: 'Show Badges',
-    liveBadgesDesc: 'Display moderator, VIP, and member badges',
     liveUserColorTitle: 'Show User Colors',
     liveUserColorDesc: 'Color user names and chat text',
     liveAvatarsTitle: 'Show User Avatars',
     liveAvatarsDesc: 'Display user avatars in chat messages',
     livePipTitle: 'Show Chat in PiP',
     livePipDesc: 'Render live chat inside Picture-in-Picture window',
-    livePipLaunch: 'Start PiP with Chat Now',
-    testBtn: 'Show Test Comment on Screen',
     savedText: 'Settings are saved automatically',
     savingText: 'Settings saved',
-    testSending: 'Sending...',
-    testSuccess: 'Test comment displayed on screen',
-    testFallback: 'Preview displayed',
-    testCommentText: '01:23 Best scene ever! Absolutely love this part ✨',
-    testAuthor: 'Viewer',
     supportDev: 'Support Developer',
   },
   es: {
@@ -252,10 +213,6 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     tsAvatarsDesc: 'Mostrar fotos de perfil en comentarios',
     tsPipTitle: 'Mostrar en ventana PiP',
     tsPipDesc: 'Dibujar comentarios en Picture-in-Picture',
-    tsPipLaunch: 'Iniciar PiP con Comentarios',
-    pipTypeTitle: 'Tipo de ventana PiP',
-    pipTypeNative: 'Nativa',
-    pipTypeInteractive: 'Ventana emergente',
     liveYtTitle: 'Chat de YouTube Live',
     liveYtDesc: 'Mostrar chat en vivo sobre el reproductor',
     liveTwitchTitle: 'Chat de Twitch',
@@ -265,23 +222,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: 'Bajo',
     densityNormal: 'Normal',
     densityHigh: 'Todos',
-    liveBadgesTitle: 'Mostrar insignias',
-    liveBadgesDesc: 'Mostrar insignias de moderador, VIP y miembro',
     liveUserColorTitle: 'Mostrar colores de usuario',
     liveUserColorDesc: 'Colorear nombres de usuario y texto del chat',
     liveAvatarsTitle: 'Mostrar avatares de usuario',
     liveAvatarsDesc: 'Mostrar fotos de perfil en el chat',
     livePipTitle: 'Mostrar Chat en PiP',
     livePipDesc: 'Dibujar chat en Picture-in-Picture',
-    livePipLaunch: 'Iniciar PiP con Chat',
-    testBtn: 'Mostrar Comentario de Prueba',
     savedText: 'Los ajustes se guardan automáticamente',
     savingText: 'Ajustes guardados',
-    testSending: 'Enviando...',
-    testSuccess: 'Comentario de prueba mostrado',
-    testFallback: 'Vista previa mostrada',
-    testCommentText: '01:23 ¡La mejor escena de todas! Me encanta ✨',
-    testAuthor: 'Espectador',
     supportDev: 'Apoyar al desarrollador',
   },
   zh: {
@@ -321,10 +269,6 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     tsAvatarsDesc: '在评论中显示作者头像',
     tsPipTitle: '在画中画(PiP)窗口显示评论',
     tsPipDesc: '画中画播放时同步合成绘制评论',
-    tsPipLaunch: '立即开启带评论的画中画',
-    pipTypeTitle: 'PiP 窗口类型',
-    pipTypeNative: '原生',
-    pipTypeInteractive: '弹窗',
     liveYtTitle: 'YouTube Live 聊天显示',
     liveYtDesc: '在视频上实时显示直播与回放聊天',
     liveTwitchTitle: 'Twitch 弹幕显示',
@@ -334,23 +278,14 @@ const I18N_DATA: Record<SupportedLang, I18nStrings> = {
     densityLow: '少量',
     densityNormal: '标准',
     densityHigh: '全部',
-    liveBadgesTitle: '显示徽章',
-    liveBadgesDesc: '显示房管、VIP、会员等徽章',
     liveUserColorTitle: '显示用户颜色',
     liveUserColorDesc: '显示发言者昵称与文字颜色',
     liveAvatarsTitle: '显示用户头像',
     liveAvatarsDesc: '在聊天弹幕中显示作者头像',
     livePipTitle: '在画中画(PiP)窗口显示弹幕',
     livePipDesc: '画中画播放时同步合成绘制聊天弹幕',
-    livePipLaunch: '立即开启带弹幕的画中画',
-    testBtn: '在当前屏幕显示测试评论',
     savedText: '设置已自动保存',
     savingText: '设置已保存',
-    testSending: '发送中...',
-    testSuccess: '已在屏幕显示测试评论',
-    testFallback: '已显示预览',
-    testCommentText: '01:23 这是最精彩的片段！百看不厌✨',
-    testAuthor: '测试观众',
     supportDev: '支持开发者',
   },
 };
@@ -366,10 +301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabTsPanel = document.getElementById('tab-timestamp-panel') as HTMLElement | null;
   const tabLivePanel = document.getElementById('tab-live-panel') as HTMLElement | null;
 
-  let activeTab: 'timestamp' | 'live' = 'timestamp';
-
   tabTsBtn?.addEventListener('click', () => {
-    activeTab = 'timestamp';
     tabTsBtn.classList.add('active');
     tabLiveBtn?.classList.remove('active');
     if (tabTsPanel) tabTsPanel.style.display = 'block';
@@ -377,7 +309,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   tabLiveBtn?.addEventListener('click', () => {
-    activeTab = 'live';
     tabLiveBtn.classList.add('active');
     tabTsBtn?.classList.remove('active');
     if (tabLivePanel) tabLivePanel.style.display = 'block';
@@ -416,9 +347,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tsHighlightToggle = document.getElementById('ts-highlight-toggle') as HTMLInputElement | null;
   const tsAvatarsToggle = document.getElementById('ts-avatars-toggle') as HTMLInputElement | null;
   const tsPipToggle = document.getElementById('ts-pip-toggle') as HTMLInputElement | null;
-  const tsPipTypeVal = document.getElementById('ts-pip-type-val') as HTMLElement | null;
-  const tsPipTypeButtons = document.querySelectorAll<HTMLButtonElement>('#ts-pip-type-group .pip-type-btn');
-  const tsTriggerPipBtn = document.getElementById('ts-trigger-pip-btn') as HTMLButtonElement | null;
 
   // ─── ライブ用コントロール ───
   const ytLiveToggle = document.getElementById('yt-live-toggle') as HTMLInputElement | null;
@@ -453,16 +381,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const liveOpacityVal = document.getElementById('live-opacity-val') as HTMLElement | null;
 
   // ライブ: 共通 & PiP
-  const liveBadgesToggle = document.getElementById('live-badges-toggle') as HTMLInputElement | null;
   const liveUserColorToggle = document.getElementById('live-user-color-toggle') as HTMLInputElement | null;
   const liveAvatarsToggle = document.getElementById('live-avatars-toggle') as HTMLInputElement | null;
   const livePipToggle = document.getElementById('live-pip-toggle') as HTMLInputElement | null;
-  const livePipTypeVal = document.getElementById('live-pip-type-val') as HTMLElement | null;
-  const livePipTypeButtons = document.querySelectorAll<HTMLButtonElement>('#live-pip-type-group .pip-type-btn');
-  const liveTriggerPipBtn = document.getElementById('live-trigger-pip-btn') as HTMLButtonElement | null;
 
   // ─── フッター & 共通 ───
-  const testCommentBtn = document.getElementById('test-comment-btn') as HTMLButtonElement | null;
   const saveStatus = document.getElementById('save-status') as HTMLElement | null;
 
   // ロゴアイコンを chrome.runtime.getURL で正しく解決
@@ -555,10 +478,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elTsPipTitle) elTsPipTitle.textContent = t.tsPipTitle;
     const elTsPipDesc = document.getElementById('i18n-ts-pip-desc');
     if (elTsPipDesc) elTsPipDesc.textContent = t.tsPipDesc;
-    const elTsPipLaunch = document.getElementById('i18n-ts-pip-launch');
-    if (elTsPipLaunch) elTsPipLaunch.textContent = t.tsPipLaunch;
-    const elTsPipType = document.getElementById('i18n-ts-pip-type');
-    if (elTsPipType) elTsPipType.textContent = t.pipTypeTitle;
 
     // ライブ側 i18n
     const elLiveYtTitle = document.getElementById('i18n-live-yt-title');
@@ -587,10 +506,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const elLiveDensity = document.getElementById('i18n-live-density');
     if (elLiveDensity) elLiveDensity.textContent = t.density;
 
-    const elLiveBadgesTitle = document.getElementById('i18n-live-badges-title');
-    if (elLiveBadgesTitle) elLiveBadgesTitle.textContent = t.liveBadgesTitle;
-    const elLiveBadgesDesc = document.getElementById('i18n-live-badges-desc');
-    if (elLiveBadgesDesc) elLiveBadgesDesc.textContent = t.liveBadgesDesc;
     const elLiveUserColorTitle = document.getElementById('i18n-live-user-color-title');
     if (elLiveUserColorTitle) elLiveUserColorTitle.textContent = t.liveUserColorTitle;
     const elLiveUserColorDesc = document.getElementById('i18n-live-user-color-desc');
@@ -604,14 +519,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elLivePipTitle) elLivePipTitle.textContent = t.livePipTitle;
     const elLivePipDesc = document.getElementById('i18n-live-pip-desc');
     if (elLivePipDesc) elLivePipDesc.textContent = t.livePipDesc;
-    const elLivePipLaunch = document.getElementById('i18n-live-pip-launch');
-    if (elLivePipLaunch) elLivePipLaunch.textContent = t.livePipLaunch;
-    const elLivePipType = document.getElementById('i18n-live-pip-type');
-    if (elLivePipType) elLivePipType.textContent = t.pipTypeTitle;
 
     // フッター & 共通
-    const elTestBtn = document.getElementById('i18n-test-btn');
-    if (elTestBtn) elTestBtn.textContent = t.testBtn;
     const elSupportDev = document.getElementById('i18n-support-dev');
     if (elSupportDev) elSupportDev.textContent = t.supportDev;
     const elSupportLink = document.getElementById('support-link');
@@ -628,8 +537,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.density-btn[data-density="low"]').forEach((btn) => { btn.textContent = t.densityLow; });
     document.querySelectorAll('.density-btn[data-density="normal"]').forEach((btn) => { btn.textContent = t.densityNormal; });
     document.querySelectorAll('.density-btn[data-density="high"]').forEach((btn) => { btn.textContent = t.densityHigh; });
-    document.querySelectorAll('.pip-type-btn[data-type="native"]').forEach((btn) => { btn.textContent = t.pipTypeNative; });
-    document.querySelectorAll('.pip-type-btn[data-type="interactive"]').forEach((btn) => { btn.textContent = t.pipTypeInteractive; });
 
     updateDynamicLabels();
   }
@@ -699,14 +606,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       liveOpacityVal.textContent = `${op}%`;
     }
 
-    const currentPipType = currentSettings.pipWindowType || 'native';
-    const pipTypeText = currentPipType === 'interactive' ? t.pipTypeInteractive : t.pipTypeNative;
-    if (tsPipTypeVal) {
-      tsPipTypeVal.textContent = pipTypeText;
-    }
-    if (livePipTypeVal) {
-      livePipTypeVal.textContent = pipTypeText;
-    }
   }
 
   function flashSaveStatus(text?: string, duration = 2500) {
@@ -785,7 +684,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tsFlowOpacitySlider) tsFlowOpacitySlider.value = currentTsFlowOpacity.toString();
 
     if (tsHighlightToggle) tsHighlightToggle.checked = settings.highlightPopular;
-    if (tsAvatarsToggle) tsAvatarsToggle.checked = settings.showAvatars ?? true;
+    if (tsAvatarsToggle) tsAvatarsToggle.checked = settings.showAvatars ?? false;
     if (tsPipToggle) tsPipToggle.checked = settings.pipEnabled ?? true;
 
     // ─── ライブ設定の反映 ───
@@ -827,18 +726,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentLiveOpacity = settings.liveOpacity ?? settings.opacity ?? 30;
     if (liveOpacitySlider) liveOpacitySlider.value = currentLiveOpacity.toString();
 
-    if (liveBadgesToggle) liveBadgesToggle.checked = settings.liveShowBadges ?? settings.showBadges ?? true;
-    if (liveUserColorToggle) liveUserColorToggle.checked = settings.liveShowUserColor ?? true;
-    if (liveAvatarsToggle) liveAvatarsToggle.checked = settings.liveShowAvatars ?? settings.showLiveAvatars ?? true;
+    if (liveUserColorToggle) liveUserColorToggle.checked = settings.liveShowUserColor ?? false;
+    if (liveAvatarsToggle) liveAvatarsToggle.checked = settings.liveShowAvatars ?? settings.showLiveAvatars ?? false;
     if (livePipToggle) livePipToggle.checked = settings.livePipEnabled ?? settings.pipEnabled ?? true;
-
-    const currentPipType = settings.pipWindowType || 'native';
-    tsPipTypeButtons.forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-type') === currentPipType);
-    });
-    livePipTypeButtons.forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-type') === currentPipType);
-    });
 
     updateDynamicLabels();
   }
@@ -878,351 +768,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function updateSetting<K extends keyof OverlaySettings>(key: K, value: OverlaySettings[K]) {
     await updateSettings({ [key]: value } as Partial<OverlaySettings>);
-  }
-
-  /**
-   * 現在アクティブなタブを取得
-   */
-  async function getActiveTab(): Promise<chrome.tabs.Tab | null> {
-    if (typeof chrome === 'undefined' || !chrome.tabs) return null;
-
-    const tabs = await new Promise<chrome.tabs.Tab[]>((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (t1) => {
-        if (t1 && t1.length > 0) {
-          resolve(t1);
-        } else {
-          chrome.tabs.query({ active: true, lastFocusedWindow: true }, (t2) => {
-            resolve(t2 || []);
-          });
-        }
-      });
-    });
-
-    return tabs && tabs.length > 0 ? tabs[0] : null;
-  }
-
-  /**
-   * 現在のアクティブタブにテスト吹き出しを確実に表示する
-   */
-  async function sendTestCommentToActiveTab(testKind: 'timestamp' | 'live'): Promise<boolean> {
-    const tab = await getActiveTab();
-    if (!tab || !tab.id) return false;
-
-    const url = tab.url || '';
-    const isInjectable = url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://');
-    if (!isInjectable) {
-      return false;
-    }
-
-    const tabId = tab.id;
-
-    // 1. Content Script へのメッセージ送信を試行
-    const msgSuccess = await new Promise<boolean>((resolve) => {
-      chrome.tabs.sendMessage(tabId, { type: 'SHOW_TEST_COMMENT', settings: currentSettings, testKind }, (response) => {
-        const lastErr = chrome.runtime.lastError;
-        if (!lastErr && response?.success) {
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      });
-    });
-
-    if (msgSuccess) {
-      return true;
-    }
-
-    // 2. メッセージ未応答（YouTube/Twitch以外のページ、またはContent Script未起動のタブ）：直接注入
-    if (chrome.scripting && chrome.scripting.executeScript) {
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          func: injectBrowserTestOverlay,
-          args: [currentSettings, currentLang, testKind],
-        });
-        return true;
-      } catch (err) {
-        console.warn('[Popup] Direct browser test injection failed:', err);
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * ブラウザのWebページ側で直接実行される自律型テスト吹き出し注入関数
-   */
-  function injectBrowserTestOverlay(settings: any, lang: string, testKind: 'timestamp' | 'live') {
-    const CONTAINER_ID = 'timebubble-browser-test-container';
-    const STYLE_ID = 'timebubble-browser-test-style';
-
-    let styleEl = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = STYLE_ID;
-      styleEl.textContent = `
-        #${CONTAINER_ID} {
-          position: fixed !important;
-          z-index: 2147483647 !important;
-          display: flex !important;
-          flex-direction: column !important;
-          pointer-events: none !important;
-          box-sizing: border-box !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          width: 320px !important;
-          max-width: 90vw !important;
-        }
-        #${CONTAINER_ID}.pos-top-right { top: 20px !important; right: 20px !important; bottom: auto !important; left: auto !important; }
-        #${CONTAINER_ID}.pos-top-left { top: 20px !important; left: 20px !important; bottom: auto !important; right: auto !important; }
-        #${CONTAINER_ID}.pos-bottom-right { bottom: 20px !important; right: 20px !important; top: auto !important; left: auto !important; }
-        #${CONTAINER_ID}.pos-bottom-left { bottom: 20px !important; left: 20px !important; top: auto !important; right: auto !important; }
-        #${CONTAINER_ID}.size-small { width: 260px !important; }
-        #${CONTAINER_ID}.size-medium { width: 320px !important; }
-        #${CONTAINER_ID}.size-large { width: 380px !important; }
-
-        .tb-test-card {
-          display: flex !important;
-          flex-direction: column !important;
-          gap: 6px !important;
-          padding: 10px 14px !important;
-          margin-bottom: 10px !important;
-          border-radius: 12px !important;
-          background: rgba(18, 24, 38, var(--tb-bg-op, 0.8)) !important;
-          backdrop-filter: blur(16px) !important;
-          -webkit-backdrop-filter: blur(16px) !important;
-          border: 1px solid rgba(255, 255, 255, var(--tb-border-op, 0.18)) !important;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
-          color: #f8fafc !important;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-          font-size: 13px !important;
-          line-height: 1.4 !important;
-          pointer-events: auto !important;
-          box-sizing: border-box !important;
-          animation: tbCardEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
-          transition: transform 0.25s ease, opacity 0.35s ease !important;
-        }
-        .tb-test-card.is-popular {
-          border-color: rgba(168, 85, 247, calc(var(--tb-border-op, 0.18) * 2.5)) !important;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(168, 85, 247, 0.3) !important;
-        }
-        .tb-test-card.is-toptier {
-          border-color: rgba(245, 158, 11, calc(var(--tb-border-op, 0.18) * 3)) !important;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(245, 158, 11, 0.35) !important;
-        }
-        .tb-test-card.is-superchat {
-          border-color: rgba(245, 158, 11, 0.7) !important;
-          background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(18, 24, 38, 0.9)) !important;
-        }
-        .tb-test-card.size-small { padding: 8px 10px !important; font-size: 11.5px !important; border-radius: 9px !important; margin-bottom: 7px !important; }
-        .tb-test-card.size-large { padding: 12px 16px !important; font-size: 14.5px !important; border-radius: 14px !important; margin-bottom: 12px !important; }
-        .tb-test-card.is-exiting { opacity: 0 !important; transform: scale(0.92) translateY(-10px) !important; }
-        @keyframes tbCardEnter {
-          from { opacity: 0; transform: translateY(12px) scale(0.96); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .tb-test-hdr { display: flex !important; align-items: center !important; gap: 8px !important; }
-        .tb-test-avatar {
-          width: 24px !important;
-          height: 24px !important;
-          border-radius: 50% !important;
-          background: linear-gradient(135deg, #6366f1, #a855f7) !important;
-          color: #ffffff !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          font-size: 11px !important;
-          font-weight: 700 !important;
-          flex-shrink: 0 !important;
-        }
-        .tb-test-name { font-weight: 600 !important; font-size: 12px !important; color: #e2e8f0 !important; }
-        .tb-test-badge-icon {
-          display: inline-flex !important;
-          align-items: center !important;
-          padding: 1px 5px !important;
-          font-size: 10px !important;
-          font-weight: 700 !important;
-          border-radius: 4px !important;
-          background: rgba(168, 85, 247, 0.25) !important;
-          color: #c084fc !important;
-        }
-        .tb-test-badge-mod { background: rgba(34, 197, 94, 0.25) !important; color: #4ade80 !important; }
-        .tb-test-likes {
-          margin-left: auto !important;
-          display: inline-flex !important;
-          align-items: center !important;
-          gap: 4px !important;
-          font-size: 11px !important;
-          font-weight: 600 !important;
-          color: #f43f5e !important;
-          background: rgba(244, 63, 94, 0.12) !important;
-          padding: 1px 6px !important;
-          border-radius: 10px !important;
-        }
-        .tb-test-body { color: #f8fafc !important; word-break: break-word !important; }
-        .tb-test-badge {
-          display: inline-flex !important;
-          align-items: center !important;
-          gap: 3px !important;
-          color: #818cf8 !important;
-          background: rgba(99, 102, 241, 0.18) !important;
-          border: 1px solid rgba(99, 102, 241, 0.3) !important;
-          padding: 1px 6px !important;
-          border-radius: 5px !important;
-          font-weight: 600 !important;
-          font-size: 11px !important;
-          margin-right: 5px !important;
-        }
-      `;
-      (document.head || document.documentElement).appendChild(styleEl);
-    }
-
-    let container = document.getElementById(CONTAINER_ID);
-    if (!container) {
-      container = document.createElement('div');
-      container.id = CONTAINER_ID;
-      document.body.appendChild(container);
-    }
-
-    const pos = settings.position || 'top-right';
-    const isLive = testKind === 'live';
-    const size = isLive ? (settings.liveSize || settings.size || 'medium') : (settings.size || 'medium');
-    container.className = `pos-${pos} size-${size}`;
-
-    const op = isLive ? (typeof settings.liveOpacity === 'number' ? settings.liveOpacity : 30) : (typeof settings.opacity === 'number' ? settings.opacity : 30);
-    const bgOp = Math.max(0, Math.min(1, op / 100));
-    container.style.setProperty('--tb-bg-op', bgOp.toString());
-    container.style.setProperty('--tb-border-op', (bgOp * 0.22).toString());
-
-    // サンプルデータ
-    const tsSamplesByLang: Record<string, { text: string; time: string; author: string }[]> = {
-      ja: [
-        { text: '01:23 ここが一番好きなシーン！何度見ても最高です✨', time: '01:23', author: '視聴者A' },
-        { text: 'この演出鳥肌立った…神回すぎる！🔥 02:45', time: '02:45', author: '視聴者B' },
-        { text: '03:10 音響とBGMの入り方が完璧👏 何度でもリピートできる', time: '03:10', author: '視聴者C' },
-      ],
-      en: [
-        { text: '01:23 Best scene ever! Absolutely love this part ✨', time: '01:23', author: 'Viewer A' },
-        { text: 'Chills all over… this episode is legendary! 🔥 02:45', time: '02:45', author: 'Viewer B' },
-        { text: '03:10 The soundtrack here is absolute perfection 👏', time: '03:10', author: 'Viewer C' },
-      ],
-      es: [
-        { text: '01:23 ¡La mejor escena de todas! Me encanta ✨', time: '01:23', author: 'Espectador A' },
-        { text: 'Piel de gallina con esta escena… ¡Increíble! 🔥 02:45', time: '02:45', author: 'Espectador B' },
-        { text: '03:10 La música en este momento es perfecta 👏', time: '03:10', author: 'Espectador C' },
-      ],
-      zh: [
-        { text: '01:23 这是最精彩的片段！百看不厌✨', time: '01:23', author: '观众A' },
-        { text: '起鸡皮疙瘩了…这集真的封神！🔥 02:45', time: '02:45', author: '观众B' },
-        { text: '03:10 这里的配乐和音效太完美了👏', time: '03:10', author: '观众C' },
-      ],
-    };
-
-    const liveSamplesByLang: Record<string, { text: string; badge: string; author: string; isMod?: boolean; isSuper?: boolean }[]> = {
-      ja: [
-        { text: 'キターーーー！！配信待機してました！🎉', badge: 'VIP', author: 'ライブファンA' },
-        { text: 'スパチャ ¥1,000 ナイス配信！応援してます🔥', badge: 'SUPER', author: 'サポーターB', isSuper: true },
-        { text: '荒らしは即座に対処します。楽しく見ましょう！', badge: 'MOD', author: 'モデレーターC', isMod: true },
-      ],
-      en: [
-        { text: 'LETS GOOOOO! Hyped for this stream! 🎉', badge: 'VIP', author: 'LiveFan A' },
-        { text: 'Super Chat $10.00 Keep up the awesome work! 🔥', badge: 'SUPER', author: 'Supporter B', isSuper: true },
-        { text: 'Please keep chat friendly, enjoy the stream!', badge: 'MOD', author: 'Moderator C', isMod: true },
-      ],
-      es: [
-        { text: '¡Vamooos! ¡Esperando el directo! 🎉', badge: 'VIP', author: 'Fan A' },
-        { text: 'Super Chat €10 ¡Excelente transmisión! 🔥', badge: 'SUPER', author: 'Donador B', isSuper: true },
-        { text: 'Respeten las reglas del chat, ¡a disfrutar!', badge: 'MOD', author: 'Moderador C', isMod: true },
-      ],
-      zh: [
-        { text: '来啦来啦！等好久了！🎉', badge: 'VIP', author: '直播观众A' },
-        { text: '醒目留言 ¥100 主播加油！支持你🔥', badge: 'SUPER', author: '粉丝B', isSuper: true },
-        { text: '请大家遵守弹幕礼仪，文明观看！', badge: 'MOD', author: '房管C', isMod: true },
-      ],
-    };
-
-    const sampleList = isLive ? (liveSamplesByLang[lang] || liveSamplesByLang.ja) : (tsSamplesByLang[lang] || tsSamplesByLang.ja);
-    const count = isLive ? 2 : Math.max(1, Math.min(settings.maxStackCount || 3, sampleList.length));
-    const duration = isLive ? (settings.liveDisplayDuration || 6) : (settings.displayDuration || 6);
-
-    while (container.children.length >= count) {
-      container.removeChild(container.children[0]);
-    }
-
-    for (let i = 0; i < count; i++) {
-      setTimeout(() => {
-        const item: any = sampleList[i % sampleList.length];
-        const card = document.createElement('div');
-        card.className = `tb-test-card size-${size}`;
-
-        if (!isLive && settings.highlightPopular) {
-          if (i === 1) card.classList.add('is-popular');
-        } else if (isLive && item.isSuper) {
-          card.classList.add('is-superchat');
-        }
-
-        const hdr = document.createElement('div');
-        hdr.className = 'tb-test-hdr';
-
-        const showAvatar = isLive ? (settings.liveShowAvatars ?? true) : (settings.showAvatars ?? true);
-        if (showAvatar) {
-          const avatar = document.createElement('div');
-          avatar.className = 'tb-test-avatar';
-          avatar.textContent = item.author.charAt(0);
-          hdr.appendChild(avatar);
-        }
-
-        const name = document.createElement('span');
-        name.className = 'tb-test-name';
-        const showUserColor = isLive ? (settings.liveShowUserColor ?? true) : false;
-        if (showUserColor && item.color) {
-          name.style.color = item.color;
-        }
-        name.textContent = item.author;
-        hdr.appendChild(name);
-
-        const showBadges = isLive ? (settings.liveShowBadges ?? true) : false;
-        if (isLive && showBadges && item.badge) {
-          const badgeIcon = document.createElement('span');
-          badgeIcon.className = `tb-test-badge-icon ${item.isMod ? 'tb-test-badge-mod' : ''}`;
-          badgeIcon.textContent = item.badge;
-          hdr.appendChild(badgeIcon);
-        }
-
-        if (!isLive) {
-          const likesBadge = document.createElement('span');
-          likesBadge.className = 'tb-test-likes';
-          likesBadge.textContent = `♥ ${[420, 1500, 85][i % 3]}`;
-          hdr.appendChild(likesBadge);
-        }
-
-        const body = document.createElement('div');
-        body.className = 'tb-test-body';
-        if (!isLive && item.time) {
-          const badge = document.createElement('span');
-          badge.className = 'tb-test-badge';
-          badge.textContent = `▶ ${item.time}`;
-          body.appendChild(badge);
-          body.appendChild(document.createTextNode(item.text.replace(item.time, '').trim()));
-        } else {
-          body.textContent = item.text;
-        }
-
-        card.appendChild(hdr);
-        card.appendChild(body);
-        container?.appendChild(card);
-
-        setTimeout(() => {
-          card.classList.add('is-exiting');
-          setTimeout(() => {
-            card.remove();
-            if (container && container.children.length === 0) {
-              container.remove();
-            }
-          }, 360);
-        }, duration * 1000);
-      }, i * 240);
-    }
   }
 
   // ─── タイムスタンプ イベントリスナー ───
@@ -1343,42 +888,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSetting('pipEnabled', tsPipToggle.checked);
   });
 
-  const handlePipTypeChange = (type: PipWindowType) => {
-    currentSettings.pipWindowType = type;
-    tsPipTypeButtons.forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-type') === type);
-    });
-    livePipTypeButtons.forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-type') === type);
-    });
-    updateDynamicLabels();
-    updateSetting('pipWindowType', type);
-  };
-
-  tsPipTypeButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const type = btn.getAttribute('data-type') as PipWindowType | null;
-      if (type) handlePipTypeChange(type);
-    });
-  });
-
-  livePipTypeButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const type = btn.getAttribute('data-type') as PipWindowType | null;
-      if (type) handlePipTypeChange(type);
-    });
-  });
-
-  tsTriggerPipBtn?.addEventListener('click', async () => {
-    const tab = await getActiveTab();
-    if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_PIP' }, () => {
-        if (chrome.runtime.lastError) { /* ignore */ }
-      });
-      flashSaveStatus(currentLang === 'ja' ? 'PiPを起動しました' : 'PiP launched');
-    }
-  });
-
   // ─── ライブ イベントリスナー ───
   ytLiveToggle?.addEventListener('change', () => {
     updateSetting('liveChatEnabled', ytLiveToggle.checked);
@@ -1492,14 +1001,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSetting('liveOpacity', val);
   });
 
-  liveBadgesToggle?.addEventListener('change', () => {
-    const val = liveBadgesToggle.checked;
-    currentSettings.liveShowBadges = val;
-    currentSettings.showBadges = val;
-    currentSettings.twitchShowBadges = val;
-    updateSettings({ liveShowBadges: val, showBadges: val, twitchShowBadges: val });
-  });
-
   liveUserColorToggle?.addEventListener('change', () => {
     const val = liveUserColorToggle.checked;
     currentSettings.liveShowUserColor = val;
@@ -1517,33 +1018,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSetting('livePipEnabled', livePipToggle.checked);
   });
 
-  liveTriggerPipBtn?.addEventListener('click', async () => {
-    const tab = await getActiveTab();
-    if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_PIP' }, () => {
-        if (chrome.runtime.lastError) { /* ignore */ }
-      });
-      flashSaveStatus(currentLang === 'ja' ? 'PiPを起動しました' : 'PiP launched');
-    }
-  });
-
   // 言語選択セレクター
   langSelect?.addEventListener('change', () => {
     const selected = langSelect.value as SupportedLang;
     applyLanguage(selected);
     updateSetting('language', selected);
-  });
-
-  // テスト吹き出し表示ボタン
-  testCommentBtn?.addEventListener('click', async () => {
-    const t = I18N_DATA[currentLang] || I18N_DATA.ja;
-    flashSaveStatus(t.testSending, 1500);
-
-    const ok = await sendTestCommentToActiveTab(activeTab);
-    if (ok) {
-      flashSaveStatus(t.testSuccess, 3000);
-    } else {
-      flashSaveStatus(t.testSuccess, 3000);
-    }
   });
 });

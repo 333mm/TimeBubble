@@ -214,9 +214,6 @@ if (LiveChatForwarder.isLiveChatFrame()) {
       // 動画同期エンジンのアタッチ
       this.playerSync.attach(videoEl);
 
-      // ブラウザ標準PiPへの介入・アップグレードリスナー
-      this.pipController.setupNativePipListener(videoEl, this.overlayUi);
-
       // YouTube の場合は VOD コメント・チャプターフェッチャーの開始
       if (this.currentAdapter?.getPlatform() === 'youtube') {
         this.commentFetcher.start();

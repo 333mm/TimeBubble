@@ -5,7 +5,6 @@ export type FlowSpeed = 'slow' | 'normal' | 'fast';
 export type FlowDensity = 'low' | 'normal' | 'high';
 export type PlatformType = 'youtube' | 'twitch' | 'unknown';
 export type CommentSource = 'timestamp' | 'live_chat' | 'twitch_chat';
-export type PipWindowType = 'native' | 'interactive';
 
 export interface OverlaySettings {
   enabled: boolean;
@@ -29,8 +28,8 @@ export interface OverlaySettings {
   language?: string; // UI表示言語 ('ja' | 'en' | 'es' | 'zh')
   flowMode: boolean; // 後方互換性用 (displayMode === 'flow' と連動)
 
-  // タイムスタンプ: アバター表示
-  showAvatars: boolean; // ユーザーアイコン表示
+  // タイムスタンプ: アバター表示 (デフォルトOFF)
+  showAvatars: boolean;
 
   // ─── ライブ (YouTube Live & Twitch) 専用オプション ───
   liveChatEnabled: boolean;
@@ -43,24 +42,20 @@ export interface OverlaySettings {
   liveSize: OverlaySize; // ライブのカードサイズ
   liveDisplayDuration: number; // ライブのカード表示時間
   liveOpacity: number; // ライブのカード不透明度
-  liveShowBadges: boolean; // ライブのバッジ表示
-  liveShowUserColor: boolean; // ライブのユーザーカラー表示
-  liveShowAvatars: boolean; // ライブのユーザーアイコン表示
+  liveShowUserColor: boolean; // ライブのユーザーカラー表示 (デフォルトOFF)
+  liveShowAvatars: boolean; // ライブのユーザーアイコン表示 (デフォルトOFF)
   liveChatMaxDensity?: FlowDensity; // ライブチャット流量密度
   livePipEnabled: boolean; // ライブのPiP表示
 
   // 共通・後方互換フィールド
-  showBadges: boolean; // バッジ表示 (共通/互換用)
   showLiveAvatars?: boolean; // 互換用
   twitchChatMode: DisplayMode;
-  twitchShowBadges: boolean;
   showSuperChatOnly: boolean;
 
-  // PiP (Picture-in-Picture) 設定
+  // PiP (Picture-in-Picture) 設定 (ネイティブPiP)
   pipEnabled: boolean;
   pipShowComments: boolean;
   pipCommentScale: number; // 0.5 - 1.5
-  pipWindowType?: PipWindowType; // 'native' (タイトルバーなし・比率固定) | 'interactive' (ポップアップ・返信対応)
 }
 
 export const DEFAULT_SETTINGS: OverlaySettings = {
@@ -81,7 +76,7 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   language: 'ja',
   flowMode: false,
 
-  showAvatars: true,
+  showAvatars: false, // デフォルトOFF
 
   liveChatEnabled: true,
   twitchEnabled: true,
@@ -93,22 +88,18 @@ export const DEFAULT_SETTINGS: OverlaySettings = {
   liveSize: 'medium',
   liveDisplayDuration: 6,
   liveOpacity: 30,
-  liveShowBadges: true,
-  liveShowUserColor: true,
-  liveShowAvatars: true,
+  liveShowUserColor: false, // デフォルトOFF
+  liveShowAvatars: false, // デフォルトOFF
   liveChatMaxDensity: 'normal',
   livePipEnabled: true,
 
-  showBadges: true,
-  showLiveAvatars: true,
+  showLiveAvatars: false,
   twitchChatMode: 'flow',
-  twitchShowBadges: true,
   showSuperChatOnly: false,
 
   pipEnabled: true,
   pipShowComments: true,
   pipCommentScale: 1.0,
-  pipWindowType: 'native',
 };
 
 
