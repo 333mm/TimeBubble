@@ -1,4 +1,4 @@
-import { CommentData } from '../../types';
+import { CommentData, EmoteItem, MessageToken } from '../../types';
 
 export class LiveChatForwarder {
   private static observer: MutationObserver | null = null;
@@ -117,7 +117,50 @@ export class LiveChatForwarder {
       const authorAvatarUrl = imgEl?.src || imgEl?.getAttribute('src') || '';
 
       const msgEl = el.querySelector('#message');
-      let rawText = msgEl?.textContent?.trim() || '';
+      const tokens: MessageToken[] = [];
+      const emotes: EmoteItem[] = [];
+      let rawText = '';
+
+      if (msgEl) {
+        const parseNode = (node: Node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const txt = node.textContent || '';
+            if (txt) {
+              rawText += txt;
+              tokens.push({ type: 'text', text: txt });
+            }
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const elem = node as HTMLElement;
+            const tag = elem.tagName.toLowerCase();
+            if (tag === 'img') {
+              const img = elem as HTMLImageElement;
+              const url = img.src || img.getAttribute('src') || '';
+              const alt = img.alt || img.getAttribute('shared-tooltip-text') || img.getAttribute('aria-label') || ':emoji:';
+              if (url) {
+                const start = rawText.length;
+                rawText += alt;
+                const end = rawText.length - 1;
+                emotes.push({ name: alt, url, startIndex: start, endIndex: end });
+                tokens.push({ type: 'emote', url, alt, text: alt });
+              } else {
+                rawText += alt;
+                tokens.push({ type: 'text', text: alt });
+              }
+            } else {
+              // 子要素を再帰パース
+              elem.childNodes.forEach(parseNode);
+            }
+          }
+        };
+        msgEl.childNodes.forEach(parseNode);
+      }
+
+      if (!rawText && msgEl) {
+        rawText = msgEl.textContent?.trim() || '';
+        if (rawText) {
+          tokens.push({ type: 'text', text: rawText });
+        }
+      }
 
       let isSuperChat = false;
       let superChatAmount: string | undefined;
@@ -136,13 +179,22 @@ export class LiveChatForwarder {
         if (!rawText) {
           const headerSub = el.querySelector('#header-subtext');
           rawText = headerSub?.textContent?.trim() || 'メンバーへようこそ！';
+          tokens.push({ type: 'text', text: rawText });
         }
       } else if (isPaidSticker) {
         isSuperChat = true;
         const amountEl = el.querySelector('#purchase-amount-chip');
         superChatAmount = amountEl?.textContent?.trim() || 'Super Sticker';
         const stickerImg = el.querySelector<HTMLImageElement>('#sticker img');
-        rawText = stickerImg?.getAttribute('aria-label') || 'Super Sticker';
+        const stickerUrl = stickerImg?.src || stickerImg?.getAttribute('src') || '';
+        const stickerAlt = stickerImg?.getAttribute('aria-label') || 'Super Sticker';
+        rawText = stickerAlt;
+        if (stickerUrl) {
+          emotes.push({ name: stickerAlt, url: stickerUrl, startIndex: 0, endIndex: stickerAlt.length - 1 });
+          tokens.push({ type: 'emote', url: stickerUrl, alt: stickerAlt, text: stickerAlt });
+        } else {
+          tokens.push({ type: 'text', text: stickerAlt });
+        }
         const cardEl = el.querySelector<HTMLElement>('#card');
         superChatColor = cardEl ? window.getComputedStyle(cardEl).backgroundColor : '#ff8f00';
       }
@@ -199,6 +251,8 @@ export class LiveChatForwarder {
         source: 'live_chat',
         userColor,
         badges,
+        emotes: emotes.length > 0 ? emotes : undefined,
+        tokens: tokens.length > 0 ? tokens : undefined,
         isSuperChat,
         superChatAmount,
         superChatColor,

@@ -1,4 +1,4 @@
-import { CommentData, PlatformType } from '../../types';
+import { CommentData, EmoteItem, MessageToken, PlatformType } from '../../types';
 import { IPlatformAdapter, OnNewCommentCallback } from './platformAdapter';
 
 const TWITCH_GLOBAL_BADGES: Record<string, string> = {
@@ -297,6 +297,53 @@ export class TwitchAdapter implements IPlatformAdapter {
         superChatColor = '#9146FF';
       }
 
+      // エモート情報のパース (Twitch IRC emotes タグ: <emote_id>:<start>-<end>,<start>-<end>/...)
+      const emotesTag = tags['emotes'] || '';
+      const emotes: EmoteItem[] = [];
+      const tokens: MessageToken[] = [];
+
+      if (emotesTag) {
+        const emoteEntries = emotesTag.split('/');
+        for (const entry of emoteEntries) {
+          const colonIdx = entry.indexOf(':');
+          if (colonIdx === -1) continue;
+          const emoteId = entry.slice(0, colonIdx);
+          const ranges = entry.slice(colonIdx + 1).split(',');
+          for (const r of ranges) {
+            const [startStr, endStr] = r.split('-');
+            const start = parseInt(startStr, 10);
+            const end = parseInt(endStr, 10);
+            if (!isNaN(start) && !isNaN(end) && end >= start && end < messageText.length) {
+              const emoteName = messageText.slice(start, end + 1);
+              emotes.push({
+                name: emoteName,
+                url: `https://static-cdn.jtvnw.net/emoticons/v2/${emoteId}/default/dark/2.0`,
+                startIndex: start,
+                endIndex: end,
+              });
+            }
+          }
+        }
+        emotes.sort((a, b) => (a.startIndex ?? 0) - (b.startIndex ?? 0));
+
+        // エモートとプレーンテキストのトークン分割列を構築
+        let cursor = 0;
+        for (const emote of emotes) {
+          const start = emote.startIndex!;
+          const end = emote.endIndex!;
+          if (start > cursor) {
+            tokens.push({ type: 'text', text: messageText.slice(cursor, start) });
+          }
+          tokens.push({ type: 'emote', url: emote.url, alt: emote.name, text: emote.name });
+          cursor = end + 1;
+        }
+        if (cursor < messageText.length) {
+          tokens.push({ type: 'text', text: messageText.slice(cursor) });
+        }
+      } else {
+        tokens.push({ type: 'text', text: messageText });
+      }
+
       const comment: CommentData = {
         id: commentId,
         authorName,
@@ -313,6 +360,8 @@ export class TwitchAdapter implements IPlatformAdapter {
         source: 'twitch_chat',
         userColor,
         badges,
+        emotes: emotes.length > 0 ? emotes : undefined,
+        tokens: tokens.length > 0 ? tokens : undefined,
         isSuperChat,
         superChatAmount,
         superChatColor,
@@ -430,7 +479,48 @@ export class TwitchAdapter implements IPlatformAdapter {
       const userColor = authorEl ? window.getComputedStyle(authorEl).color : '';
 
       const textEl = el.querySelector('[data-a-target="chat-line-message-body"]');
-      const rawText = textEl?.textContent?.trim() || '';
+      const tokens: MessageToken[] = [];
+      const emotes: EmoteItem[] = [];
+      let rawText = '';
+
+      if (textEl) {
+        const parseNode = (node: Node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const txt = node.textContent || '';
+            if (txt) {
+              rawText += txt;
+              tokens.push({ type: 'text', text: txt });
+            }
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const elem = node as HTMLElement;
+            const tag = elem.tagName.toLowerCase();
+            if (tag === 'img' && (elem.classList.contains('chat-image') || elem.getAttribute('data-a-target') === 'emote-name' || elem.classList.contains('chat-line__message--emote'))) {
+              const img = elem as HTMLImageElement;
+              const url = img.src || img.getAttribute('src') || '';
+              const alt = img.alt || img.getAttribute('aria-label') || ':emote:';
+              if (url) {
+                const start = rawText.length;
+                rawText += alt;
+                const end = rawText.length - 1;
+                emotes.push({ name: alt, url, startIndex: start, endIndex: end });
+                tokens.push({ type: 'emote', url, alt, text: alt });
+              } else {
+                rawText += alt;
+                tokens.push({ type: 'text', text: alt });
+              }
+            } else {
+              elem.childNodes.forEach(parseNode);
+            }
+          }
+        };
+        textEl.childNodes.forEach(parseNode);
+      }
+
+      if (!rawText && textEl) {
+        rawText = textEl.textContent?.trim() || '';
+        if (rawText) tokens.push({ type: 'text', text: rawText });
+      }
+
       if (!rawText) return null;
 
       // チャット欄の実DOMから直接バッジ画像URLを抽出
@@ -468,6 +558,8 @@ export class TwitchAdapter implements IPlatformAdapter {
         source: 'twitch_chat',
         userColor,
         badges,
+        emotes: emotes.length > 0 ? emotes : undefined,
+        tokens: tokens.length > 0 ? tokens : undefined,
         receivedAt: Date.now(),
       };
     } catch {

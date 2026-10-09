@@ -1,4 +1,4 @@
-import { CommentData, DEFAULT_SETTINGS, OverlayPosition, OverlaySettings, ReplyData, ReplyFetchResult, TimestampCommentTrigger } from '../types';
+import { CommentData, DEFAULT_SETTINGS, EmoteItem, MessageToken, OverlayPosition, OverlaySettings, ReplyData, ReplyFetchResult, TimestampCommentTrigger } from '../types';
 import { timeStringToSeconds } from './timestampParser';
 import { saveSettings } from '../utils/storage';
 import overlayCssRaw from './overlay.css?raw';
@@ -602,8 +602,27 @@ export class OverlayUi {
     if (isLive) {
       const liveMode = this.getEffectiveLiveDisplayMode();
       const liveSamples = [
-        { text: 'キターーーー！！配信待機してました！🎉', author: 'ライブファンA', badge: 'VIP', color: '#c084fc' },
-        { text: 'ナイス配信！いつも応援してます🔥', author: 'サポーターB', badge: 'SUPER', color: '#f59e0b', isSuper: true, amount: '¥1,000' },
+        {
+          text: 'キターーーー！！ Kappa PogChamp 配信待機してました！🎉',
+          author: 'ライブファンA',
+          badge: 'VIP',
+          color: '#c084fc',
+          emotes: [
+            { name: 'Kappa', url: 'https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0' },
+            { name: 'PogChamp', url: 'https://static-cdn.jtvnw.net/emoticons/v2/305954156/default/dark/2.0' },
+          ],
+        },
+        {
+          text: 'ナイス配信！いつも応援してます🔥 LUL',
+          author: 'サポーターB',
+          badge: 'SUPER',
+          color: '#f59e0b',
+          isSuper: true,
+          amount: '¥1,000',
+          emotes: [
+            { name: 'LUL', url: 'https://static-cdn.jtvnw.net/emoticons/v2/425618/default/dark/2.0' },
+          ],
+        },
         { text: '荒らしは即座に対処します。楽しく見ましょう！', author: 'モデレーターC', badge: 'MOD', color: '#4ade80' },
         { text: '音質めちゃくちゃクリアで最高です✨', author: 'リスナーD', badge: 'SUB', color: '#38bdf8' },
       ];
@@ -623,6 +642,7 @@ export class OverlayUi {
                 rawText: sample.text,
                 userColor: sample.color,
                 badges: [sample.badge],
+                emotes: sample.emotes,
                 isSuperChat: !!sample.isSuper,
                 superChatAmount: sample.amount,
                 superChatColor: sample.isSuper ? '#f59e0b' : undefined,
@@ -653,6 +673,7 @@ export class OverlayUi {
               rawText: sample.text,
               userColor: sample.color,
               badges: [sample.badge],
+              emotes: sample.emotes,
               isSuperChat: !!sample.isSuper,
               superChatAmount: sample.amount,
               superChatColor: sample.isSuper ? '#f59e0b' : undefined,
@@ -688,6 +709,7 @@ export class OverlayUi {
               rawText: sample.text,
               userColor: sample.color,
               badges: [sample.badge],
+              emotes: sample.emotes,
               isSuperChat: !!sample.isSuper,
               superChatAmount: sample.amount,
               superChatColor: sample.isSuper ? '#f59e0b' : undefined,
@@ -1238,10 +1260,10 @@ export class OverlayUi {
       header.appendChild(likesBadge);
     }
 
-    // 本文テキスト（時間の部分をバッジに置き換えてインライン配置）
+    // 本文テキスト（時間の部分をバッジに置き換えてインライン配置、エモートもインライン配置）
     const content = doc.createElement('div');
     content.className = 'yt-co-content';
-    this.renderContentWithTimestamps(content, comment.rawText, timestamp.formatted);
+    this.renderContentWithTimestamps(content, comment.rawText, timestamp.formatted, comment);
 
     // フッター (詳細表示・拡張インジケーター)
     const footer = doc.createElement('div');
@@ -1270,39 +1292,175 @@ export class OverlayUi {
   }
 
   /**
-   * コメント本文内のタイムスタンプ（時間表記）部分を検出し、バッジ要素に置き換えてインライン配置
+   * エモート画像要素を生成 (インライン画像)
    */
-  private renderContentWithTimestamps(contentEl: HTMLElement, rawText: string, currentTimestamp: string) {
-    // タイムスタンプパターン: (HH:)?MM:SS
-    const tsRegex = /(?:(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d))/g;
-    let match: RegExpExecArray | null;
-    let lastIndex = 0;
-    let foundAny = false;
-
-    while ((match = tsRegex.exec(rawText)) !== null) {
-      foundAny = true;
-      const matchStart = match.index;
-      const matchEnd = tsRegex.lastIndex;
-      const matchedTime = match[0];
-
-      if (matchStart > lastIndex) {
-        contentEl.appendChild(document.createTextNode(rawText.slice(lastIndex, matchStart)));
+  private createEmoteElement(url: string, alt: string): HTMLImageElement {
+    const doc = this.getOwnerDocument();
+    const img = doc.createElement('img');
+    img.className = 'yt-co-inline-emote';
+    img.src = url;
+    img.alt = alt;
+    img.title = alt;
+    img.loading = 'lazy';
+    img.onerror = () => {
+      if (img.parentElement) {
+        const textNode = doc.createTextNode(alt);
+        img.parentElement.replaceChild(textNode, img);
       }
+    };
+    return img;
+  }
 
-      const badge = this.createTimestampBadge(matchedTime);
-      contentEl.appendChild(badge);
+  /**
+   * エモート情報（インデックス指定）に基づいてプレーンテキストをトークン列に分割
+   */
+  private tokenizeTextWithEmotes(rawText: string, emotes: EmoteItem[]): MessageToken[] {
+    const sorted = [...emotes].filter(
+      (e) => typeof e.startIndex === 'number' && typeof e.endIndex === 'number' && e.url
+    ).sort((a, b) => a.startIndex! - b.startIndex!);
 
-      lastIndex = matchEnd;
+    if (sorted.length === 0) {
+      return this.tokenizeByEmoteNames(rawText, emotes);
     }
 
-    if (lastIndex < rawText.length) {
-      contentEl.appendChild(document.createTextNode(rawText.slice(lastIndex)));
+    const tokens: MessageToken[] = [];
+    let cursor = 0;
+    for (const emote of sorted) {
+      const start = emote.startIndex!;
+      const end = emote.endIndex!;
+      if (start < cursor || start >= rawText.length || end < start) continue;
+      if (start > cursor) {
+        tokens.push({ type: 'text', text: rawText.slice(cursor, start) });
+      }
+      tokens.push({ type: 'emote', url: emote.url, alt: emote.name, text: emote.name });
+      cursor = end + 1;
+    }
+    if (cursor < rawText.length) {
+      tokens.push({ type: 'text', text: rawText.slice(cursor) });
+    }
+    return tokens;
+  }
+
+  /**
+   * エモート名に基づいてテキストを検索・トークン分割
+   */
+  private tokenizeByEmoteNames(rawText: string, emotes: EmoteItem[]): MessageToken[] {
+    const valid = emotes.filter((e) => !!e.name && !!e.url);
+    if (valid.length === 0) {
+      return [{ type: 'text', text: rawText }];
+    }
+
+    const nameMap = new Map<string, string>();
+    const patterns: string[] = [];
+    for (const e of valid) {
+      nameMap.set(e.name, e.url);
+      patterns.push(e.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    }
+
+    const regex = new RegExp(`(${patterns.join('|')})`, 'g');
+    const tokens: MessageToken[] = [];
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(rawText)) !== null) {
+      if (match.index > lastIdx) {
+        tokens.push({ type: 'text', text: rawText.slice(lastIdx, match.index) });
+      }
+      const name = match[0];
+      const url = nameMap.get(name) || '';
+      tokens.push({ type: 'emote', url, alt: name, text: name });
+      lastIdx = regex.lastIndex;
+    }
+    if (lastIdx < rawText.length) {
+      tokens.push({ type: 'text', text: rawText.slice(lastIdx) });
+    }
+    return tokens;
+  }
+
+  /**
+   * コメント本文（テキスト＋エモート画像）をコンテナにインライン描画
+   */
+  private renderRichText(container: HTMLElement, comment: CommentData, singleLine = false) {
+    const doc = this.getOwnerDocument();
+    let tokens = comment.tokens;
+    if ((!tokens || tokens.length === 0) && comment.emotes && comment.emotes.length > 0) {
+      tokens = this.tokenizeTextWithEmotes(comment.rawText, comment.emotes);
+    }
+
+    if (tokens && tokens.length > 0) {
+      for (const token of tokens) {
+        if (token.type === 'emote' && token.url) {
+          const img = this.createEmoteElement(token.url, token.alt || token.text || '');
+          container.appendChild(img);
+        } else if (token.type === 'text' && token.text) {
+          const text = singleLine ? token.text.replace(/\n/g, ' ') : token.text;
+          container.appendChild(doc.createTextNode(text));
+        }
+      }
+    } else {
+      const text = singleLine ? comment.rawText.replace(/\n/g, ' ') : comment.rawText;
+      container.appendChild(doc.createTextNode(text));
+    }
+  }
+
+  /**
+   * コメント本文内のタイムスタンプ（時間表記）部分を検出し、バッジ要素に置き換えてインライン配置（エモート画像も両立）
+   */
+  private renderContentWithTimestamps(
+    contentEl: HTMLElement,
+    rawText: string,
+    currentTimestamp: string,
+    comment?: CommentData
+  ) {
+    const doc = this.getOwnerDocument();
+    const tsRegex = /(?:(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d))/g;
+    let foundAny = false;
+
+    const renderTextSegment = (text: string) => {
+      let match: RegExpExecArray | null;
+      let lastIndex = 0;
+      while ((match = tsRegex.exec(text)) !== null) {
+        foundAny = true;
+        const matchStart = match.index;
+        const matchEnd = tsRegex.lastIndex;
+        const matchedTime = match[0];
+
+        if (matchStart > lastIndex) {
+          contentEl.appendChild(doc.createTextNode(text.slice(lastIndex, matchStart)));
+        }
+
+        const badge = this.createTimestampBadge(matchedTime);
+        contentEl.appendChild(badge);
+
+        lastIndex = matchEnd;
+      }
+
+      if (lastIndex < text.length) {
+        contentEl.appendChild(doc.createTextNode(text.slice(lastIndex)));
+      }
+    };
+
+    let tokens = comment?.tokens;
+    if ((!tokens || tokens.length === 0) && comment?.emotes && comment.emotes.length > 0) {
+      tokens = this.tokenizeTextWithEmotes(rawText, comment.emotes);
+    }
+
+    if (tokens && tokens.length > 0) {
+      for (const token of tokens) {
+        if (token.type === 'emote' && token.url) {
+          const img = this.createEmoteElement(token.url, token.alt || token.text || '');
+          contentEl.appendChild(img);
+        } else if (token.type === 'text' && token.text) {
+          renderTextSegment(token.text);
+        }
+      }
+    } else {
+      renderTextSegment(rawText);
     }
 
     // 本文内にタイムスタンプ文字列が存在しなかった場合のフォールバック（先頭にバッジを付与）
     if (!foundAny && currentTimestamp) {
       const badge = this.createTimestampBadge(currentTimestamp);
-      contentEl.insertBefore(document.createTextNode(' '), contentEl.firstChild);
+      contentEl.insertBefore(doc.createTextNode(' '), contentEl.firstChild);
       contentEl.insertBefore(badge, contentEl.firstChild);
     }
   }
@@ -1506,10 +1664,10 @@ export class OverlayUi {
     header.appendChild(info);
     header.appendChild(closeBtn);
 
-    // 2. 本文（全文字スクロール表示・タイムスタンプバッジ付き）
+    // 2. 本文（全文字スクロール表示・タイムスタンプバッジ付き・エモート画像付き）
     const body = document.createElement('div');
     body.className = 'yt-co-expanded-body';
-    this.renderContentWithTimestamps(body, comment.rawText, timestamp.formatted);
+    this.renderContentWithTimestamps(body, comment.rawText, timestamp.formatted, comment);
 
     // 3. アクションツールバー (いいね / 返信 / 閉じる)
     const actions = document.createElement('div');
@@ -1916,14 +2074,16 @@ export class OverlayUi {
       ? (this.settings.liveShowAvatars ?? this.settings.showLiveAvatars ?? false)
       : (this.settings.showAvatars ?? false);
 
-    // コメントの推定表示幅（全角文字約15px, 半角約8px, アバター, パディング）
+    // コメントの推定表示幅（全角文字約15px, 半角約8px, アバター, エモート, パディング）
     const charWidth = size === 'large' ? 18 : size === 'small' ? 12 : 15;
     const estimatedTextWidth = Array.from(comment.rawText).reduce(
       (acc, c) => acc + (c.charCodeAt(0) > 255 ? charWidth : Math.round(charWidth * 0.55)),
       0
     );
     const avatarWidth = shouldShowAvatar ? (size === 'large' ? 32 : size === 'small' ? 20 : 26) : 0;
-    const estimatedTotalWidth = Math.max(80, estimatedTextWidth + avatarWidth + 24);
+    const emoteCount = comment.emotes?.length || comment.tokens?.filter((t) => t.type === 'emote').length || 0;
+    const emoteWidth = emoteCount * (size === 'large' ? 32 : size === 'small' ? 22 : 26);
+    const estimatedTotalWidth = Math.max(80, estimatedTextWidth + avatarWidth + emoteWidth + 24);
 
     // コメント移動速度 (px/ms)
     const speedPxPerMs = (playerWidth + estimatedTotalWidth) / duration;
@@ -2009,7 +2169,7 @@ export class OverlayUi {
     if (isLive && showUserColor && comment.userColor) {
       textEl.style.color = comment.userColor;
     }
-    textEl.textContent = comment.rawText.replace(/\n/g, ' ');
+    this.renderRichText(textEl, comment, true);
 
     flowEl.appendChild(textEl);
 
@@ -2142,7 +2302,7 @@ export class OverlayUi {
 
     const textSpan = ownerDoc.createElement('span');
     textSpan.className = 'yt-co-chatbox-text';
-    textSpan.textContent = comment.rawText || '';
+    this.renderRichText(textSpan, comment, false);
     rowEl.appendChild(textSpan);
 
     itemEl.appendChild(rowEl);

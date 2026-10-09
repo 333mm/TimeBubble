@@ -1,4 +1,4 @@
-import { CommentData, ReplyData, ReplyFetchResult, TimestampOccurrence } from '../types';
+import { CommentData, EmoteItem, MessageToken, ReplyData, ReplyFetchResult, TimestampOccurrence } from '../types';
 import { extractTimestamps, isIndexOrSummaryComment } from './timestampParser';
 
 
@@ -104,6 +104,14 @@ export class CommentFetcher {
     }
     if (!existing.replyContinuationToken && incoming.replyContinuationToken) {
       existing.replyContinuationToken = incoming.replyContinuationToken;
+      updated = true;
+    }
+    if ((!existing.emotes || existing.emotes.length === 0) && incoming.emotes && incoming.emotes.length > 0) {
+      existing.emotes = incoming.emotes;
+      updated = true;
+    }
+    if ((!existing.tokens || existing.tokens.length === 0) && incoming.tokens && incoming.tokens.length > 0) {
+      existing.tokens = incoming.tokens;
       updated = true;
     }
     if (updated) {
@@ -628,6 +636,80 @@ export class CommentFetcher {
     return '';
   }
 
+  private parseElementContent(contentEl: Element): { rawText: string; tokens: MessageToken[]; emotes: EmoteItem[] } {
+    let rawText = '';
+    const tokens: MessageToken[] = [];
+    const emotes: EmoteItem[] = [];
+
+    const parseNode = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const txt = node.textContent || '';
+        if (txt) {
+          rawText += txt;
+          tokens.push({ type: 'text', text: txt });
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const elem = node as HTMLElement;
+        const tag = elem.tagName.toLowerCase();
+        if (tag === 'img') {
+          const img = elem as HTMLImageElement;
+          const url = img.src || img.getAttribute('src') || '';
+          const alt = img.alt || img.getAttribute('shared-tooltip-text') || img.getAttribute('aria-label') || ':emoji:';
+          const start = rawText.length;
+          rawText += alt;
+          const end = rawText.length - 1;
+          if (url) {
+            emotes.push({ name: alt, url, startIndex: start, endIndex: end });
+            tokens.push({ type: 'emote', url, alt, text: alt });
+          } else {
+            tokens.push({ type: 'text', text: alt });
+          }
+        } else {
+          elem.childNodes.forEach(parseNode);
+        }
+      }
+    };
+
+    contentEl.childNodes.forEach(parseNode);
+
+    if (!rawText) {
+      rawText = contentEl.textContent || '';
+      if (rawText) tokens.push({ type: 'text', text: rawText });
+    }
+
+    return { rawText, tokens, emotes };
+  }
+
+  private parseRunsContent(runs: any[]): { rawText: string; tokens: MessageToken[]; emotes: EmoteItem[] } {
+    let rawText = '';
+    const tokens: MessageToken[] = [];
+    const emotes: EmoteItem[] = [];
+
+    for (const r of runs) {
+      if (!r) continue;
+      if (r.emoji) {
+        const emojiObj = r.emoji;
+        const thumbs = emojiObj.image?.thumbnails;
+        const url = Array.isArray(thumbs) && thumbs.length > 0 ? thumbs[thumbs.length - 1].url : '';
+        const shortcut = emojiObj.shortcuts?.[0] || emojiObj.searchTerms?.[0] || ':emoji:';
+        const start = rawText.length;
+        rawText += shortcut;
+        const end = rawText.length - 1;
+        if (url) {
+          emotes.push({ name: shortcut, url, startIndex: start, endIndex: end });
+          tokens.push({ type: 'emote', url, alt: shortcut, text: shortcut });
+        } else {
+          tokens.push({ type: 'text', text: shortcut });
+        }
+      } else if (typeof r.text === 'string') {
+        rawText += r.text;
+        tokens.push({ type: 'text', text: r.text });
+      }
+    }
+
+    return { rawText, tokens, emotes };
+  }
+
   private parseCommentElement(el: Element, activeVideoId?: string): CommentData | null {
     const activeVid = activeVideoId || this.getVideoId();
 
@@ -644,7 +726,7 @@ export class CommentFetcher {
     const contentEl = el.querySelector('#content-text, .yt-core-attributed-string');
     if (!contentEl) return null;
 
-    const rawText = contentEl.textContent || '';
+    const { rawText, tokens, emotes } = this.parseElementContent(contentEl);
     const contentHtml = rawText;
     const timestamps = extractTimestamps(rawText);
     if (timestamps.length === 0) return null;
@@ -751,6 +833,8 @@ export class CommentFetcher {
       videoId: activeVid,
       replyCount: replyCount || undefined,
       replyContinuationToken,
+      emotes: emotes.length > 0 ? emotes : undefined,
+      tokens: tokens.length > 0 ? tokens : undefined,
     };
   }
 
@@ -1556,17 +1640,26 @@ export class CommentFetcher {
 
       // 1. 本文テキストの抽出 (最新仕様: properties.content.content)
       let rawText = '';
+      let tokens: MessageToken[] = [];
+      let emotes: EmoteItem[] = [];
+
       const propContent = cep.properties?.content;
-      if (typeof propContent?.content === 'string') {
+      if (Array.isArray(propContent?.runs)) {
+        const parsed = this.parseRunsContent(propContent.runs);
+        rawText = parsed.rawText;
+        tokens = parsed.tokens;
+        emotes = parsed.emotes;
+      } else if (typeof propContent?.content === 'string') {
         rawText = propContent.content;
       } else if (typeof propContent === 'string') {
         rawText = propContent;
-      } else if (Array.isArray(propContent?.runs)) {
-        rawText = propContent.runs.map((r: any) => r.text || '').join('');
+      } else if (Array.isArray(cep.content?.runs)) {
+        const parsed = this.parseRunsContent(cep.content.runs);
+        rawText = parsed.rawText;
+        tokens = parsed.tokens;
+        emotes = parsed.emotes;
       } else if (typeof cep.content?.content === 'string') {
         rawText = cep.content.content;
-      } else if (Array.isArray(cep.content?.runs)) {
-        rawText = cep.content.runs.map((r: any) => r.text || '').join('');
       }
 
       if (!rawText) return null;
@@ -1652,6 +1745,8 @@ export class CommentFetcher {
         videoId: activeVid,
         replyCount: replyCount || undefined,
         replyContinuationToken,
+        emotes: emotes.length > 0 ? emotes : undefined,
+        tokens: tokens.length > 0 ? tokens : undefined,
       };
     } catch {
       return null;
@@ -1663,11 +1758,22 @@ export class CommentFetcher {
       const commentId = String(cvm.commentId || '');
 
       let rawText = '';
+      let tokens: MessageToken[] = [];
+      let emotes: EmoteItem[] = [];
+
       const contentTextObj = cvm.contentText as Record<string, unknown> | undefined;
-      if (typeof contentTextObj?.content === 'string') {
+      if (Array.isArray(contentTextObj?.runs)) {
+        const parsed = this.parseRunsContent(contentTextObj.runs);
+        rawText = parsed.rawText;
+        tokens = parsed.tokens;
+        emotes = parsed.emotes;
+      } else if (typeof contentTextObj?.content === 'string') {
         rawText = contentTextObj.content;
-      } else if (Array.isArray(contentTextObj?.runs)) {
-        rawText = (contentTextObj.runs as { text: string }[]).map((r) => r.text).join('');
+      } else if (Array.isArray((cvm as any).content?.runs)) {
+        const parsed = this.parseRunsContent((cvm as any).content.runs);
+        rawText = parsed.rawText;
+        tokens = parsed.tokens;
+        emotes = parsed.emotes;
       } else if (typeof (cvm as any).content?.content === 'string') {
         rawText = (cvm as any).content.content;
       } else if (typeof (cvm as any).properties?.content?.content === 'string') {
@@ -1741,6 +1847,8 @@ export class CommentFetcher {
         videoId: this.getVideoId(),
         replyCount: replyCount || undefined,
         replyContinuationToken,
+        emotes: emotes.length > 0 ? emotes : undefined,
+        tokens: tokens.length > 0 ? tokens : undefined,
       };
     } catch {
       return null;
@@ -1750,8 +1858,19 @@ export class CommentFetcher {
   private parseCommentRendererJson(cr: Record<string, unknown>): CommentData | null {
     try {
       const commentId = String(cr.commentId || '');
-      const contentTextObj = cr.contentText as { runs?: { text: string }[] } | undefined;
-      const rawText = contentTextObj?.runs?.map((r) => r.text).join('') || '';
+      const contentTextObj = cr.contentText as { runs?: any[] } | undefined;
+      let rawText = '';
+      let tokens: MessageToken[] = [];
+      let emotes: EmoteItem[] = [];
+
+      if (Array.isArray(contentTextObj?.runs)) {
+        const parsed = this.parseRunsContent(contentTextObj.runs);
+        rawText = parsed.rawText;
+        tokens = parsed.tokens;
+        emotes = parsed.emotes;
+      }
+      if (!rawText) return null;
+
       const timestamps = extractTimestamps(rawText);
       if (timestamps.length === 0) return null;
 
@@ -1810,6 +1929,8 @@ export class CommentFetcher {
         videoId: this.getVideoId(),
         replyCount: replyCount || undefined,
         replyContinuationToken,
+        emotes: emotes.length > 0 ? emotes : undefined,
+        tokens: tokens.length > 0 ? tokens : undefined,
       };
     } catch {
       return null;

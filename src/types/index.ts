@@ -125,6 +125,20 @@ export interface ReplyFetchResult {
   debugMessage?: string;
 }
 
+export interface EmoteItem {
+  name: string; // 例: ":emote_name:", "Kappa"
+  url: string; // 画像URL
+  startIndex?: number; // 開始文字位置 (Twitch等)
+  endIndex?: number; // 終了文字位置 (inclusive)
+}
+
+export interface MessageToken {
+  type: 'text' | 'emote';
+  text?: string;
+  url?: string;
+  alt?: string;
+}
+
 export interface CommentData {
   id: string;
   authorName: string;
@@ -147,6 +161,8 @@ export interface CommentData {
   source?: CommentSource;
   userColor?: string; // ユーザー名・アクセント色 (Twitch/YouTube)
   badges?: string[]; // バッジ名リスト (Moderator, Subscriber, VIP, Verified等)
+  emotes?: EmoteItem[]; // エモート・絵文字情報
+  tokens?: MessageToken[]; // パース済みトークン列（テキスト / エモート）
   isSuperChat?: boolean; // スパチャ / Bits
   superChatAmount?: string; // 例: "￥1,000", "500 Bits"
   superChatColor?: string; // スパチャのヘッダー色

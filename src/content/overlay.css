@@ -1455,3 +1455,39 @@
   height: 20px !important;
 }
 
+/* ─── インラインエモート・絵文字 (YouTube / Twitch) ─── */
+.yt-co-inline-emote {
+  display: inline-block !important;
+  vertical-align: -0.22em !important;
+  height: 1.25em !important;
+  width: auto !important;
+  min-width: 1em !important;
+  margin: 0 2px !important;
+  object-fit: contain !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+/* 流れるコメント内のエモート */
+.yt-co-flow-comment .yt-co-inline-emote {
+  height: 1.3em !important;
+  vertical-align: -0.25em !important;
+  margin: 0 3px !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)) !important;
+}
+
+/* チャットボックス内のエモート */
+.yt-co-chatbox-item .yt-co-inline-emote {
+  height: 1.2em !important;
+  vertical-align: -0.2em !important;
+  margin: 0 2px !important;
+}
+
+/* カード本文およびモーダル本文内のエモート */
+.yt-co-content .yt-co-inline-emote,
+.yt-co-expanded-body .yt-co-inline-emote {
+  height: 1.25em !important;
+  vertical-align: -0.22em !important;
+  margin: 0 2px !important;
+}
+
