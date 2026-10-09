@@ -53,13 +53,46 @@ export class LiveChatForwarder {
 
       this.observer.observe(container, { childList: true });
       console.log('[TimeBubble:LiveChatForwarder] Observer attached to live chat items container');
+
+      // 初回接続時に既に読み込まれている直近コメントも即座に転送
+      try {
+        const initialNodes = container.querySelectorAll<HTMLElement>(
+          'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
+        );
+        if (initialNodes.length > 0) {
+          const initialComments: CommentData[] = [];
+          const startIdx = Math.max(0, initialNodes.length - 8);
+          for (let i = startIdx; i < initialNodes.length; i++) {
+            const parsed = this.parseChatMessageElement(initialNodes[i]);
+            if (parsed) {
+              initialComments.push(parsed);
+            }
+          }
+          if (initialComments.length > 0) {
+            window.parent.postMessage(
+              {
+                type: 'TIMEBUBBLE_LIVE_CHAT_MESSAGE',
+                comments: initialComments,
+              },
+              '*'
+            );
+          }
+        }
+      } catch {
+        // ignore
+      }
     };
 
     observeChat();
+    let attempts = 0;
     const timer = setInterval(() => {
-      if (!this.observer) observeChat();
-      else clearInterval(timer);
-    }, 1000);
+      attempts++;
+      if (!this.observer && attempts < 50) {
+        observeChat();
+      } else {
+        clearInterval(timer);
+      }
+    }, 400);
   }
 
   private static parseChatMessageElement(el: HTMLElement): CommentData | null {
@@ -69,12 +102,13 @@ export class LiveChatForwarder {
       // 1. 通常チャット (yt-live-chat-text-message-renderer)
       // 2. スパチャ (yt-live-chat-paid-message-renderer)
       // 3. メンシ加入 (yt-live-chat-membership-item-renderer)
-      // 4. スパーツイカー (yt-live-chat-paid-sticker-renderer)
+      // 4. スーパーステッカー (yt-live-chat-paid-sticker-renderer)
       const isTextMessage = tagName === 'yt-live-chat-text-message-renderer';
       const isPaidMessage = tagName === 'yt-live-chat-paid-message-renderer';
       const isMembership = tagName === 'yt-live-chat-membership-item-renderer';
+      const isPaidSticker = tagName === 'yt-live-chat-paid-sticker-renderer';
 
-      if (!isTextMessage && !isPaidMessage && !isMembership) return null;
+      if (!isTextMessage && !isPaidMessage && !isMembership && !isPaidSticker) return null;
 
       const authorEl = el.querySelector('#author-name');
       const authorName = authorEl?.textContent?.trim() || 'ユーザー';
@@ -103,6 +137,14 @@ export class LiveChatForwarder {
           const headerSub = el.querySelector('#header-subtext');
           rawText = headerSub?.textContent?.trim() || 'メンバーへようこそ！';
         }
+      } else if (isPaidSticker) {
+        isSuperChat = true;
+        const amountEl = el.querySelector('#purchase-amount-chip');
+        superChatAmount = amountEl?.textContent?.trim() || 'Super Sticker';
+        const stickerImg = el.querySelector<HTMLImageElement>('#sticker img');
+        rawText = stickerImg?.getAttribute('aria-label') || 'Super Sticker';
+        const cardEl = el.querySelector<HTMLElement>('#card');
+        superChatColor = cardEl ? window.getComputedStyle(cardEl).backgroundColor : '#ff8f00';
       }
 
       if (!rawText && !isSuperChat) return null;

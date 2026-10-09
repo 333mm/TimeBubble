@@ -37,6 +37,9 @@ if (LiveChatForwarder.isLiveChatFrame()) {
       // 2. 設定変更リスナー
       onSettingsChange((newSettings) => {
         this.overlayUi.updateSettings(newSettings);
+        if (this.currentAdapter instanceof YouTubeAdapter) {
+          this.currentAdapter.syncLiveChatFrameState();
+        }
       });
 
       // 3. PiP トグル連携 & 状態判定
@@ -127,7 +130,11 @@ if (LiveChatForwarder.isLiveChatFrame()) {
         this.currentAdapter = new TwitchAdapter();
       } else {
         console.log('[TimeBubble] Initializing YouTubeAdapter');
-        this.currentAdapter = new YouTubeAdapter(this.commentFetcher);
+        const ytAdapter = new YouTubeAdapter(this.commentFetcher);
+        ytAdapter.setIsLiveChatEnabledCallback(() => {
+          return this.overlayUi.getSettings().liveChatEnabled ?? true;
+        });
+        this.currentAdapter = ytAdapter;
       }
 
       this.currentAdapter.init();
@@ -220,8 +227,9 @@ if (LiveChatForwarder.isLiveChatFrame()) {
       // 動画同期エンジンのアタッチ
       this.playerSync.attach(videoEl);
 
-      // YouTube の場合は VOD コメント・チャプターフェッチャーの開始
-      if (this.currentAdapter?.getPlatform() === 'youtube') {
+      // YouTube の場合は VOD コメント・チャプターフェッチャーの開始 & ライブチャット同期
+      if (this.currentAdapter instanceof YouTubeAdapter) {
+        this.currentAdapter.syncLiveChatFrameState();
         this.commentFetcher.start();
       }
     }
@@ -233,6 +241,9 @@ if (LiveChatForwarder.isLiveChatFrame()) {
       }
       this.isInitialized = false;
       this.playerSync.detach();
+      if (this.currentAdapter instanceof YouTubeAdapter) {
+        this.currentAdapter.cleanupBackgroundLiveChatFrame();
+      }
       if (this.currentAdapter?.getPlatform() === 'youtube') {
         this.commentFetcher.stop();
       }

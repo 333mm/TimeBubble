@@ -123,6 +123,8 @@ export class CommentFetcher {
       const url = new URL(window.location.href);
       const v = url.searchParams.get('v');
       if (v) return v;
+      const liveMatch = url.pathname.match(/\/live\/([a-zA-Z0-9_-]+)/);
+      if (liveMatch) return liveMatch[1];
       const shortsMatch = url.pathname.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
       if (shortsMatch) return shortsMatch[1];
       const embedMatch = url.pathname.match(/\/embed\/([a-zA-Z0-9_-]+)/);

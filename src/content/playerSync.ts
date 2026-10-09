@@ -15,6 +15,8 @@ export class PlayerSync {
   private endedListener: (() => void) | null = null;
   private currentVideoId: string = '';
   private isSeeking: boolean = false;
+  private recentLiveCommentIds = new Set<string>();
+  private recentLiveCommentSignatures = new Map<string, number>();
 
   private readonly syncToken = `sync_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -83,6 +85,38 @@ export class PlayerSync {
       ? (this.overlayUi.getSettings().twitchEnabled ?? true)
       : (this.overlayUi.getSettings().liveChatEnabled ?? true);
     if (!liveEnabled) return;
+
+    // 重複ディスパッチ防止 (同一コメントID、または同一投稿者・同一テキストの極短時間内多重送信を破棄)
+    const now = Date.now();
+    if (comment.id && this.recentLiveCommentIds.has(comment.id)) {
+      return;
+    }
+    const sig = `${comment.authorName}:${comment.rawText}`;
+    const lastSeen = this.recentLiveCommentSignatures.get(sig);
+    if (lastSeen && now - lastSeen < 3000) {
+      return;
+    }
+    if (comment.id) {
+      this.recentLiveCommentIds.add(comment.id);
+    }
+    this.recentLiveCommentSignatures.set(sig, now);
+
+    if (this.recentLiveCommentIds.size > 800) {
+      const it = this.recentLiveCommentIds.values();
+      for (let i = 0; i < 300; i++) {
+        const val = it.next().value;
+        if (!val) break;
+        this.recentLiveCommentIds.delete(val);
+      }
+    }
+    if (this.recentLiveCommentSignatures.size > 400) {
+      const expireBefore = now - 6000;
+      for (const [key, time] of this.recentLiveCommentSignatures.entries()) {
+        if (time < expireBefore) {
+          this.recentLiveCommentSignatures.delete(key);
+        }
+      }
+    }
 
     const dummyTrigger: TimestampCommentTrigger = {
       comment,
@@ -185,6 +219,8 @@ export class PlayerSync {
   public clear() {
     this.triggersBySecond.clear();
     this.triggeredFlowCommentIds.clear();
+    this.recentLiveCommentIds.clear();
+    this.recentLiveCommentSignatures.clear();
     this.lastCheckedSecond = -1;
     this.overlayUi.clearAll();
   }
