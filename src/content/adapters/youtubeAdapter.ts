@@ -13,7 +13,9 @@ export class YouTubeAdapter implements IPlatformAdapter {
   private chatStateObserver: MutationObserver | null = null;
   private syncInterval: number | null = null;
   private fullscreenListener: (() => void) | null = null;
+  private clickListener: ((e: MouseEvent) => void) | null = null;
   private isLiveChatEnabledCallback: (() => boolean) | null = null;
+  private knownLiveVideoIds = new Set<string>();
 
   constructor(commentFetcher: CommentFetcher) {
     this.commentFetcher = commentFetcher;
@@ -48,6 +50,10 @@ export class YouTubeAdapter implements IPlatformAdapter {
     if (this.fullscreenListener) {
       document.removeEventListener('fullscreenchange', this.fullscreenListener);
       this.fullscreenListener = null;
+    }
+    if (this.clickListener) {
+      document.removeEventListener('click', this.clickListener, true);
+      this.clickListener = null;
     }
   }
 
@@ -105,22 +111,42 @@ export class YouTubeAdapter implements IPlatformAdapter {
   }
 
   public isLiveStream(): boolean {
-    if (typeof location !== 'undefined' && location.pathname.startsWith('/live/')) return true;
+    const vid = this.getVideoId();
+    if (vid && this.knownLiveVideoIds.has(vid)) return true;
+
+    if (typeof location !== 'undefined' && location.pathname.startsWith('/live/')) {
+      if (vid) this.knownLiveVideoIds.add(vid);
+      return true;
+    }
     const liveBadge = document.querySelector('.ytp-live, .ytp-live-badge');
-    if (liveBadge) return true;
+    if (liveBadge) {
+      if (vid) this.knownLiveVideoIds.add(vid);
+      return true;
+    }
     const watchFlexy = document.querySelector('ytd-watch-flexy');
-    if (watchFlexy?.hasAttribute('is-live')) return true;
-    if (document.querySelector('ytd-live-chat-frame, ytd-watch-flexy #chat')) return true;
+    if (watchFlexy?.hasAttribute('is-live')) {
+      if (vid) this.knownLiveVideoIds.add(vid);
+      return true;
+    }
+    if (document.querySelector('ytd-live-chat-frame, ytd-watch-flexy #chat, #chatframe, #show-hide-button')) {
+      if (vid) this.knownLiveVideoIds.add(vid);
+      return true;
+    }
     const video = this.getVideoElement();
-    if (video && video.duration === Infinity) return true;
+    if (video && video.duration === Infinity) {
+      if (vid) this.knownLiveVideoIds.add(vid);
+      return true;
+    }
     return false;
   }
 
   /**
-   * YouTube標準のチャット枠（#chatframe）が現在開いてアクティブに動作しているか判定
+   * YouTube標準のチャット枠（#chatframe）が現在画面上に開いてアクティブに動作しているか判定
    */
   public isNativeChatActive(): boolean {
-    const chatContainer = document.querySelector<HTMLElement>('ytd-live-chat-frame#chat, ytd-watch-flexy #chat, ytd-live-chat-frame');
+    const chatContainer = document.querySelector<HTMLElement>(
+      'ytd-live-chat-frame#chat, ytd-watch-flexy #chat, ytd-live-chat-frame'
+    );
     if (!chatContainer) return false;
 
     // 「チャットを非表示」による折りたたみ状態の判定
@@ -132,16 +158,37 @@ export class YouTubeAdapter implements IPlatformAdapter {
       return false;
     }
 
+    // 要素またはその親・先祖が display: none や visibility: hidden になっているか
+    if (chatContainer.offsetParent === null && !document.fullscreenElement) {
+      return false;
+    }
+    const containerStyle = window.getComputedStyle(chatContainer);
+    if (containerStyle.display === 'none' || containerStyle.visibility === 'hidden') {
+      return false;
+    }
+
+    const rect = chatContainer.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      return false;
+    }
+
+    // 全画面時: 全画面用チャットパネルが開いているか確認
+    if (document.fullscreenElement) {
+      const fsChat = document.querySelector<HTMLElement>(
+        '.ytp-fullscreen #chat, ytd-watch-flexy[fullscreen] #chat, .ytp-chrome-bottom .ytp-chat, .ytp-fullscreen-overlay'
+      );
+      if (!fsChat || fsChat.offsetWidth === 0 || fsChat.offsetHeight === 0) {
+        return false;
+      }
+    }
+
     // ネイティブのiframeが存在し非表示でないか
     const nativeIframe = chatContainer.querySelector<HTMLIFrameElement>('iframe#chatframe, iframe');
     if (!nativeIframe) return false;
     if (!nativeIframe.src || nativeIframe.src === 'about:blank') return false;
     if (nativeIframe.style.display === 'none' || nativeIframe.hidden) return false;
-
-    // 通常画面（非全画面）でコンテナ自体のサイズが0の場合
-    if (!document.fullscreenElement && chatContainer.offsetHeight === 0 && chatContainer.offsetWidth === 0) {
-      return false;
-    }
+    const iframeStyle = window.getComputedStyle(nativeIframe);
+    if (iframeStyle.display === 'none' || iframeStyle.visibility === 'hidden') return false;
 
     return true;
   }
@@ -196,21 +243,27 @@ export class YouTubeAdapter implements IPlatformAdapter {
     iframe.setAttribute('aria-hidden', 'true');
     iframe.tabIndex = -1;
 
-    // ネイティブiframeのsrc（継続トークンやリプレイ用URL）が存在すれば再利用、なければポップアウト用URLを使用
+    // ネイティブiframeのURLからアーカイブ（チャットリプレイ）かリアルタイム配信かを判別
     const nativeChatframe = document.querySelector<HTMLIFrameElement>('#chatframe');
-    let src = nativeChatframe?.getAttribute('src') || nativeChatframe?.src;
-    if (!src || !src.includes('/live_chat') || src === 'about:blank') {
-      src = `https://www.youtube.com/live_chat?is_popout=1&v=${encodeURIComponent(videoId)}`;
-    }
-    iframe.src = src;
+    const nativeSrc = nativeChatframe?.getAttribute('src') || nativeChatframe?.src || '';
+    const isReplay = nativeSrc.includes('/live_chat_replay') || window.location.pathname.includes('/live_chat_replay');
 
-    // display: none を使うとブラウザ（Chromium/Gecko）のタイマーやレンダリングがスロットル/停止するため、
-    // 正の寸法を持たせたまま画面外（position: fixed, top: -9999px）に配置
+    // 消費済みの古い continuation トークン付き URL は使わず、常に最新セッションを開始するクリーンなURLを生成
+    const cleanUrl = isReplay
+      ? `https://www.youtube.com/live_chat_replay?v=${encodeURIComponent(videoId)}`
+      : `https://www.youtube.com/live_chat?v=${encodeURIComponent(videoId)}`;
+
+    iframe.src = cleanUrl;
+
+    // top: -9999px 等の画面外に配置すると、ブラウザのバックグラウンドスロットリングや
+    // YouTubeのIntersectionObserverによってチャット項目のDOM更新が完全に停止してしまう。
+    // そのため、ビューポート内（bottom: 0, right: 0）に配置しつつ最背面・極小透明・クリック透過にして
+    // ユーザーには一切見えず、かつブラウザとYouTubeからは通常通りアクティブと認識させる。
     iframe.style.setProperty('position', 'fixed', 'important');
-    iframe.style.setProperty('top', '-9999px', 'important');
-    iframe.style.setProperty('left', '-9999px', 'important');
+    iframe.style.setProperty('bottom', '0px', 'important');
+    iframe.style.setProperty('right', '0px', 'important');
     iframe.style.setProperty('width', '320px', 'important');
-    iframe.style.setProperty('height', '480px', 'important');
+    iframe.style.setProperty('height', '320px', 'important');
     iframe.style.setProperty('opacity', '0.001', 'important');
     iframe.style.setProperty('pointer-events', 'none', 'important');
     iframe.style.setProperty('z-index', '-99999', 'important');
@@ -218,7 +271,7 @@ export class YouTubeAdapter implements IPlatformAdapter {
 
     (document.body || document.documentElement).appendChild(iframe);
     this.backgroundChatFrame = iframe;
-    console.log('[TimeBubble] Background live chat frame mounted for closed chat:', videoId);
+    console.log('[TimeBubble] Background live chat frame mounted for closed chat:', videoId, cleanUrl);
   }
 
   public cleanupBackgroundLiveChatFrame() {
@@ -246,11 +299,11 @@ export class YouTubeAdapter implements IPlatformAdapter {
 
     const targetNode = document.body || document.documentElement;
     if (targetNode) {
+      // 属性制限を外して全般的な構造変化・クラス変化を検知
       this.chatStateObserver.observe(targetNode, {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ['collapsed', 'hidden', 'is-live'],
       });
     }
 
@@ -259,12 +312,27 @@ export class YouTubeAdapter implements IPlatformAdapter {
     }
     this.syncInterval = window.setInterval(() => {
       this.syncLiveChatFrameState();
-    }, 2500);
+    }, 1500);
 
     this.fullscreenListener = () => {
       this.syncLiveChatFrameState();
     };
     document.addEventListener('fullscreenchange', this.fullscreenListener);
+
+    // チャット開閉ボタンのクリックを即時検知
+    this.clickListener = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest?.(
+          '#show-hide-button, ytd-toggle-button-renderer, button[aria-label*="チャット"], button[aria-label*="Chat"], #chat, ytd-live-chat-frame'
+        )
+      ) {
+        setTimeout(() => this.syncLiveChatFrameState(), 50);
+        setTimeout(() => this.syncLiveChatFrameState(), 350);
+        setTimeout(() => this.syncLiveChatFrameState(), 1000);
+      }
+    };
+    document.addEventListener('click', this.clickListener, true);
 
     this.syncLiveChatFrameState();
   }

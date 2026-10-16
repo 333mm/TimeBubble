@@ -112,6 +112,8 @@ export class OverlayUi {
   public isLiveComment(trigger: TimestampCommentTrigger): boolean {
     return (
       trigger.timestamp.formatted === 'Live' ||
+      trigger.comment.source === 'live_chat' ||
+      trigger.comment.source === 'twitch_chat' ||
       this.isTwitchPlatform(trigger.comment) ||
       this.isLiveModeActive()
     );

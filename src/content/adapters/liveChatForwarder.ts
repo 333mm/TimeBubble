@@ -38,13 +38,14 @@ export class LiveChatForwarder {
 
         if (comments.length > 0) {
           try {
-            window.parent.postMessage(
-              {
-                type: 'TIMEBUBBLE_LIVE_CHAT_MESSAGE',
-                comments,
-              },
-              '*'
-            );
+            const msgPayload = {
+              type: 'TIMEBUBBLE_LIVE_CHAT_MESSAGE',
+              comments,
+            };
+            window.parent.postMessage(msgPayload, '*');
+            if (window.top && window.top !== window.parent) {
+              window.top.postMessage(msgPayload, '*');
+            }
           } catch (err) {
             console.warn('[TimeBubble:LiveChatForwarder] postMessage failed:', err);
           }
@@ -54,45 +55,84 @@ export class LiveChatForwarder {
       this.observer.observe(container, { childList: true });
       console.log('[TimeBubble:LiveChatForwarder] Observer attached to live chat items container');
 
+      // 既知要素IDのキャッシュ（二重送信防止用）
+      const seenElementIds = new Set<string>();
+
       // 初回接続時に既に読み込まれている直近コメントも即座に転送
+      const checkAndForwardNodes = (nodes: NodeListOf<HTMLElement> | HTMLElement[]) => {
+        const batch: CommentData[] = [];
+        nodes.forEach((node) => {
+          const elId = node.id || node.getAttribute('id') || '';
+          if (elId && seenElementIds.has(elId)) return;
+          const parsed = this.parseChatMessageElement(node);
+          if (parsed) {
+            if (elId) seenElementIds.add(elId);
+            batch.push(parsed);
+          }
+        });
+
+        if (batch.length > 0) {
+          try {
+            const msgPayload = {
+              type: 'TIMEBUBBLE_LIVE_CHAT_MESSAGE',
+              comments: batch,
+            };
+            window.parent.postMessage(msgPayload, '*');
+            if (window.top && window.top !== window.parent) {
+              window.top.postMessage(msgPayload, '*');
+            }
+          } catch {
+            // ignore
+          }
+        }
+      };
+
       try {
         const initialNodes = container.querySelectorAll<HTMLElement>(
           'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
         );
         if (initialNodes.length > 0) {
-          const initialComments: CommentData[] = [];
-          const startIdx = Math.max(0, initialNodes.length - 8);
-          for (let i = startIdx; i < initialNodes.length; i++) {
-            const parsed = this.parseChatMessageElement(initialNodes[i]);
-            if (parsed) {
-              initialComments.push(parsed);
-            }
-          }
-          if (initialComments.length > 0) {
-            window.parent.postMessage(
-              {
-                type: 'TIMEBUBBLE_LIVE_CHAT_MESSAGE',
-                comments: initialComments,
-              },
-              '*'
-            );
-          }
+          const startIdx = Math.max(0, initialNodes.length - 10);
+          const sliceNodes = Array.from(initialNodes).slice(startIdx);
+          checkAndForwardNodes(sliceNodes);
         }
       } catch {
         // ignore
       }
+
+      // バックグラウンド時に MutationObserver が抑制される現象を防ぐためのポーリングバックアップ & オートスクロール維持
+      setInterval(() => {
+        try {
+          const recentNodes = container.querySelectorAll<HTMLElement>(
+            'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
+          );
+          if (recentNodes.length > 0) {
+            const startIdx = Math.max(0, recentNodes.length - 8);
+            const sliceNodes = Array.from(recentNodes).slice(startIdx);
+            checkAndForwardNodes(sliceNodes);
+          }
+
+          // チャットの仮想スクロールリストを最下部に維持し、DOM更新の停止を防止
+          const scroller = document.querySelector<HTMLElement>('#item-scroller, #item-list');
+          if (scroller) {
+            scroller.scrollTop = scroller.scrollHeight;
+          }
+        } catch {
+          // ignore
+        }
+      }, 1200);
     };
 
     observeChat();
     let attempts = 0;
     const timer = setInterval(() => {
       attempts++;
-      if (!this.observer && attempts < 50) {
+      if (!this.observer && attempts < 150) {
         observeChat();
       } else {
         clearInterval(timer);
       }
-    }, 400);
+    }, 350);
   }
 
   private static parseChatMessageElement(el: HTMLElement): CommentData | null {
