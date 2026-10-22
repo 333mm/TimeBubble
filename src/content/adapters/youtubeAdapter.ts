@@ -8,15 +8,12 @@ export class YouTubeAdapter implements IPlatformAdapter {
   private messageListener: ((e: MessageEvent) => void) | null = null;
   private isDestroyed = false;
 
-  // 独自チャット非表示モード（Stealth Chat Hide Mode）および状態同期用
-  private isStealthChatHidden = false;
-  private isProgrammaticClick = false;
-  private lastAutoExpandAttemptTime = 0;
-  private lastTrackedVideoId = '';
+  // バックグラウンドチャット取得用 iframe および状態監視
+  private backgroundChatIframe: HTMLIFrameElement | null = null;
+  private backgroundChatVideoId = '';
   private chatStateObserver: MutationObserver | null = null;
   private syncInterval: number | null = null;
   private fullscreenListener: (() => void) | null = null;
-  private clickListener: ((e: MouseEvent) => void) | null = null;
   private isLiveChatEnabledCallback: (() => boolean) | null = null;
   private knownLiveVideoIds = new Set<string>();
 
@@ -37,7 +34,6 @@ export class YouTubeAdapter implements IPlatformAdapter {
   public destroy() {
     this.isDestroyed = true;
     this.cleanupBackgroundLiveChatFrame();
-    this.setStealthChatHidden(false);
 
     if (this.messageListener) {
       window.removeEventListener('message', this.messageListener);
@@ -54,10 +50,6 @@ export class YouTubeAdapter implements IPlatformAdapter {
     if (this.fullscreenListener) {
       document.removeEventListener('fullscreenchange', this.fullscreenListener);
       this.fullscreenListener = null;
-    }
-    if (this.clickListener) {
-      document.removeEventListener('click', this.clickListener, true);
-      this.clickListener = null;
     }
   }
 
@@ -157,7 +149,16 @@ export class YouTubeAdapter implements IPlatformAdapter {
     const chatContainer = this.getChatContainer();
     if (!chatContainer) return false;
 
-    if (chatContainer.hasAttribute('collapsed') || chatContainer.classList.contains('collapsed')) {
+    if (
+      chatContainer.hasAttribute('collapsed') ||
+      chatContainer.hasAttribute('hidden') ||
+      chatContainer.classList.contains('collapsed')
+    ) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(chatContainer);
+    if (style.display === 'none' || style.visibility === 'hidden') {
       return false;
     }
 
@@ -166,168 +167,133 @@ export class YouTubeAdapter implements IPlatformAdapter {
     const src = nativeIframe.getAttribute('src') || nativeIframe.src || '';
     if (!src || src === 'about:blank') return false;
 
+    const iframeStyle = window.getComputedStyle(nativeIframe);
+    if (iframeStyle.display === 'none' || iframeStyle.visibility === 'hidden') {
+      return false;
+    }
+
+    // チャットが閉じられている・隠れている場合は iframe の描画サイズが 0 になる
+    const iframeRect = nativeIframe.getBoundingClientRect();
+    if (iframeRect.width < 50 || iframeRect.height < 50) {
+      return false;
+    }
+
+    // 全画面表示中にネイティブチャットが全画面要素の外にある場合は非表示扱い
+    const fsElement = document.fullscreenElement;
+    if (fsElement && !fsElement.contains(nativeIframe)) {
+      return false;
+    }
+
     return true;
   }
 
   /**
-   * 独自の非表示モード（Stealth Chat Hide Mode）の切り替え
-   * YouTube純正の collapsed 化による通信切断を回避しつつ、見た目とレイアウト上は完全に折りたたむ
-   */
-  public setStealthChatHidden(hidden: boolean) {
-    this.isStealthChatHidden = hidden;
-
-    const chatContainer = this.getChatContainer();
-    const chatWrapper = document.getElementById('chat-container');
-    const panelsFullBleed = document.getElementById('panels-full-bleed-container');
-    const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
-
-    if (hidden) {
-      chatContainer?.classList.add('yt-co-stealth-chat-hidden');
-      chatWrapper?.classList.add('yt-co-stealth-container-hidden');
-      panelsFullBleed?.classList.add('yt-co-stealth-container-hidden');
-      watchFlexy?.classList.add('yt-co-stealth-flexy-chat-hidden');
-      this.ensureRestoreChatBar();
-    } else {
-      document.querySelectorAll('.yt-co-stealth-chat-hidden').forEach((el) => {
-        el.classList.remove('yt-co-stealth-chat-hidden');
-      });
-      document.querySelectorAll('.yt-co-stealth-container-hidden').forEach((el) => {
-        el.classList.remove('yt-co-stealth-container-hidden');
-      });
-      document.querySelectorAll('.yt-co-stealth-flexy-chat-hidden').forEach((el) => {
-        el.classList.remove('yt-co-stealth-flexy-chat-hidden');
-      });
-      this.removeRestoreChatBar();
-    }
-  }
-
-  /**
-   * 独自非表示モード中に「チャットを表示」復元ボタンバーを描画
-   */
-  private ensureRestoreChatBar() {
-    let bar = document.getElementById('yt-co-restore-chat-bar');
-    if (!bar) {
-      bar = document.createElement('div');
-      bar.id = 'yt-co-restore-chat-bar';
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'yt-co-restore-chat-btn';
-      btn.textContent = 'チャットを表示';
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.setStealthChatHidden(false);
-        const chatContainer = this.getChatContainer();
-        if (chatContainer && (chatContainer.hasAttribute('collapsed') || chatContainer.classList.contains('collapsed'))) {
-          this.triggerNativeChatExpand();
-        }
-      });
-
-      bar.appendChild(btn);
-    }
-
-    // 配置先の決定（通常時は #chat-container、シアターモード等で #chat-container が非表示域にある場合は #secondary-inner 先頭）
-    const chatWrapper = document.getElementById('chat-container');
-    const panelsFullBleed = document.getElementById('panels-full-bleed-container');
-    const secondaryInner = document.getElementById('secondary-inner') || document.getElementById('secondary');
-    const chatContainer = this.getChatContainer();
-
-    let host: HTMLElement | null = null;
-    if (chatWrapper && (!panelsFullBleed || !panelsFullBleed.contains(chatWrapper))) {
-      host = chatWrapper;
-    } else if (secondaryInner) {
-      host = secondaryInner;
-    } else if (chatContainer?.parentElement) {
-      host = chatContainer.parentElement;
-    }
-
-    if (host && bar.parentElement !== host) {
-      host.prepend(bar);
-    }
-  }
-
-  private removeRestoreChatBar() {
-    const bar = document.getElementById('yt-co-restore-chat-bar');
-    if (bar && bar.parentElement) {
-      bar.parentElement.removeChild(bar);
-    }
-  }
-
-  /**
-   * YouTube 純正のチャットが collapsed（折りたたみ切断）状態の場合にプログラム的に展開させ、
-   * 正規の continuation トークン付き iframe#chatframe を接続させる
-   */
-  private triggerNativeChatExpand() {
-    const now = Date.now();
-    if (now - this.lastAutoExpandAttemptTime < 2000) return;
-    this.lastAutoExpandAttemptTime = now;
-
-    const expandBtn = document.querySelector<HTMLElement>(
-      '#show-hide-button button, #show-hide-button ytd-toggle-button-renderer button, #show-hide-button ytd-button-renderer button, #show-hide-button tp-yt-paper-button, ytd-live-chat-frame[collapsed] #show-hide-button *'
-    );
-    if (expandBtn && typeof expandBtn.click === 'function') {
-      this.isProgrammaticClick = true;
-      try {
-        expandBtn.click();
-        console.log('[TimeBubble] Triggered native chat expansion for Stealth Chat Mode');
-      } finally {
-        this.isProgrammaticClick = false;
-      }
-    }
-  }
-
-  /**
-   * チャット欄の開閉状態と同期し、閉じられている場合は独自非表示モード（Stealth Chat Hide Mode）で通信を維持
+   * チャット欄の開閉状態と同期し、閉じられている場合のみページレイアウトに影響しない
+   * バックグラウンドポップアウト iframe（?is_popout=1&v=...）でチャット取得を維持する
    */
   public syncLiveChatFrameState() {
     if (this.isDestroyed) return;
 
-    const currentVid = this.getVideoId();
-    if (currentVid && currentVid !== this.lastTrackedVideoId) {
-      this.lastTrackedVideoId = currentVid;
-      this.isStealthChatHidden = false;
-      this.removeRestoreChatBar();
+    // 拡張機能設定でライブチャット機能が無効化されている場合はバックグラウンド iframe を破棄
+    if (this.isLiveChatEnabledCallback && !this.isLiveChatEnabledCallback()) {
+      this.cleanupBackgroundLiveChatFrame();
+      return;
     }
 
     const isLive = this.isLiveStream();
     if (!isLive) {
-      if (this.isStealthChatHidden) {
-        this.setStealthChatHidden(false);
+      this.cleanupBackgroundLiveChatFrame();
+      return;
+    }
+
+    if (this.isNativeChatActive()) {
+      // ネイティブチャットが開いている場合は重複取得を防ぐためバックグラウンド iframe を破棄
+      this.cleanupBackgroundLiveChatFrame();
+    } else {
+      // ネイティブチャットが閉じられている（collapsed / 非表示）場合はバックグラウンド iframe を起動
+      this.ensureBackgroundLiveChatFrame();
+    }
+  }
+
+  private ensureBackgroundLiveChatFrame() {
+    const videoId = this.getVideoId();
+    if (!videoId) return;
+
+    const hostParent = (document.fullscreenElement as HTMLElement) || document.body;
+    if (!hostParent) return;
+
+    if (
+      this.backgroundChatIframe &&
+      document.contains(this.backgroundChatIframe) &&
+      this.backgroundChatVideoId === videoId
+    ) {
+      if (this.backgroundChatIframe.parentElement !== hostParent) {
+        hostParent.appendChild(this.backgroundChatIframe);
       }
       return;
     }
 
-    // 拡張機能設定でライブチャット機能が無効化されている場合は干渉しない
-    if (this.isLiveChatEnabledCallback && !this.isLiveChatEnabledCallback()) {
-      return;
-    }
+    this.cleanupBackgroundLiveChatFrame();
 
-    const chatContainer = this.getChatContainer();
-    if (!chatContainer) return;
+    const watchFlexy = document.querySelector('ytd-watch-flexy');
+    const video = this.getVideoElement();
+    const isRealtimeLive =
+      watchFlexy?.hasAttribute('is-live') ||
+      (video && video.duration === Infinity) ||
+      Boolean(document.querySelector('.ytp-live-badge[disabled], .ytp-live'));
 
-    const isNativelyCollapsed =
-      chatContainer.hasAttribute('collapsed') || chatContainer.classList.contains('collapsed');
+    const nativeChatframe = document.querySelector<HTMLIFrameElement>(
+      'ytd-live-chat-frame iframe#chatframe, iframe#chatframe'
+    );
+    const nativeSrc = nativeChatframe?.getAttribute('src') || nativeChatframe?.src || '';
+    const isReplay = !isRealtimeLive && nativeSrc.includes('live_chat_replay');
 
-    if (isNativelyCollapsed) {
-      // YouTube純正の折りたたみ状態（通信切断）を検知したら、即座に独自非表示モードを適用して画面上は隠したまま内部的に展開させる
-      this.setStealthChatHidden(true);
-      this.triggerNativeChatExpand();
-    } else if (this.isStealthChatHidden) {
-      // 独自非表示モード中は、DOM再構築やシアターモード切替が起きてもクラスと復元バーを維持する
-      this.setStealthChatHidden(true);
-    }
+    // is_popout=1 を付与することで continuation トークン不要で新規セッションを確立
+    const cleanUrl = isReplay
+      ? `https://www.youtube.com/live_chat_replay?is_popout=1&v=${encodeURIComponent(videoId)}`
+      : `https://www.youtube.com/live_chat?is_popout=1&v=${encodeURIComponent(videoId)}`;
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'timebubble-live-chat-frame';
+    iframe.src = cleanUrl;
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.tabIndex = -1;
+    // ページレイアウトに一切影響せず、かつブラウザの画面外スロットリングを回避するビューポート内極小透過配置
+    iframe.style.cssText = [
+      'position: fixed !important',
+      'bottom: 0px !important',
+      'right: 0px !important',
+      'width: 320px !important',
+      'height: 360px !important',
+      'opacity: 0.001 !important',
+      'pointer-events: none !important',
+      'z-index: -99999 !important',
+      'border: none !important',
+      'margin: 0 !important',
+      'padding: 0 !important',
+    ].join('; ');
+
+    hostParent.appendChild(iframe);
+    this.backgroundChatIframe = iframe;
+    this.backgroundChatVideoId = videoId;
   }
 
   public cleanupBackgroundLiveChatFrame() {
+    if (this.backgroundChatIframe) {
+      if (this.backgroundChatIframe.parentElement) {
+        this.backgroundChatIframe.parentElement.removeChild(this.backgroundChatIframe);
+      }
+      this.backgroundChatIframe = null;
+    }
     const existing = document.getElementById('timebubble-live-chat-frame');
     if (existing && existing.parentElement) {
       existing.parentElement.removeChild(existing);
     }
+    this.backgroundChatVideoId = '';
   }
 
   /**
-   * チャット欄の開閉ボタン（「チャットを非表示」「チャットを表示」等）や属性変化を監視
+   * チャット欄の開閉状態や属性変化を監視（YouTube 純正の DOM / CSS には一切干渉しない）
    */
   private setupChatStateObserver() {
     if (this.chatStateObserver) {
@@ -344,7 +310,7 @@ export class YouTubeAdapter implements IPlatformAdapter {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ['collapsed', 'hidden', 'theater', 'fixed-panels'],
+        attributeFilter: ['collapsed', 'hidden', 'src', 'style', 'class', 'is-live'],
       });
     }
 
@@ -353,67 +319,23 @@ export class YouTubeAdapter implements IPlatformAdapter {
     }
     this.syncInterval = window.setInterval(() => {
       this.syncLiveChatFrameState();
-    }, 1000);
+    }, 1500);
 
     this.fullscreenListener = () => {
       this.syncLiveChatFrameState();
     };
     document.addEventListener('fullscreenchange', this.fullscreenListener);
 
-    // 親ページの「チャットを非表示」ボタンクリックをキャプチャフェーズでインターセプト
-    this.clickListener = (e: MouseEvent) => {
-      if (this.isProgrammaticClick) return;
-
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-
-      // 復元バー自体のクリックは素通り
-      if (target.closest('#yt-co-restore-chat-bar')) return;
-
-      const showHideBtn = target.closest('#show-hide-button');
-      if (showHideBtn) {
-        const liveEnabled = !this.isLiveChatEnabledCallback || this.isLiveChatEnabledCallback();
-        const chatContainer = this.getChatContainer();
-
-        if (liveEnabled && chatContainer) {
-          const isNativelyCollapsed =
-            chatContainer.hasAttribute('collapsed') || chatContainer.classList.contains('collapsed');
-
-          if (!isNativelyCollapsed) {
-            // チャットが展開されている状態で「チャットを非表示」が押された場合:
-            // YouTube純正の collapsed 化（通信切断）を阻止し、独自の非表示モードへ切り替える
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            this.setStealthChatHidden(!this.isStealthChatHidden);
-            return;
-          } else {
-            // 万一純正の「チャットを表示」ボタンが押された場合は、独自非表示を解除して展開させる
-            this.setStealthChatHidden(false);
-          }
-        }
-      }
-    };
-    document.addEventListener('click', this.clickListener, true);
-
     this.syncLiveChatFrameState();
   }
 
   /**
-   * iframe#chatframe から postMessage で転送されてくるチャットおよびステルス非表示トグルを受信
+   * iframe（ネイティブ #chatframe またはバックグラウンド #timebubble-live-chat-frame）から
+   * postMessage で転送されてくるライブチャットを受信
    */
   private setupLiveChatMessageListener() {
     this.messageListener = (event: MessageEvent) => {
       if (this.isDestroyed || !event.data) return;
-
-      if (event.data.type === 'TIMEBUBBLE_STEALTH_CHAT_TOGGLE') {
-        const liveEnabled = !this.isLiveChatEnabledCallback || this.isLiveChatEnabledCallback();
-        if (liveEnabled) {
-          this.setStealthChatHidden(Boolean(event.data.hidden));
-        }
-        return;
-      }
-
       if (event.data.type !== 'TIMEBUBBLE_LIVE_CHAT_MESSAGE') return;
 
       const comments: CommentData[] = event.data.comments;

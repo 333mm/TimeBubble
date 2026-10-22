@@ -18,8 +18,6 @@ export class LiveChatForwarder {
     this.isRunning = true;
     console.log('[TimeBubble:LiveChatForwarder] Initializing inside live chat iframe');
 
-    this.setupCloseButtonInterceptor();
-
     const forwardComments = (comments: CommentData[]) => {
       if (comments.length === 0) return;
       try {
@@ -137,43 +135,6 @@ export class LiveChatForwarder {
         // ignore
       }
     }, 1000);
-  }
-
-  /**
-   * iframe 内の右上「✕（チャットを閉じる）」ボタンのクリックをキャプチャフェーズで捕捉し、
-   * YouTube 純正のチャット切断処理を防いで独自の非表示モード（Stealth Chat Hide Mode）へ移行させる
-   */
-  private static setupCloseButtonInterceptor() {
-    document.addEventListener(
-      'click',
-      (e: MouseEvent) => {
-        const target = e.target as HTMLElement | null;
-        if (!target) return;
-
-        const closeBtn = target.closest(
-          '#close-button, yt-live-chat-header-renderer #close-button, [aria-label*="チャットを非表示"], [aria-label*="Hide chat"], [aria-label*="Close"], [aria-label*="閉じる"]'
-        );
-        if (closeBtn) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          try {
-            const payload = {
-              type: 'TIMEBUBBLE_STEALTH_CHAT_TOGGLE',
-              hidden: true,
-            };
-            window.parent.postMessage(payload, '*');
-            if (window.top && window.top !== window.parent) {
-              window.top.postMessage(payload, '*');
-            }
-          } catch {
-            // ignore
-          }
-        }
-      },
-      true
-    );
   }
 
   private static parseChatMessageElement(el: HTMLElement): CommentData | null {
