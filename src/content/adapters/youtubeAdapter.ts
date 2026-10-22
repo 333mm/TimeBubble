@@ -12,6 +12,8 @@ export class YouTubeAdapter implements IPlatformAdapter {
   // 独自チャット非表示モード（Stealth Chat Hide Mode）および状態同期用
   private isStealthChatHidden = false;
   private hadFixedPanelsBeforeStealth = false;
+  private lastTheaterModeState = false;
+  private lastOtherPanelExpandedState = false;
   private isProgrammaticClick = false;
   private lastAutoExpandAttemptTime = 0;
   private lastTrackedVideoId = '';
@@ -206,28 +208,31 @@ export class YouTubeAdapter implements IPlatformAdapter {
     const chatContainer = this.getChatContainer();
     const chatWrapper = document.getElementById('chat-container');
     const panelsFullBleed = document.getElementById('panels-full-bleed-container');
-    const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+    const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy, ytd-watch-grid');
     let fixedPanelsChanged = false;
+
+    const isTheaterOrFullBleed = Boolean(
+      watchFlexy?.hasAttribute('theater') || watchFlexy?.hasAttribute('full-bleed-player')
+    );
+    const theaterStateChanged = isTheaterOrFullBleed !== this.lastTheaterModeState;
+    this.lastTheaterModeState = isTheaterOrFullBleed;
+
+    // 他のエンゲージメントパネル（概要欄・チャプター・文字起こし・プレイリスト等）が開いているか判定
+    const hasOtherExpandedPanel = Boolean(
+      watchFlexy?.hasAttribute('engagement-panel-expanded') ||
+        watchFlexy?.hasAttribute('playlist-panel-expanded') ||
+        panelsFullBleed?.querySelector(
+          'ytd-engagement-panel-section-list-renderer[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]:not([target-id*="chat"])'
+        )
+    );
+    const otherPanelStateChanged = hasOtherExpandedPanel !== this.lastOtherPanelExpandedState;
+    this.lastOtherPanelExpandedState = hasOtherExpandedPanel;
 
     if (hidden) {
       chatContainer?.classList.add('yt-co-stealth-chat-hidden');
       chatWrapper?.classList.add('yt-co-stealth-container-hidden');
 
-      // #panels-full-bleed-container 内にチャットが存在する場合（シアターモードやワイド fixed-panels 時）のみ制御
-      const isChatInsideFullBleed = Boolean(
-        panelsFullBleed &&
-          ((chatContainer && panelsFullBleed.contains(chatContainer)) ||
-            (chatWrapper && panelsFullBleed.contains(chatWrapper)))
-      );
-
-      // 他のエンゲージメントパネル（概要欄・チャプター・文字起こし等）が開いている場合はパネル枠を潰さない
-      const hasOtherExpandedPanel = Boolean(
-        panelsFullBleed?.querySelector(
-          'ytd-engagement-panel-section-list-renderer[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]:not([target-id*="chat"])'
-        )
-      );
-
-      if (isChatInsideFullBleed && !hasOtherExpandedPanel) {
+      if (!hasOtherExpandedPanel) {
         panelsFullBleed?.classList.add('yt-co-stealth-container-hidden');
         watchFlexy?.classList.add('yt-co-stealth-flexy-chat-hidden');
         if (watchFlexy?.hasAttribute('fixed-panels')) {
@@ -253,12 +258,7 @@ export class YouTubeAdapter implements IPlatformAdapter {
       });
 
       if (this.hadFixedPanelsBeforeStealth && watchFlexy) {
-        const isChatInsideFullBleed = Boolean(
-          panelsFullBleed &&
-            ((chatContainer && panelsFullBleed.contains(chatContainer)) ||
-              (chatWrapper && panelsFullBleed.contains(chatWrapper)))
-        );
-        if (isChatInsideFullBleed && !watchFlexy.hasAttribute('fixed-panels')) {
+        if (isTheaterOrFullBleed && !watchFlexy.hasAttribute('fixed-panels')) {
           watchFlexy.setAttribute('fixed-panels', '');
           fixedPanelsChanged = true;
         }
@@ -268,7 +268,11 @@ export class YouTubeAdapter implements IPlatformAdapter {
       this.removeRestoreChatBar();
     }
 
-    if (wasHidden !== hidden || fixedPanelsChanged) {
+    if (
+      wasHidden !== hidden ||
+      fixedPanelsChanged ||
+      (hidden && (theaterStateChanged || otherPanelStateChanged))
+    ) {
       this.notifyYouTubePlayerResize();
     }
   }
@@ -279,12 +283,16 @@ export class YouTubeAdapter implements IPlatformAdapter {
    */
   private notifyYouTubePlayerResize() {
     try {
-      window.dispatchEvent(new Event('resize'));
+      const dispatchResize = () => {
+        window.dispatchEvent(new Event('resize'));
+        window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_FORCE_PLAYER_RESIZE'));
+      };
+      dispatchResize();
       window.setTimeout(() => {
-        if (!this.isDestroyed) window.dispatchEvent(new Event('resize'));
+        if (!this.isDestroyed) dispatchResize();
       }, 60);
       window.setTimeout(() => {
-        if (!this.isDestroyed) window.dispatchEvent(new Event('resize'));
+        if (!this.isDestroyed) dispatchResize();
       }, 220);
     } catch {
       // ignore
@@ -322,15 +330,31 @@ export class YouTubeAdapter implements IPlatformAdapter {
 
     const chatWrapper = document.getElementById('chat-container');
     const panelsFullBleed = document.getElementById('panels-full-bleed-container');
+    const columnsEl = document.getElementById('columns');
     const secondaryInner =
       document.getElementById('secondary-inner') || document.getElementById('secondary');
     const chatContainer = this.getChatContainer();
+    const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy, ytd-watch-grid');
+    const isTheaterOrFullBleed = Boolean(
+      watchFlexy?.hasAttribute('theater') || watchFlexy?.hasAttribute('full-bleed-player')
+    );
+
+    // シアターモード時は YouTube が #chat-container を #columns 直下や #panels-full-bleed-container 内に移動させるため、
+    // 復元バーは #secondary-inner の先頭（YouTube 純正のシアター折りたたみ時と同じ位置）に配置する
+    const isChatInTheaterSlot = Boolean(
+      chatWrapper &&
+        ((panelsFullBleed && panelsFullBleed.contains(chatWrapper)) ||
+          chatWrapper.parentElement === columnsEl ||
+          isTheaterOrFullBleed)
+    );
 
     let host: HTMLElement | null = null;
-    if (chatWrapper && (!panelsFullBleed || !panelsFullBleed.contains(chatWrapper))) {
+    if (chatWrapper && !isChatInTheaterSlot) {
       host = chatWrapper;
     } else if (secondaryInner) {
       host = secondaryInner;
+    } else if (chatWrapper) {
+      host = chatWrapper;
     } else if (chatContainer?.parentElement) {
       host = chatContainer.parentElement;
     }
@@ -1279,7 +1303,18 @@ export class YouTubeAdapter implements IPlatformAdapter {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ['collapsed', 'hidden', 'theater', 'fixed-panels', 'visibility'],
+        attributeFilter: [
+          'collapsed',
+          'hidden',
+          'theater',
+          'full-bleed-player',
+          'fixed-panels',
+          'panels-beside-player',
+          'squeezeback',
+          'engagement-panel-expanded',
+          'playlist-panel-expanded',
+          'visibility',
+        ],
       });
     }
 

@@ -1191,6 +1191,37 @@
 
   // ─── イベントリスナー ─────────────────────────
 
+  // Content Script からのプレイヤーリサイズ強制通知（シアターモード等でのチャット非表示・復元時）
+  window.addEventListener('YT_COMMENT_OVERLAY_FORCE_PLAYER_RESIZE', () => {
+    try {
+      const watchFlexy = (document.querySelector('ytd-watch-flexy') ||
+        document.querySelector('ytd-watch-grid')) as any;
+      if (watchFlexy) {
+        if (typeof watchFlexy.schedulePlayerSizeUpdate_ === 'function') {
+          watchFlexy.schedulePlayerSizeUpdate_(true);
+        } else if (typeof watchFlexy.ytdWatchBehavior?.schedulePlayerSizeUpdate_ === 'function') {
+          watchFlexy.ytdWatchBehavior.schedulePlayerSizeUpdate_(true);
+        }
+      }
+      const isTheater = Boolean(
+        watchFlexy?.hasAttribute?.('theater') || watchFlexy?.hasAttribute?.('full-bleed-player')
+      );
+      if (isTheater) {
+        const moviePlayer = document.getElementById('movie_player') as any;
+        if (moviePlayer) {
+          if (typeof moviePlayer.setSize === 'function') {
+            moviePlayer.setSize(NaN, NaN);
+          }
+          if (typeof moviePlayer.setInternalSize === 'function') {
+            moviePlayer.setInternalSize(NaN, NaN);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  });
+
   // Content Script からの返信フェッチリクエスト
   window.addEventListener('YT_COMMENT_OVERLAY_FETCH_REPLIES', () => {
     handleFetchRepliesInMainWorld();

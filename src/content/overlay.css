@@ -1522,6 +1522,9 @@
    YouTube純正の通信切断（collapsed）を回避しつつレイアウト上は完全に折りたたむ
    ========================================================================== */
 ytd-live-chat-frame.yt-co-stealth-chat-hidden {
+  width: 0px !important;
+  min-width: 0px !important;
+  max-width: 0px !important;
   height: 0px !important;
   min-height: 0px !important;
   max-height: 0px !important;
@@ -1536,6 +1539,7 @@ ytd-live-chat-frame.yt-co-stealth-chat-hidden {
   filter: none !important;
   backdrop-filter: none !important;
   content-visibility: visible !important;
+  pointer-events: none !important;
 }
 
 ytd-live-chat-frame.yt-co-stealth-chat-hidden > *:not(#content-pages):not(iframe#chatframe):not(#item-scroller),
@@ -1565,13 +1569,44 @@ ytd-live-chat-frame.yt-co-stealth-chat-hidden iframe#chatframe {
 #chat-container.yt-co-stealth-container-hidden {
   min-height: 0px !important;
   height: auto !important;
+  flex: 0 0 auto !important;
+  margin: 0px !important;
+  padding: 0px !important;
+  border: none !important;
   overflow: visible !important;
   contain: none !important;
   transform: none !important;
 }
 
+/* シアターモード・フルブリード時は #chat-container が #columns 直下や #panels-full-bleed-container 内に移動するため幅・高さを完全に 0 にする */
+#columns > #chat-container.yt-co-stealth-container-hidden,
+#panels-full-bleed-container #chat-container.yt-co-stealth-container-hidden,
+ytd-watch-flexy[theater] #columns > #chat-container.yt-co-stealth-container-hidden,
+ytd-watch-flexy[full-bleed-player] #columns > #chat-container.yt-co-stealth-container-hidden {
+  width: 0px !important;
+  min-width: 0px !important;
+  max-width: 0px !important;
+  height: 0px !important;
+  min-height: 0px !important;
+  max-height: 0px !important;
+  flex: 0 0 0px !important;
+  margin: 0px !important;
+  padding: 0px !important;
+  border: none !important;
+}
+
+#columns > #chat-container.yt-co-stealth-container-hidden #yt-co-restore-chat-bar,
+#panels-full-bleed-container #chat-container.yt-co-stealth-container-hidden #yt-co-restore-chat-bar {
+  display: none !important;
+}
+
+/* シアターモード等で他のパネル（概要欄・文字起こし・プレイリスト等）が開いていない限り、右側パネル枠の余白（402px）を 0 にする */
 #panels-full-bleed-container.yt-co-stealth-container-hidden,
-ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden #panels-full-bleed-container {
+ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden:not([engagement-panel-expanded]):not([playlist-panel-expanded]) #panels-full-bleed-container,
+ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden[fixed-panels]:not([engagement-panel-expanded]):not([playlist-panel-expanded]) #panels-full-bleed-container,
+ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden[panels-beside-player]:not([engagement-panel-expanded]):not([playlist-panel-expanded]) #panels-full-bleed-container,
+ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden[squeezeback]:not([engagement-panel-expanded]):not([playlist-panel-expanded]) #panels-full-bleed-container,
+ytd-watch-grid.yt-co-stealth-flexy-chat-hidden:not([engagement-panel-expanded]):not([playlist-panel-expanded]) #squeezeback-constraining-container {
   width: 0px !important;
   min-width: 0px !important;
   max-width: 0px !important;
@@ -1582,6 +1617,18 @@ ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden #panels-full-bleed-container {
   overflow: visible !important;
   contain: none !important;
   transform: none !important;
+}
+
+/* シアターモード時にプレイヤーコンテナを横幅 100% に広げ、下部カラムの右余白（fixed-panels 由来の padding-right）も解消する */
+ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden:not([engagement-panel-expanded]):not([playlist-panel-expanded]) #player-full-bleed-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  flex: 1 1 100% !important;
+}
+
+ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden:not([engagement-panel-expanded]):not([playlist-panel-expanded]) #columns,
+ytd-watch-flexy.yt-co-stealth-flexy-chat-hidden[fixed-panels]:not([engagement-panel-expanded]):not([playlist-panel-expanded]) #columns {
+  padding-right: 0px !important;
 }
 
 /* #panels-full-bleed-container 内の非アクティブな他パネル（概要欄・文字起こし等）が overflow: visible で画面にはみ出すのを完全防止 */
