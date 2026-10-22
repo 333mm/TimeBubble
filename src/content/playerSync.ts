@@ -15,6 +15,7 @@ export class PlayerSync {
   private endedListener: (() => void) | null = null;
   private currentVideoId: string = '';
   private isSeeking: boolean = false;
+  private onSeekCallback: (() => void) | null = null;
   private recentLiveCommentIds = new Set<string>();
   private recentLiveCommentSignatures = new Map<string, number>();
 
@@ -22,6 +23,10 @@ export class PlayerSync {
 
   constructor(overlayUi: OverlayUi) {
     this.overlayUi = overlayUi;
+  }
+
+  public setOnSeekCallback(callback: () => void) {
+    this.onSeekCallback = callback;
   }
 
   public setVideoId(videoId: string) {
@@ -262,11 +267,14 @@ export class PlayerSync {
 
   private handleSeeking() {
     this.isSeeking = true;
-    // シーク中はオーバーレイをクリアし、チェック済み秒数とレーンをリセット
+    // シーク中はオーバーレイをクリアし、チェック済み秒数・レーン・ライブ重複キャッシュをリセット
     this.overlayUi.clearAll();
     this.overlayUi.resetFlowLanes();
     this.lastCheckedSecond = -1;
     this.triggeredFlowCommentIds.clear();
+    this.recentLiveCommentIds.clear();
+    this.recentLiveCommentSignatures.clear();
+    this.onSeekCallback?.();
   }
 
   private handleSeeked() {
@@ -278,13 +286,19 @@ export class PlayerSync {
     this.overlayUi.clearAll();
     this.overlayUi.resetFlowLanes();
     this.triggeredFlowCommentIds.clear();
+    this.recentLiveCommentIds.clear();
+    this.recentLiveCommentSignatures.clear();
+    this.onSeekCallback?.();
 
-    if (this.overlayUi.isFlowModeEnabled()) {
-      // フローモード時: シーク先時間で現在画面内に流れているべきコメントを復元
-      this.syncFlowCommentsOnSeek(currentTime);
-    } else {
-      // カードモード時: シーク先秒数をチェック
-      this.checkAndTriggerSecond(currentSecond);
+    const tsMode = this.overlayUi.getEffectiveDisplayMode();
+    if (this.overlayUi.getSettings().enabled) {
+      if (tsMode === 'flow') {
+        // フローモード時: シーク先時間で現在画面内に流れているべきコメントを復元
+        this.syncFlowCommentsOnSeek(currentTime);
+      } else {
+        // カードまたはログモード時: シーク先秒数をチェック
+        this.checkAndTriggerSecond(currentSecond);
+      }
     }
     this.lastCheckedSecond = currentSecond;
 
@@ -298,29 +312,41 @@ export class PlayerSync {
 
   private handleTimeUpdate() {
     if (!this.videoEl || this.isSeeking) return;
-    if (!this.overlayUi.getSettings().enabled) return;
     const currentTime = this.videoEl.currentTime;
     const currentSecond = Math.floor(currentTime);
 
-    // 巻き戻しを検知した場合
+    // 巻き戻しを検知した場合（シークイベントを発火しない微細巻き戻しやDVR巻き戻しも含む）
     if (this.lastCheckedSecond !== -1 && currentSecond < this.lastCheckedSecond) {
       this.overlayUi.clearAll();
       this.overlayUi.resetFlowLanes();
       this.triggeredFlowCommentIds.clear();
-      if (this.overlayUi.isFlowModeEnabled()) {
-        this.syncFlowCommentsOnSeek(currentTime);
-      } else {
-        this.checkAndTriggerSecond(currentSecond);
+      this.recentLiveCommentIds.clear();
+      this.recentLiveCommentSignatures.clear();
+      this.onSeekCallback?.();
+
+      if (this.overlayUi.getSettings().enabled) {
+        const tsMode = this.overlayUi.getEffectiveDisplayMode();
+        if (tsMode === 'flow') {
+          this.syncFlowCommentsOnSeek(currentTime);
+        } else {
+          this.checkAndTriggerSecond(currentSecond);
+        }
       }
       this.lastCheckedSecond = currentSecond;
       return;
     }
 
-    if (this.overlayUi.isFlowModeEnabled()) {
+    if (!this.overlayUi.getSettings().enabled) {
+      this.lastCheckedSecond = currentSecond;
+      return;
+    }
+
+    const tsMode = this.overlayUi.getEffectiveDisplayMode();
+    if (tsMode === 'flow') {
       // フローモード: タイムスタンプ秒のタイミングで画面中央手前に到達するよう先行発火
       this.checkAndTriggerFlowComments(currentTime);
     } else {
-      // カードモード: タイムスタンプ秒でカード表示
+      // カードまたはログモード: タイムスタンプ秒で表示
       if (this.lastCheckedSecond === -1) {
         this.checkAndTriggerSecond(currentSecond);
       } else if (currentSecond !== this.lastCheckedSecond) {
@@ -340,7 +366,7 @@ export class PlayerSync {
   }
 
   /**
-   * カード表示モード用: 該当秒数のコメントをバブルカードで表示
+   * カード表示・ログ表示モード用: 該当秒数のコメントをバブルカードまたはチャットログで表示
    */
   private checkAndTriggerSecond(sec: number) {
     const triggers = this.triggersBySecond.get(sec);
@@ -360,12 +386,17 @@ export class PlayerSync {
       }
     }
 
+    const tsMode = this.overlayUi.getEffectiveDisplayMode();
     uniqueTriggers.forEach((trigger, idx) => {
       window.setTimeout(() => {
         if (this.currentVideoId && trigger.comment.videoId && trigger.comment.videoId !== this.currentVideoId) {
           return;
         }
-        this.overlayUi.showComment(trigger);
+        if (tsMode === 'chatbox') {
+          this.overlayUi.enqueueChatboxComment(trigger.comment);
+        } else {
+          this.overlayUi.showComment(trigger);
+        }
       }, idx * 120);
     });
   }

@@ -146,6 +146,13 @@ if (LiveChatForwarder.isLiveChatFrame()) {
       this.currentAdapter.setOnNewComments((comments) => {
         this.playerSync.addComments(comments);
       });
+
+      // 巻き戻し・シーク発生時のアダプタ連携（ライブリプレイ/DVRのキャッシュリセット等）
+      this.playerSync.setOnSeekCallback(() => {
+        if (this.currentAdapter instanceof YouTubeAdapter) {
+          this.currentAdapter.handlePlayerSeek();
+        }
+      });
     }
 
     private ensurePlayerAndShowTest(testKind?: 'timestamp' | 'live') {

@@ -3,7 +3,8 @@ import { CommentData, EmoteItem, MessageToken } from '../../types';
 export class LiveChatForwarder {
   private static observer: MutationObserver | null = null;
   private static observedContainer: HTMLElement | null = null;
-  private static seenElementIds = new Set<string>();
+  // 直近の送信テキスト署名（同一メッセージの1.5秒以内の二重送信防止のみに使用し、巻き戻し後の再表示を妨げない）
+  private static recentSentSignatures = new Map<string, number>();
   private static isRunning = false;
 
   public static isLiveChatFrame(): boolean {
@@ -19,6 +20,19 @@ export class LiveChatForwarder {
     console.log('[TimeBubble:LiveChatForwarder] Initializing inside live chat iframe');
 
     this.setupCloseButtonInterceptor();
+
+    // 親ページの動画シーク（巻き戻し）通知を受信したらキャッシュとDOM送信済み属性をクリアして再表示を許可する
+    window.addEventListener('message', (e: MessageEvent) => {
+      if (e.data && e.data.type === 'TIMEBUBBLE_RESET_SEEN_CHAT') {
+        this.recentSentSignatures.clear();
+        try {
+          const allRendered = document.querySelectorAll<HTMLElement>('[data-tb-forwarded-sig]');
+          allRendered.forEach((el) => el.removeAttribute('data-tb-forwarded-sig'));
+        } catch {
+          // ignore
+        }
+      }
+    });
 
     const forwardComments = (comments: CommentData[]) => {
       if (comments.length === 0) return;
@@ -38,20 +52,31 @@ export class LiveChatForwarder {
 
     const checkAndForwardNodes = (nodes: NodeListOf<HTMLElement> | HTMLElement[]) => {
       const batch: CommentData[] = [];
+      const now = Date.now();
       nodes.forEach((node) => {
-        const elId = node.id || node.getAttribute('id') || '';
-        if (elId && this.seenElementIds.has(elId)) return;
         const parsed = this.parseChatMessageElement(node);
-        if (parsed) {
-          if (elId) {
-            this.seenElementIds.add(elId);
-            if (this.seenElementIds.size > 2500) {
-              const first = this.seenElementIds.values().next().value;
-              if (first) this.seenElementIds.delete(first);
-            }
-          }
-          batch.push(parsed);
+        if (!parsed) return;
+
+        // PolymerのDOM要素リサイクルにも対応するため、要素自体に最後に送信したテキストを記録
+        const sig = `${parsed.authorName}:::${parsed.rawText}`;
+        const prevNodeSig = node.getAttribute('data-tb-forwarded-sig');
+        if (prevNodeSig === sig) return;
+
+        const lastSent = this.recentSentSignatures.get(sig);
+        if (lastSent && now - lastSent < 1500) {
+          node.setAttribute('data-tb-forwarded-sig', sig);
+          return;
         }
+
+        node.setAttribute('data-tb-forwarded-sig', sig);
+        this.recentSentSignatures.set(sig, now);
+        if (this.recentSentSignatures.size > 600) {
+          const expireBefore = now - 3000;
+          for (const [k, t] of this.recentSentSignatures.entries()) {
+            if (t < expireBefore) this.recentSentSignatures.delete(k);
+          }
+        }
+        batch.push(parsed);
       });
 
       if (batch.length > 0) {
@@ -75,22 +100,47 @@ export class LiveChatForwarder {
 
       this.observedContainer = container;
       this.observer = new MutationObserver((mutations) => {
-        const addedElements: HTMLElement[] = [];
+        const targetElements = new Set<HTMLElement>();
 
         for (const mut of mutations) {
-          mut.addedNodes.forEach((node) => {
-            if (node instanceof HTMLElement) {
-              addedElements.push(node);
+          if (mut.type === 'childList') {
+            mut.addedNodes.forEach((node) => {
+              if (node instanceof HTMLElement) {
+                const msgHost = node.closest<HTMLElement>(
+                  'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
+                );
+                if (msgHost) {
+                  targetElements.add(msgHost);
+                } else if (
+                  node.matches(
+                    'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
+                  )
+                ) {
+                  targetElements.add(node);
+                }
+              }
+            });
+          } else if (mut.type === 'characterData' || mut.type === 'attributes') {
+            const parent = mut.target instanceof HTMLElement ? mut.target : mut.target.parentElement;
+            const msgHost = parent?.closest<HTMLElement>(
+              'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
+            );
+            if (msgHost) {
+              targetElements.add(msgHost);
             }
-          });
+          }
         }
 
-        if (addedElements.length > 0) {
-          checkAndForwardNodes(addedElements);
+        if (targetElements.size > 0) {
+          checkAndForwardNodes(Array.from(targetElements));
         }
       });
 
-      this.observer.observe(container, { childList: true });
+      this.observer.observe(container, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
       console.log('[TimeBubble:LiveChatForwarder] Observer attached to live chat items container');
 
       // 接続・再接続時に既に読み込まれている直近コメントも即座に転送

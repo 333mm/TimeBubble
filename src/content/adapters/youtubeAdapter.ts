@@ -28,6 +28,7 @@ export class YouTubeAdapter implements IPlatformAdapter {
   // InnerTube get_live_chat 直接ポーリング（バックアップエンジン）
   private pollingVideoId = '';
   private isPollingActive = false;
+  private isPollingReplayMode = false;
   private pollingAbortController: AbortController | null = null;
   private pacingTimers: number[] = [];
 
@@ -454,6 +455,35 @@ export class YouTubeAdapter implements IPlatformAdapter {
     }
   }
 
+  /**
+   * 動画シーク・巻き戻し発生時の処理
+   * - 重複排除キャッシュ（seenLiveCommentIds / recentCommentSignatures）をクリアし、巻き戻し先の過去チャットが再度オーバーレイ表示されるようにする
+   * - iframe#chatframe 内の LiveChatForwarder にもキャッシュリセットを通知する
+   * - チャットリプレイ（アーカイブ）の場合は InnerTube リプレイポーリングをシーク先時刻で再同期する
+   */
+  public handlePlayerSeek() {
+    if (this.isDestroyed) return;
+    this.resetLiveDeduplicationCache();
+
+    // iframe#chatframe へキャッシュリセットを通知
+    try {
+      const chatIframe = document.querySelector<HTMLIFrameElement>('iframe#chatframe, ytd-live-chat-frame iframe');
+      if (chatIframe?.contentWindow) {
+        chatIframe.contentWindow.postMessage({ type: 'TIMEBUBBLE_RESET_SEEN_CHAT' }, '*');
+      }
+    } catch {
+      // ignore
+    }
+
+    // アーカイブ（チャットリプレイ）のポーリング中のみ、シーク先時刻に合わせて再ブートストラップ
+    // ※ 生配信中のDVR巻き戻しではリアルタイムストリームを止めないようポーリングを維持する
+    const currentVid = this.getVideoId();
+    if (currentVid && this.isPollingActive && this.isPollingReplayMode) {
+      this.stopLiveChatApiPolling();
+      this.ensureLiveChatApiPolling(currentVid);
+    }
+  }
+
   private resetLiveDeduplicationCache() {
     this.seenLiveCommentIds.clear();
     this.recentCommentSignatures.clear();
@@ -534,6 +564,8 @@ export class YouTubeAdapter implements IPlatformAdapter {
       let isInitialReloadBatch = bootstrap.isReloadToken;
       let switchedToAllChat = bootstrap.isAllChat;
       let useSameOriginAuth = bootstrap.useSameOriginAuth;
+      const isReplay = Boolean(bootstrap.isReplay);
+      this.isPollingReplayMode = isReplay;
       let consecutiveErrors = 0;
 
       while (token && !signal.aborted && !this.isDestroyed && this.getVideoId() === videoId) {
@@ -544,7 +576,13 @@ export class YouTubeAdapter implements IPlatformAdapter {
         let pollDelayMs = 1800;
 
         try {
-          const chatUrl = `https://www.youtube.com/youtubei/v1/live_chat/get_live_chat?key=${encodeURIComponent(
+          const isReplayEndpoint = Boolean(
+            isReplay || token.includes('live_chat_replay')
+          );
+          const chatEndpoint = isReplayEndpoint
+            ? 'get_live_chat_replay'
+            : 'get_live_chat';
+          const chatUrl = `https://www.youtube.com/youtubei/v1/live_chat/${chatEndpoint}?key=${encodeURIComponent(
             apiKey
           )}&prettyPrint=false`;
 
@@ -563,21 +601,34 @@ export class YouTubeAdapter implements IPlatformAdapter {
             }
           }
 
+          const currentOffsetMs = Math.max(
+            0,
+            Math.floor((this.getVideoElement()?.currentTime || 0) * 1000)
+          );
+
+          const bodyPayload: Record<string, unknown> = {
+            context: {
+              client: {
+                hl: navigator.language || 'ja',
+                gl: 'JP',
+                clientName: 'WEB',
+                clientVersion,
+              },
+            },
+            continuation: token,
+          };
+
+          if (isReplayEndpoint) {
+            bodyPayload.currentPlayerState = {
+              playerOffsetMs: String(currentOffsetMs),
+            };
+          }
+
           const res = await fetch(chatUrl, {
             method: 'POST',
             headers,
             credentials: useSameOriginAuth ? 'same-origin' : 'omit',
-            body: JSON.stringify({
-              context: {
-                client: {
-                  hl: navigator.language || 'ja',
-                  gl: 'JP',
-                  clientName: 'WEB',
-                  clientVersion,
-                },
-              },
-              continuation: token,
-            }),
+            body: JSON.stringify(bodyPayload),
             signal,
           });
 
@@ -821,6 +872,7 @@ export class YouTubeAdapter implements IPlatformAdapter {
     isReloadToken: boolean;
     isAllChat: boolean;
     useSameOriginAuth: boolean;
+    isReplay?: boolean;
   } | null> {
     for (const useSameOriginAuth of [false, true]) {
       try {
@@ -866,18 +918,14 @@ export class YouTubeAdapter implements IPlatformAdapter {
           const lcr = this.findLiveChatRenderer(nextJson);
           if (lcr) {
             const isReplay = Boolean(lcr.isReplay);
-            const isLiveViewCount = this.checkIsLiveViewCount(nextJson);
-            if (isReplay && !isLiveViewCount && !this.isLiveStream()) {
-              return null;
-            }
-
             const cont = this.extractNextContinuation(lcr.continuations);
             if (cont?.token) {
               return {
                 continuation: cont.token,
-                isReloadToken: true,
+                isReloadToken: !isReplay,
                 isAllChat: false,
                 useSameOriginAuth,
+                isReplay,
               };
             }
           } else if (!useSameOriginAuth && !this.isLiveStream()) {
@@ -969,23 +1017,6 @@ export class YouTubeAdapter implements IPlatformAdapter {
     return found;
   }
 
-  private checkIsLiveViewCount(nextJson: any): boolean {
-    try {
-      const contents =
-        nextJson?.contents?.twoColumnWatchNextResults?.results?.results?.contents;
-      if (Array.isArray(contents)) {
-        for (const c of contents) {
-          if (c?.videoPrimaryInfoRenderer?.viewCount?.videoViewCountRenderer?.isLive === true) {
-            return true;
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return false;
-  }
-
   private extractAllChatContinuationFromHeader(header: any): string | null {
     const items =
       header?.liveChatHeaderRenderer?.viewSelector?.sortFilterSubMenuRenderer?.subMenuItems;
@@ -1003,6 +1034,19 @@ export class YouTubeAdapter implements IPlatformAdapter {
   ): { token: string; delayMs: number } | null {
     if (!Array.isArray(continuations)) return null;
     for (const c of continuations) {
+      if (c?.liveChatReplayContinuationData?.continuation) {
+        const timeout = Number(c.liveChatReplayContinuationData.timeUntilLastMessageMsec) || 1500;
+        return {
+          token: c.liveChatReplayContinuationData.continuation,
+          delayMs: Math.min(Math.max(timeout, 800), 2200),
+        };
+      }
+      if (c?.playerSeekContinuationData?.continuation) {
+        return {
+          token: c.playerSeekContinuationData.continuation,
+          delayMs: 1200,
+        };
+      }
       if (c?.invalidationContinuationData?.continuation) {
         return {
           token: c.invalidationContinuationData.continuation,
@@ -1118,11 +1162,12 @@ export class YouTubeAdapter implements IPlatformAdapter {
 
   private parseLiveChatAction(action: any, videoId: string): CommentData | null {
     try {
+      const unwrappedAction = action?.replayChatItemAction?.actions?.[0] || action;
       const item =
-        action?.addChatItemAction?.item ||
-        action?.addLiveChatTickerItemAction?.item?.liveChatTickerSponsorItemRenderer
+        unwrappedAction?.addChatItemAction?.item ||
+        unwrappedAction?.addLiveChatTickerItemAction?.item?.liveChatTickerSponsorItemRenderer
           ?.showItemEndpoint?.showLiveChatItemEndpoint?.renderer ||
-        action?.addLiveChatTickerItemAction?.item?.liveChatTickerPaidMessageItemRenderer
+        unwrappedAction?.addLiveChatTickerItemAction?.item?.liveChatTickerPaidMessageItemRenderer
           ?.showItemEndpoint?.showLiveChatItemEndpoint?.renderer;
       if (!item || typeof item !== 'object') return null;
 
