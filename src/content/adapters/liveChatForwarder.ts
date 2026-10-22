@@ -2,6 +2,8 @@ import { CommentData, EmoteItem, MessageToken } from '../../types';
 
 export class LiveChatForwarder {
   private static observer: MutationObserver | null = null;
+  private static observedContainer: HTMLElement | null = null;
+  private static seenElementIds = new Set<string>();
   private static isRunning = false;
 
   public static isLiveChatFrame(): boolean {
@@ -16,77 +18,82 @@ export class LiveChatForwarder {
     this.isRunning = true;
     console.log('[TimeBubble:LiveChatForwarder] Initializing inside live chat iframe');
 
-    const observeChat = () => {
+    this.setupCloseButtonInterceptor();
+
+    const forwardComments = (comments: CommentData[]) => {
+      if (comments.length === 0) return;
+      try {
+        const msgPayload = {
+          type: 'TIMEBUBBLE_LIVE_CHAT_MESSAGE',
+          comments,
+        };
+        window.parent.postMessage(msgPayload, '*');
+        if (window.top && window.top !== window.parent) {
+          window.top.postMessage(msgPayload, '*');
+        }
+      } catch (err) {
+        console.warn('[TimeBubble:LiveChatForwarder] postMessage failed:', err);
+      }
+    };
+
+    const checkAndForwardNodes = (nodes: NodeListOf<HTMLElement> | HTMLElement[]) => {
+      const batch: CommentData[] = [];
+      nodes.forEach((node) => {
+        const elId = node.id || node.getAttribute('id') || '';
+        if (elId && this.seenElementIds.has(elId)) return;
+        const parsed = this.parseChatMessageElement(node);
+        if (parsed) {
+          if (elId) {
+            this.seenElementIds.add(elId);
+            if (this.seenElementIds.size > 2500) {
+              const first = this.seenElementIds.values().next().value;
+              if (first) this.seenElementIds.delete(first);
+            }
+          }
+          batch.push(parsed);
+        }
+      });
+
+      if (batch.length > 0) {
+        forwardComments(batch);
+      }
+    };
+
+    const ensureObserver = () => {
       const container = document.querySelector<HTMLElement>(
         '#item-list #items, yt-live-chat-item-list-renderer #items'
       );
-      if (!container || this.observer) return;
+      if (!container) return;
 
+      // コンテナが同一であれば再アタッチ不要
+      if (this.observer && this.observedContainer === container) return;
+
+      if (this.observer) {
+        this.observer.disconnect();
+        this.observer = null;
+      }
+
+      this.observedContainer = container;
       this.observer = new MutationObserver((mutations) => {
-        const comments: CommentData[] = [];
+        const addedElements: HTMLElement[] = [];
 
         for (const mut of mutations) {
           mut.addedNodes.forEach((node) => {
             if (node instanceof HTMLElement) {
-              const parsed = this.parseChatMessageElement(node);
-              if (parsed) {
-                comments.push(parsed);
-              }
+              addedElements.push(node);
             }
           });
         }
 
-        if (comments.length > 0) {
-          try {
-            const msgPayload = {
-              type: 'TIMEBUBBLE_LIVE_CHAT_MESSAGE',
-              comments,
-            };
-            window.parent.postMessage(msgPayload, '*');
-            if (window.top && window.top !== window.parent) {
-              window.top.postMessage(msgPayload, '*');
-            }
-          } catch (err) {
-            console.warn('[TimeBubble:LiveChatForwarder] postMessage failed:', err);
-          }
+        if (addedElements.length > 0) {
+          checkAndForwardNodes(addedElements);
         }
       });
 
       this.observer.observe(container, { childList: true });
       console.log('[TimeBubble:LiveChatForwarder] Observer attached to live chat items container');
 
-      // 既知要素IDのキャッシュ（二重送信防止用）
-      const seenElementIds = new Set<string>();
-
-      // 初回接続時に既に読み込まれている直近コメントも即座に転送
-      const checkAndForwardNodes = (nodes: NodeListOf<HTMLElement> | HTMLElement[]) => {
-        const batch: CommentData[] = [];
-        nodes.forEach((node) => {
-          const elId = node.id || node.getAttribute('id') || '';
-          if (elId && seenElementIds.has(elId)) return;
-          const parsed = this.parseChatMessageElement(node);
-          if (parsed) {
-            if (elId) seenElementIds.add(elId);
-            batch.push(parsed);
-          }
-        });
-
-        if (batch.length > 0) {
-          try {
-            const msgPayload = {
-              type: 'TIMEBUBBLE_LIVE_CHAT_MESSAGE',
-              comments: batch,
-            };
-            window.parent.postMessage(msgPayload, '*');
-            if (window.top && window.top !== window.parent) {
-              window.top.postMessage(msgPayload, '*');
-            }
-          } catch {
-            // ignore
-          }
-        }
-      };
-
+      // 接続・再接続時に既に読み込まれている直近コメントも即座に転送
       try {
         const initialNodes = container.querySelectorAll<HTMLElement>(
           'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
@@ -99,40 +106,74 @@ export class LiveChatForwarder {
       } catch {
         // ignore
       }
-
-      // バックグラウンド時に MutationObserver が抑制される現象を防ぐためのポーリングバックアップ & オートスクロール維持
-      setInterval(() => {
-        try {
-          const recentNodes = container.querySelectorAll<HTMLElement>(
-            'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
-          );
-          if (recentNodes.length > 0) {
-            const startIdx = Math.max(0, recentNodes.length - 8);
-            const sliceNodes = Array.from(recentNodes).slice(startIdx);
-            checkAndForwardNodes(sliceNodes);
-          }
-
-          // チャットの仮想スクロールリストを最下部に維持し、DOM更新の停止を防止
-          const scroller = document.querySelector<HTMLElement>('#item-scroller, #item-list');
-          if (scroller) {
-            scroller.scrollTop = scroller.scrollHeight;
-          }
-        } catch {
-          // ignore
-        }
-      }, 1200);
     };
 
-    observeChat();
-    let attempts = 0;
-    const timer = setInterval(() => {
-      attempts++;
-      if (!this.observer && attempts < 150) {
-        observeChat();
-      } else {
-        clearInterval(timer);
+    ensureObserver();
+
+    // コンテナの再生成（「上位のチャット / すべてのチャット」切替・再展開等）への追従 & ポーリングバックアップ
+    setInterval(() => {
+      try {
+        ensureObserver();
+
+        const root = this.observedContainer || document;
+        const recentNodes = root.querySelectorAll<HTMLElement>(
+          'yt-live-chat-text-message-renderer, yt-live-chat-paid-message-renderer, yt-live-chat-membership-item-renderer, yt-live-chat-paid-sticker-renderer'
+        );
+        if (recentNodes.length > 0) {
+          const startIdx = Math.max(0, recentNodes.length - 8);
+          const sliceNodes = Array.from(recentNodes).slice(startIdx);
+          checkAndForwardNodes(sliceNodes);
+        }
+
+        // チャットの仮想スクロールリストを最下部に維持し、DOM更新の停止を防止
+        const scroller = document.querySelector<HTMLElement>('#item-scroller, #item-list');
+        if (scroller) {
+          const distanceFromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+          if (distanceFromBottom < 200) {
+            scroller.scrollTop = scroller.scrollHeight;
+          }
+        }
+      } catch {
+        // ignore
       }
-    }, 350);
+    }, 1000);
+  }
+
+  /**
+   * iframe 内の右上「✕（チャットを閉じる）」ボタンのクリックをキャプチャフェーズで捕捉し、
+   * YouTube 純正のチャット切断処理を防いで独自の非表示モード（Stealth Chat Hide Mode）へ移行させる
+   */
+  private static setupCloseButtonInterceptor() {
+    document.addEventListener(
+      'click',
+      (e: MouseEvent) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+
+        const closeBtn = target.closest(
+          '#close-button, yt-live-chat-header-renderer #close-button, [aria-label*="チャットを非表示"], [aria-label*="Hide chat"], [aria-label*="Close"], [aria-label*="閉じる"]'
+        );
+        if (closeBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          try {
+            const payload = {
+              type: 'TIMEBUBBLE_STEALTH_CHAT_TOGGLE',
+              hidden: true,
+            };
+            window.parent.postMessage(payload, '*');
+            if (window.top && window.top !== window.parent) {
+              window.top.postMessage(payload, '*');
+            }
+          } catch {
+            // ignore
+          }
+        }
+      },
+      true
+    );
   }
 
   private static parseChatMessageElement(el: HTMLElement): CommentData | null {
