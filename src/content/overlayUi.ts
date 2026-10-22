@@ -85,7 +85,7 @@ export class OverlayUi {
       return true;
     }
     if (typeof document !== 'undefined') {
-      if (document.querySelector('.ytp-live, .ytp-live-badge, ytd-watch-flexy[is-live], ytd-live-chat-frame, #chatframe')) {
+      if (document.querySelector('.html5-video-player.ytp-live, ytd-watch-flexy[is-live], ytd-live-chat-frame:not([hidden])')) {
         return true;
       }
       if (typeof location !== 'undefined' && location.pathname.startsWith('/live/')) {

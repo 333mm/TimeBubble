@@ -1033,6 +1033,20 @@ export class CommentFetcher {
   }
 
   /**
+   * InnerTube API キーとクライアントバージョンを取得（Main World Bridge 優先 → スクリプトタグ）
+   */
+  public getInnertubeCredentials(): { apiKey: string; clientVersion: string; visitorData?: string } | null {
+    if (this.bridgeApiKey) {
+      return {
+        apiKey: this.bridgeApiKey,
+        clientVersion: this.bridgeClientVersion || '2.20261020.05.00',
+        visitorData: this.bridgeVisitorData || undefined,
+      };
+    }
+    return this.extractInnertubeConfig();
+  }
+
+  /**
    * スクリプトタグまたは Firefox wrappedJSObject から InnerTube API キーとクライアントバージョンを抽出
    */
   private extractInnertubeConfig(): { apiKey: string; clientVersion: string; visitorData?: string } | null {

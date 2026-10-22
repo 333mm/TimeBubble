@@ -134,6 +134,9 @@ if (LiveChatForwarder.isLiveChatFrame()) {
         ytAdapter.setIsLiveChatEnabledCallback(() => {
           return this.overlayUi.getSettings().liveChatEnabled ?? true;
         });
+        ytAdapter.setOnLiveStateConfirmedCallback(() => {
+          this.overlayUi.updateQuickActions();
+        });
         this.currentAdapter = ytAdapter;
       }
 
