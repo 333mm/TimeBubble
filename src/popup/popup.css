@@ -16,8 +16,19 @@
   padding: 0;
 }
 
-body {
+html {
   width: 344px;
+  max-width: 100%;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  background-color: var(--bg-main);
+}
+
+body {
+  width: 100%;
+  min-width: 320px;
+  max-width: 344px;
+  overflow-x: hidden;
   background:
     radial-gradient(ellipse 280px 160px at 30% -15px, rgba(99, 102, 241, 0.22), transparent 72%),
     radial-gradient(ellipse 240px 150px at 90% 10%, rgba(168, 85, 247, 0.16), transparent 70%),
@@ -31,11 +42,33 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* スクロールバーで右側が削られないようスリムなカスタムスクロールバーを定義 */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.48);
+}
+
 .popup-container {
   display: flex;
   flex-direction: column;
-  padding: 16px 18px;
-  gap: 13px;
+  width: 100%;
+  max-width: 100%;
+  padding: 15px 15px;
+  gap: 12px;
+  overflow-x: hidden;
 }
 
 /* ヘッダー */
@@ -295,14 +328,18 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 5px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 7px 10px;
+  padding: 7px 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -542,18 +579,22 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .toggle-title {
   font-size: 11.5px;
   font-weight: 600;
   color: #cbd5e1;
+  overflow-wrap: anywhere;
 }
 
 .toggle-desc {
   font-size: 10px;
   color: var(--text-muted);
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 /* インフォカード */
@@ -629,15 +670,21 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .status-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 5px;
+  font-size: 10.5px;
   color: var(--text-muted);
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-dot {

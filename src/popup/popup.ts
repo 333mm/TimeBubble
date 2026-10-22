@@ -419,7 +419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elSubtitle) elSubtitle.textContent = t.subtitle;
 
     // タブ名
-    const elTabTs = document.getElementById('i18n-tab-ts');
+    const elTabTs = document.getElementById('i18n-tab-timestamp');
     if (elTabTs) elTabTs.textContent = t.tabTimestamp;
     const elTabLive = document.getElementById('i18n-tab-live');
     if (elTabLive) elTabLive.textContent = t.tabLive;
