@@ -17,8 +17,10 @@ export class OverlayUi {
   private containerEl: HTMLElement | null = null;
   private playerElement: HTMLElement | null = null;
   private modalRootEl: HTMLElement | null = null;
+  private quickDockEl: HTMLElement | null = null;
   private quickToggleBtnEl: HTMLElement | null = null;
   private quickLiveToggleBtnEl: HTMLElement | null = null;
+  private quickModeBtnEl: HTMLElement | null = null;
   private quickPipBtnEl: HTMLElement | null = null;
   private isLiveStreamCallback: (() => boolean) | null = null;
   private chatboxContainerEl: HTMLElement | null = null;
@@ -1246,15 +1248,15 @@ export class OverlayUi {
 
     header.appendChild(meta);
 
-    // いいね数バッジ
+    // いいね数バッジ (柔らかみのあるハートアイコン)
     if (comment.likeCount > 0) {
       const likesBadge = doc.createElement('span');
       likesBadge.className = 'yt-co-likes-badge';
 
-      const likeSvg = this.createSvgElement('0 0 24 24', 12, 12);
+      const likeSvg = this.createSvgElement('0 0 24 24', 11, 11);
       likeSvg.classList.add('yt-co-likes-icon');
       const likePath = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
-      likePath.setAttribute('d', 'M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z');
+      likePath.setAttribute('d', 'M12 20.4l-1.35-1.22C5.7 14.72 2.5 11.82 2.5 8.3 2.5 5.42 4.76 3.2 7.6 3.2c1.62 0 3.18.75 4.4 2.02 1.22-1.27 2.78-2.02 4.4-2.02 2.84 0 5.1 2.22 5.1 5.1 0 3.52-3.2 6.42-8.15 10.88L12 20.4z');
       likeSvg.appendChild(likePath);
 
       likesBadge.appendChild(likeSvg);
@@ -2047,9 +2049,9 @@ export class OverlayUi {
     const playerHeight = playerEl.clientHeight || win.innerHeight || 360;
     const playerWidth = playerEl.clientWidth || win.innerWidth || 640;
 
-    // 映像実表示領域（上下黒帯・ピラーボックス除外）を考慮したセーフエリア
+    // 映像実表示領域（上下黒帯・ピラーボックス・右上クイックドック除外）を考慮したセーフエリア
     const vRect = this.getVideoDisplayRect();
-    const effectiveTop = Math.max(vRect.top + 12, Math.floor(vRect.top + vRect.height * 0.04));
+    const effectiveTop = Math.max(vRect.top + 52, Math.floor(vRect.top + vRect.height * 0.06));
     const contentBottomMargin = Math.max(52, Math.floor(vRect.height * 0.07));
     const effectiveBottomInset = vRect.bottomInset + contentBottomMargin;
     const usableHeight = Math.max(80, playerHeight - effectiveTop - effectiveBottomInset);
@@ -2350,7 +2352,7 @@ export class OverlayUi {
   }
 
   /**
-   * プレイヤー上のクイックアクションボタン（ON/OFFトグル & PiP切り替え）を初期化・マウント
+   * プレイヤー上の統合クイックコントロールドック（ON/OFF・表示モード切替・PiP）を初期化・マウント
    */
   private mountQuickActions(playerElement: HTMLElement) {
     this.removeQuickActions();
@@ -2370,12 +2372,17 @@ export class OverlayUi {
 
     const isLive = this.isLiveModeActive();
 
+    // 統合ピルドックコンテナ
+    const dock = ownerDoc.createElement('div');
+    dock.id = 'yt-co-quick-dock';
+    dock.className = 'yt-co-quick-dock';
+
     // 1. タイムスタンプ ON/OFFトグルボタン (通常動画用)
     const toggleBtn = ownerDoc.createElement('button');
     toggleBtn.id = 'yt-co-quick-toggle-btn';
     toggleBtn.type = 'button';
-    toggleBtn.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${this.settings.enabled ? 'is-enabled' : 'is-disabled'} ${isLive ? 'is-hidden' : ''}`;
-    toggleBtn.style.setProperty('display', isLive ? 'none' : 'flex', 'important');
+    toggleBtn.className = `yt-co-quick-toggle-btn ${this.settings.enabled ? 'is-enabled' : 'is-disabled'} ${isLive ? 'is-hidden' : ''}`;
+    toggleBtn.style.setProperty('display', isLive ? 'none' : 'inline-flex', 'important');
 
     this.renderQuickToggleContent(toggleBtn);
 
@@ -2390,8 +2397,8 @@ export class OverlayUi {
     liveToggleBtn.id = 'yt-co-quick-live-toggle-btn';
     liveToggleBtn.type = 'button';
     const isLiveEn = this.isLiveChatCurrentlyEnabled();
-    liveToggleBtn.className = `yt-co-quick-live-toggle-btn yt-co-quick-pos-${this.settings.position} ${isLiveEn ? 'is-enabled' : 'is-disabled'} ${isLive ? '' : 'is-hidden'}`;
-    liveToggleBtn.style.setProperty('display', isLive ? 'flex' : 'none', 'important');
+    liveToggleBtn.className = `yt-co-quick-live-toggle-btn ${isLiveEn ? 'is-enabled' : 'is-disabled'} ${isLive ? '' : 'is-hidden'}`;
+    liveToggleBtn.style.setProperty('display', isLive ? 'inline-flex' : 'none', 'important');
 
     this.renderQuickLiveToggleContent(liveToggleBtn);
 
@@ -2401,11 +2408,29 @@ export class OverlayUi {
       this.toggleLiveEnabled();
     });
 
-    // 3. クイックPiP切り替えボタン
+    // 3. 表示モード切替ボタン (カード / 流れる / ログ)
+    const modeBtn = ownerDoc.createElement('button');
+    modeBtn.id = 'yt-co-quick-mode-btn';
+    modeBtn.type = 'button';
+    modeBtn.className = 'yt-co-quick-mode-btn';
+
+    this.renderQuickModeContent(modeBtn);
+
+    modeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.cycleDisplayMode();
+    });
+
+    // 区切りセパレーター
+    const divider = ownerDoc.createElement('span');
+    divider.className = 'yt-co-quick-dock-divider';
+
+    // 4. クイックPiP切り替えボタン
     const pipBtn = ownerDoc.createElement('button');
     pipBtn.id = 'yt-co-quick-pip-btn';
     pipBtn.type = 'button';
-    pipBtn.className = `yt-co-quick-pip-btn yt-co-quick-pos-${this.settings.position}`;
+    pipBtn.className = 'yt-co-quick-pip-btn';
 
     this.renderQuickPipContent(pipBtn);
 
@@ -2417,16 +2442,18 @@ export class OverlayUi {
       }
     });
 
+    dock.appendChild(toggleBtn);
+    dock.appendChild(liveToggleBtn);
+    dock.appendChild(modeBtn);
+    dock.appendChild(divider);
+    dock.appendChild(pipBtn);
+
     // マウスホバー監視で、セレクタに依らずカーソルがプレイヤー上にあるときに100%確実に表示
     const setHoveredState = (hovered: boolean) => {
       if (hovered) {
-        toggleBtn.classList.add('is-hovered');
-        liveToggleBtn.classList.add('is-hovered');
-        pipBtn.classList.add('is-hovered');
+        dock.classList.add('is-hovered');
       } else {
-        toggleBtn.classList.remove('is-hovered');
-        liveToggleBtn.classList.remove('is-hovered');
-        pipBtn.classList.remove('is-hovered');
+        dock.classList.remove('is-hovered');
       }
     };
 
@@ -2439,7 +2466,8 @@ export class OverlayUi {
       setHoveredState(true);
     };
     const handleMouseMove = () => {
-      if (!toggleBtn.classList.contains('is-hovered')) {
+      if (!dock.classList.contains('is-hovered')) {
+        this.updateQuickActions();
         setHoveredState(true);
       }
     };
@@ -2455,47 +2483,72 @@ export class OverlayUi {
       playerElement.removeEventListener('mouseleave', handleMouseLeave);
     };
 
-    playerElement.appendChild(toggleBtn);
-    playerElement.appendChild(liveToggleBtn);
-    playerElement.appendChild(pipBtn);
+    playerElement.appendChild(dock);
+    this.quickDockEl = dock;
     this.quickToggleBtnEl = toggleBtn;
     this.quickLiveToggleBtnEl = liveToggleBtn;
+    this.quickModeBtnEl = modeBtn;
     this.quickPipBtnEl = pipBtn;
+    this.syncQuickDockOffset();
+  }
+
+  /**
+   * YouTube右上の純正情報カードボタン (.ytp-cards-button) 等が表示されている場合、
+   * 重なりを避けるためにクイックドックの右端オフセットを自動調整
+   */
+  private syncQuickDockOffset() {
+    if (!this.quickDockEl || !this.playerElement) return;
+    try {
+      const cardsBtn = this.playerElement.querySelector<HTMLElement>('.ytp-cards-button');
+      if (cardsBtn) {
+        const style = window.getComputedStyle(cardsBtn);
+        const rect = cardsBtn.getBoundingClientRect();
+        if (style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0.05 && rect.width > 8) {
+          this.quickDockEl.style.setProperty('--yt-co-dock-right', '56px');
+          return;
+        }
+      }
+      this.quickDockEl.style.setProperty('--yt-co-dock-right', '16px');
+    } catch {
+      // ignore
+    }
   }
 
   private renderQuickToggleContent(btn: HTMLElement) {
     const ownerDoc = this.getOwnerDocument();
     const isEn = this.settings.enabled;
-    btn.title = isEn ? 'TimeBubble: ON (クリックで非表示)' : 'TimeBubble: OFF (クリックで表示)';
+    btn.title = isEn ? 'TimeBubble タイムスタンプ: ON (クリックで非表示)' : 'TimeBubble タイムスタンプ: OFF (クリックで表示)';
 
     while (btn.firstChild) {
       btn.removeChild(btn.firstChild);
     }
 
-    const svg = this.createSvgElement('0 0 24 24', 13, 13);
+    // 柔らかみのある丸型吹き出しアイコン
+    const svg = this.createSvgElement('0 0 24 24', 15, 15);
     svg.setAttribute('fill', 'none');
     svg.setAttribute('stroke', 'currentColor');
-    svg.setAttribute('stroke-width', '2.2');
+    svg.setAttribute('stroke-width', '2.1');
     svg.setAttribute('stroke-linecap', 'round');
     svg.setAttribute('stroke-linejoin', 'round');
 
-    const path = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z');
-    svg.appendChild(path);
+    const bubblePath = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
+    bubblePath.setAttribute(
+      'd',
+      'M12 3c5.25 0 9.5 3.7 9.5 8.25 0 4.55-4.25 8.25-9.5 8.25-1.35 0-2.64-.25-3.8-.7L4.2 20.4a.8.8 0 0 1-1.08-.92l.95-3.3A7.75 7.75 0 0 1 2.5 11.25C2.5 6.7 6.75 3 12 3z'
+    );
+    svg.appendChild(bubblePath);
 
     if (isEn) {
-      const circle = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', '12');
-      circle.setAttribute('cy', '10');
-      circle.setAttribute('r', '2');
-      circle.setAttribute('fill', 'currentColor');
-      svg.appendChild(circle);
+      // 時計の短い針モチーフ（丸みのあるL字）
+      const clockHand = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
+      clockHand.setAttribute('d', 'M12 8.2v3.3l2.3 1.4');
+      svg.appendChild(clockHand);
     } else {
       const line = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', '2');
-      line.setAttribute('y1', '2');
-      line.setAttribute('x2', '22');
-      line.setAttribute('y2', '22');
+      line.setAttribute('x1', '4');
+      line.setAttribute('y1', '4');
+      line.setAttribute('x2', '20');
+      line.setAttribute('y2', '20');
       svg.appendChild(line);
     }
 
@@ -2513,35 +2566,92 @@ export class OverlayUi {
       btn.removeChild(btn.firstChild);
     }
 
-    const svg = this.createSvgElement('0 0 24 24', 13, 13);
+    // 柔らかみのあるライブウェーブアイコン
+    const svg = this.createSvgElement('0 0 24 24', 15, 15);
     svg.setAttribute('fill', 'none');
     svg.setAttribute('stroke', 'currentColor');
-    svg.setAttribute('stroke-width', '2.2');
+    svg.setAttribute('stroke-width', '2.1');
     svg.setAttribute('stroke-linecap', 'round');
     svg.setAttribute('stroke-linejoin', 'round');
 
     const circle = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', '12');
     circle.setAttribute('cy', '12');
-    circle.setAttribute('r', '2.5');
+    circle.setAttribute('r', '2.4');
     circle.setAttribute('fill', 'currentColor');
     svg.appendChild(circle);
 
     const arc1 = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-    arc1.setAttribute('d', 'M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49');
+    arc1.setAttribute('d', 'M15.9 8.1a5.5 5.5 0 0 1 0 7.8m-7.8 0a5.5 5.5 0 0 1 0-7.8');
     svg.appendChild(arc1);
 
     if (isEn) {
       const arc2 = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
-      arc2.setAttribute('d', 'M19.07 4.93a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14');
+      arc2.setAttribute('d', 'M18.7 5.3a9.5 9.5 0 0 1 0 13.4m-13.4 0a9.5 9.5 0 0 1 0-13.4');
       svg.appendChild(arc2);
     } else {
       const line = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', '2');
-      line.setAttribute('y1', '2');
-      line.setAttribute('x2', '22');
-      line.setAttribute('y2', '22');
+      line.setAttribute('x1', '4');
+      line.setAttribute('y1', '4');
+      line.setAttribute('x2', '20');
+      line.setAttribute('y2', '20');
       svg.appendChild(line);
+    }
+
+    btn.appendChild(svg);
+  }
+
+  private renderQuickModeContent(btn: HTMLElement) {
+    const ownerDoc = this.getOwnerDocument();
+    const isLive = this.isLiveModeActive();
+    const mode = isLive ? this.getEffectiveLiveDisplayMode() : this.getEffectiveDisplayMode();
+    const modeLabel = mode === 'flow' ? '流れるコメント' : mode === 'chatbox' ? 'チャットログ' : 'カード';
+    btn.title = `TimeBubble 表示モード切替 (現在: ${modeLabel})`;
+
+    while (btn.firstChild) {
+      btn.removeChild(btn.firstChild);
+    }
+
+    const svg = this.createSvgElement('0 0 24 24', 14, 14);
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2.1');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+
+    if (mode === 'flow') {
+      // 流れるモード: 柔らかい3本ストリームライン
+      const p1 = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p1.setAttribute('d', 'M5 8h14M8 12h11M4 16h12');
+      svg.appendChild(p1);
+    } else if (mode === 'chatbox') {
+      // ログモード: 2段の丸みピルログ
+      const r1 = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r1.setAttribute('x', '4');
+      r1.setAttribute('y', '5');
+      r1.setAttribute('width', '16');
+      r1.setAttribute('height', '5.5');
+      r1.setAttribute('rx', '2.75');
+      svg.appendChild(r1);
+      const r2 = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r2.setAttribute('x', '4');
+      r2.setAttribute('y', '13.5');
+      r2.setAttribute('width', '13');
+      r2.setAttribute('height', '5.5');
+      r2.setAttribute('rx', '2.75');
+      svg.appendChild(r2);
+    } else {
+      // カードモード: 丸みのあるカード枠
+      const rect = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', '3.5');
+      rect.setAttribute('y', '4.5');
+      rect.setAttribute('width', '17');
+      rect.setAttribute('height', '15');
+      rect.setAttribute('rx', '4');
+      svg.appendChild(rect);
+      const line1 = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'path');
+      line1.setAttribute('d', 'M8 10h8M8 14h5');
+      svg.appendChild(line1);
     }
 
     btn.appendChild(svg);
@@ -2562,29 +2672,29 @@ export class OverlayUi {
       btn.removeChild(btn.firstChild);
     }
 
-    const svg = this.createSvgElement('0 0 24 24', 13, 13);
+    const svg = this.createSvgElement('0 0 24 24', 14, 14);
     svg.setAttribute('fill', 'none');
     svg.setAttribute('stroke', 'currentColor');
-    svg.setAttribute('stroke-width', '2.2');
+    svg.setAttribute('stroke-width', '2.1');
     svg.setAttribute('stroke-linecap', 'round');
     svg.setAttribute('stroke-linejoin', 'round');
 
     const outerRect = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    outerRect.setAttribute('x', '2');
-    outerRect.setAttribute('y', '3');
-    outerRect.setAttribute('width', '20');
-    outerRect.setAttribute('height', '14');
-    outerRect.setAttribute('rx', '2');
-    outerRect.setAttribute('ry', '2');
+    outerRect.setAttribute('x', '2.5');
+    outerRect.setAttribute('y', '4');
+    outerRect.setAttribute('width', '19');
+    outerRect.setAttribute('height', '15');
+    outerRect.setAttribute('rx', '3.5');
+    outerRect.setAttribute('ry', '3.5');
     svg.appendChild(outerRect);
 
     const innerRect = ownerDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
     innerRect.setAttribute('x', '11');
-    innerRect.setAttribute('y', '9');
-    innerRect.setAttribute('width', '9');
+    innerRect.setAttribute('y', '10');
+    innerRect.setAttribute('width', '8');
     innerRect.setAttribute('height', '6');
-    innerRect.setAttribute('rx', '1');
-    innerRect.setAttribute('ry', '1');
+    innerRect.setAttribute('rx', '2');
+    innerRect.setAttribute('ry', '2');
     innerRect.setAttribute('fill', 'currentColor');
     svg.appendChild(innerRect);
 
@@ -2593,24 +2703,24 @@ export class OverlayUi {
 
   public updateQuickActions() {
     const isLive = this.isLiveModeActive();
+    this.syncQuickDockOffset();
 
     if (this.quickToggleBtnEl) {
       const isEn = this.settings.enabled;
-      const isHovered = this.quickToggleBtnEl.classList.contains('is-hovered');
-      this.quickToggleBtnEl.className = `yt-co-quick-toggle-btn yt-co-quick-pos-${this.settings.position} ${isEn ? 'is-enabled' : 'is-disabled'} ${isLive ? 'is-hidden' : ''} ${isHovered ? 'is-hovered' : ''}`.replace(/\s+/g, ' ').trim();
-      this.quickToggleBtnEl.style.setProperty('display', isLive ? 'none' : 'flex', 'important');
+      this.quickToggleBtnEl.className = `yt-co-quick-toggle-btn ${isEn ? 'is-enabled' : 'is-disabled'} ${isLive ? 'is-hidden' : ''}`.replace(/\s+/g, ' ').trim();
+      this.quickToggleBtnEl.style.setProperty('display', isLive ? 'none' : 'inline-flex', 'important');
       this.renderQuickToggleContent(this.quickToggleBtnEl);
     }
     if (this.quickLiveToggleBtnEl) {
       const isLiveEn = this.isLiveChatCurrentlyEnabled();
-      const isHovered = this.quickLiveToggleBtnEl.classList.contains('is-hovered');
-      this.quickLiveToggleBtnEl.className = `yt-co-quick-live-toggle-btn yt-co-quick-pos-${this.settings.position} ${isLiveEn ? 'is-enabled' : 'is-disabled'} ${isLive ? '' : 'is-hidden'} ${isHovered ? 'is-hovered' : ''}`.replace(/\s+/g, ' ').trim();
-      this.quickLiveToggleBtnEl.style.setProperty('display', isLive ? 'flex' : 'none', 'important');
+      this.quickLiveToggleBtnEl.className = `yt-co-quick-live-toggle-btn ${isLiveEn ? 'is-enabled' : 'is-disabled'} ${isLive ? '' : 'is-hidden'}`.replace(/\s+/g, ' ').trim();
+      this.quickLiveToggleBtnEl.style.setProperty('display', isLive ? 'inline-flex' : 'none', 'important');
       this.renderQuickLiveToggleContent(this.quickLiveToggleBtnEl);
     }
+    if (this.quickModeBtnEl) {
+      this.renderQuickModeContent(this.quickModeBtnEl);
+    }
     if (this.quickPipBtnEl) {
-      const isHovered = this.quickPipBtnEl.classList.contains('is-hovered');
-      this.quickPipBtnEl.className = `yt-co-quick-pip-btn yt-co-quick-pos-${this.settings.position} ${isHovered ? 'is-hovered' : ''}`.replace(/\s+/g, ' ').trim();
       this.renderQuickPipContent(this.quickPipBtnEl);
     }
   }
@@ -2621,19 +2731,15 @@ export class OverlayUi {
       this.quickActionsCleanup = null;
     }
     const ownerDoc = this.getOwnerDocument();
-    if (this.quickToggleBtnEl && this.quickToggleBtnEl.parentElement) {
-      this.quickToggleBtnEl.parentElement.removeChild(this.quickToggleBtnEl);
+    if (this.quickDockEl && this.quickDockEl.parentElement) {
+      this.quickDockEl.parentElement.removeChild(this.quickDockEl);
     }
-    if (this.quickLiveToggleBtnEl && this.quickLiveToggleBtnEl.parentElement) {
-      this.quickLiveToggleBtnEl.parentElement.removeChild(this.quickLiveToggleBtnEl);
-    }
-    if (this.quickPipBtnEl && this.quickPipBtnEl.parentElement) {
-      this.quickPipBtnEl.parentElement.removeChild(this.quickPipBtnEl);
-    }
-    const existing = ownerDoc.querySelectorAll('#yt-co-quick-toggle-btn, #yt-co-quick-live-toggle-btn, #yt-co-quick-pip-btn');
+    const existing = ownerDoc.querySelectorAll('#yt-co-quick-dock, #yt-co-quick-toggle-btn, #yt-co-quick-live-toggle-btn, #yt-co-quick-mode-btn, #yt-co-quick-pip-btn');
     existing.forEach((el) => el.parentElement?.removeChild(el));
+    this.quickDockEl = null;
     this.quickToggleBtnEl = null;
     this.quickLiveToggleBtnEl = null;
+    this.quickModeBtnEl = null;
     this.quickPipBtnEl = null;
   }
 
@@ -2674,93 +2780,10 @@ export class OverlayUi {
   }
 
   /**
-   * プレイヤー内コントロールバーに TimeBubble 操作ボタンをマウント
+   * プレイヤー下部コントロールバーの重複ボタンは廃止し、右上クイックコントロールドックに一元化
    */
-  public mountPlayerControlsBar(controlsBar: HTMLElement) {
-    if (this.playerControlsBarEl && this.playerControlsBarEl.parentElement === controlsBar) {
-      return;
-    }
+  public mountPlayerControlsBar(_controlsBar: HTMLElement) {
     this.removePlayerControlsBar();
-
-    const container = document.createElement('div');
-    container.id = 'yt-co-player-controls-container';
-    container.style.display = 'inline-flex';
-    container.style.alignItems = 'center';
-    container.style.height = '100%';
-    container.style.verticalAlign = 'top';
-
-    // 1. モード切替ボタン
-    const modeBtn = document.createElement('button');
-    modeBtn.className = 'yt-co-player-btn ytp-button';
-    modeBtn.type = 'button';
-    modeBtn.title = `TimeBubble: 表示モード切替 (現在: ${this.settings.displayMode})`;
-
-    const modeSvg = this.createSvgElement('0 0 24 24', 18, 18);
-    modeSvg.setAttribute('fill', 'none');
-    modeSvg.setAttribute('stroke', 'currentColor');
-    modeSvg.setAttribute('stroke-width', '2');
-    modeSvg.setAttribute('stroke-linecap', 'round');
-    modeSvg.setAttribute('stroke-linejoin', 'round');
-    const modePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    modePath.setAttribute('d', 'M4 6h16M4 12h16M4 18h12');
-    modeSvg.appendChild(modePath);
-    modeBtn.appendChild(modeSvg);
-
-    modeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      this.cycleDisplayMode();
-      modeBtn.title = `TimeBubble: 表示モード切替 (現在: ${this.settings.displayMode})`;
-    });
-
-    // 2. PiP ボタン
-    const pipBtn = document.createElement('button');
-    pipBtn.className = 'yt-co-player-btn ytp-button';
-    pipBtn.type = 'button';
-    pipBtn.title = 'TimeBubble: コメント付きPiP再生';
-
-    const pipSvg = this.createSvgElement('0 0 24 24', 18, 18);
-    pipSvg.setAttribute('fill', 'none');
-    pipSvg.setAttribute('stroke', 'currentColor');
-    pipSvg.setAttribute('stroke-width', '2');
-    pipSvg.setAttribute('stroke-linecap', 'round');
-    pipSvg.setAttribute('stroke-linejoin', 'round');
-    const pipRect1 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    pipRect1.setAttribute('x', '2');
-    pipRect1.setAttribute('y', '3');
-    pipRect1.setAttribute('width', '20');
-    pipRect1.setAttribute('height', '14');
-    pipRect1.setAttribute('rx', '2');
-    pipRect1.setAttribute('ry', '2');
-    pipSvg.appendChild(pipRect1);
-    const pipRect2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    pipRect2.setAttribute('x', '12');
-    pipRect2.setAttribute('y', '9');
-    pipRect2.setAttribute('width', '8');
-    pipRect2.setAttribute('height', '6');
-    pipRect2.setAttribute('rx', '1');
-    pipRect2.setAttribute('ry', '1');
-    pipRect2.setAttribute('fill', 'currentColor');
-    pipSvg.appendChild(pipRect2);
-    pipBtn.appendChild(pipSvg);
-
-    pipBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      if (this.onPipToggleCallback) {
-        this.onPipToggleCallback();
-      }
-    });
-
-    container.appendChild(modeBtn);
-    container.appendChild(pipBtn);
-
-    if (controlsBar.firstChild) {
-      controlsBar.insertBefore(container, controlsBar.firstChild);
-    } else {
-      controlsBar.appendChild(container);
-    }
-    this.playerControlsBarEl = container;
   }
 
   public removePlayerControlsBar() {
@@ -2773,12 +2796,29 @@ export class OverlayUi {
   }
 
   public async cycleDisplayMode() {
+    const isLive = this.isLiveModeActive();
+    if (isLive) {
+      const modes: ('flow' | 'chatbox' | 'card')[] = ['flow', 'chatbox', 'card'];
+      const currentIdx = modes.indexOf(this.getEffectiveLiveDisplayMode());
+      const nextMode = modes[(currentIdx + 1) % modes.length];
+      this.settings.liveChatMode = nextMode;
+      await saveSettings({ liveChatMode: nextMode });
+      this.clearAll();
+      this.applySettingsToContainer();
+      if (this.onModeCycleCallback) {
+        this.onModeCycleCallback();
+      }
+      console.log('[TimeBubble] Switched live display mode to:', nextMode);
+      return;
+    }
+
     const modes: ('card' | 'flow' | 'chatbox')[] = ['card', 'flow', 'chatbox'];
-    const currentIdx = modes.indexOf(this.settings.displayMode as any);
+    const currentIdx = modes.indexOf(this.getEffectiveDisplayMode());
     const nextMode = modes[(currentIdx + 1) % modes.length];
     this.settings.displayMode = nextMode;
     this.settings.flowMode = nextMode === 'flow';
     await saveSettings({ displayMode: nextMode, flowMode: this.settings.flowMode });
+    this.clearAll();
     this.applySettingsToContainer();
     if (this.onModeCycleCallback) {
       this.onModeCycleCallback();

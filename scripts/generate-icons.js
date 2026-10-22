@@ -24,10 +24,10 @@ $masterPath = "${masterPath.replace(/\\/g, '/')}"
 $iconsDir = "${iconsDir.replace(/\\/g, '/')}"
 $src = [System.Drawing.Bitmap]::FromFile($masterPath)
 
-# ネオングラデーションのシンボル領域 (580x580, 中心 X: 511, Y: 468)
-$cropSize = 580
-$cropX = [int](511 - ($cropSize / 2))
-$cropY = [int](468 - ($cropSize / 2))
+# ソフト・グラスモーフィズムのシンボル領域 (768x768, 中心 X: 512, Y: 512)
+$cropSize = 768
+$cropX = [int](512 - ($cropSize / 2))
+$cropY = [int](512 - ($cropSize / 2))
 
 $sizes = @(16, 32, 48, 128, 256, 512)
 
@@ -50,8 +50,8 @@ foreach ($s in $sizes) {
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $g.Clear([System.Drawing.Color]::Transparent)
 
-    # 角丸半径 (約22% = $s * 0.22)
-    $r = [Math]::Max(2.0, [float]($s * 0.22))
+    # 柔らかみのある角丸半径 (約24% = $s * 0.24)
+    $r = [Math]::Max(3.0, [float]($s * 0.24))
     $path = Get-SquirclePath 0.0 0.0 ([float]$s) ([float]$s) $r
     $g.SetClip($path)
 

@@ -1,7 +1,7 @@
 :root {
-  --bg-main: #0b0f19;
-  --bg-card: rgba(30, 41, 59, 0.6);
-  --border-color: rgba(255, 255, 255, 0.08);
+  --bg-main: #0c111d;
+  --bg-card: rgba(30, 41, 59, 0.52);
+  --border-color: rgba(255, 255, 255, 0.09);
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-sub: #64748b;
@@ -17,10 +17,11 @@
 }
 
 body {
-  width: 340px;
+  width: 344px;
   background:
-    radial-gradient(ellipse 260px 140px at 50% -20px, rgba(99, 102, 241, 0.15), transparent 70%),
-    radial-gradient(ellipse 200px 120px at 100% 100%, rgba(168, 85, 247, 0.08), transparent 70%),
+    radial-gradient(ellipse 280px 160px at 30% -15px, rgba(99, 102, 241, 0.22), transparent 72%),
+    radial-gradient(ellipse 240px 150px at 90% 10%, rgba(168, 85, 247, 0.16), transparent 70%),
+    radial-gradient(ellipse 220px 140px at 85% 100%, rgba(56, 189, 248, 0.12), transparent 70%),
     var(--bg-main);
   color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -46,17 +47,17 @@ body {
 .header-title-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
 }
 
 .header-logo {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 2px 8px rgba(168, 85, 247, 0.45));
+  filter: drop-shadow(0 4px 10px rgba(129, 140, 248, 0.4));
   flex-shrink: 0;
 }
 
@@ -64,7 +65,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .header-logo svg {
@@ -212,41 +213,52 @@ input:checked + .slider:before {
   transform: translateX(14px);
 }
 
-/* ナビゲーションタブバー */
+/* ナビゲーションタブバー (Spatial Pill Segment) */
 .nav-tab-bar {
   display: flex;
-  background: rgba(15, 23, 42, 0.65);
-  padding: 3px;
-  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(12px);
+  padding: 4px;
+  border-radius: 12px;
   border: 1px solid var(--border-color);
   gap: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) inset;
 }
 
 .nav-tab-btn {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 9px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
-  padding: 6px 4px;
+  padding: 7px 6px;
   cursor: pointer;
   text-align: center;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
+}
+
+.nav-tab-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
 }
 
 .nav-tab-btn:hover {
   color: #f1f5f9;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .nav-tab-btn.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(124, 58, 237, 0.2) 100%);
-  border-color: rgba(129, 140, 248, 0.5);
-  color: #e0e7ff;
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.25);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.32) 0%, rgba(168, 85, 247, 0.26) 100%);
+  border-color: rgba(165, 180, 252, 0.48);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25), 0 1px 0 rgba(255, 255, 255, 0.18) inset;
 }
 
 /* メインボディ */
