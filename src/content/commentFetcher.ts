@@ -271,9 +271,6 @@ export class CommentFetcher {
       // Main World へデータを要求（CustomEvent は detail 不要なので引き続き使用可能）
       window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REQUEST_MAIN_DATA'));
 
-      // スクリプトタグ注入フォールバック
-      this.injectMainWorldBridgeFallback();
-
       // 定期ポーリング（MutationObserver の漏れを補完）
       const pollInterval = setInterval(() => {
         processBridgeData();
@@ -282,22 +279,6 @@ export class CommentFetcher {
 
       // 30 秒後にポーリング停止
       setTimeout(() => clearInterval(pollInterval), 30000);
-    } catch {
-      // ignore
-    }
-  }
-
-  private injectMainWorldBridgeFallback() {
-    try {
-      if (document.getElementById('yt-comment-overlay-main-bridge')) return;
-      const getUrl = chrome?.runtime?.getURL || (window as any).browser?.runtime?.getURL;
-      const scriptUrl = getUrl ? getUrl('content/mainWorldBridge.js') : null;
-      if (scriptUrl) {
-        const script = document.createElement('script');
-        script.id = 'yt-comment-overlay-main-bridge';
-        script.src = scriptUrl;
-        (document.head || document.documentElement).appendChild(script);
-      }
     } catch {
       // ignore
     }

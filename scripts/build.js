@@ -115,8 +115,7 @@ async function buildExtension(browserType) {
         strict_min_version: "142.0"
       }
     };
-    // Firefox互換性: content_scriptsからworld: MAINを削除（動的インジェクションで対応）
-    manifest.content_scripts = manifest.content_scripts.filter(cs => cs.world !== 'MAIN');
+    // Firefox 128+ では content_scripts の world: "MAIN" がネイティブサポートされています
   } else {
     // Chrome / Edge 向け: Firefox固有設定を除去
     delete manifest.browser_specific_settings;
