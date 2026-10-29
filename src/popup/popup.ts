@@ -748,20 +748,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function updateSettings(partial: Partial<OverlaySettings>) {
     Object.assign(currentSettings, partial);
-    const updated = await saveSettings(partial);
-
-    // 開かれている全タブに設定変更を通知（storage.onChangedでも自動同期される）
-    if (typeof chrome !== 'undefined' && chrome.tabs) {
-      chrome.tabs.query({}, (tabs) => {
-        tabs?.forEach((tab) => {
-          if (tab.id) {
-            chrome.tabs.sendMessage(tab.id, { type: 'UPDATE_SETTINGS', settings: updated }, () => {
-              if (chrome.runtime.lastError) { /* ignore */ }
-            });
-          }
-        });
-      });
-    }
+    await saveSettings(partial);
+    // 設定変更は chrome.storage.onChanged により全タブのコンテンツスクリプトへ自動同期される
 
     flashSaveStatus();
   }

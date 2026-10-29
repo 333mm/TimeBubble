@@ -15,6 +15,10 @@ if (!fs.existsSync(releaseDir)) {
 console.log('📦 Building for Chrome and Firefox...');
 execSync('node scripts/build.js all', { cwd: rootDir, stdio: 'inherit' });
 
+// ストア用プロモーション画像・スクリーンショットを生成
+console.log('🎨 Generating store promotional assets...');
+execSync('node scripts/generate-promo.js', { cwd: rootDir, stdio: 'inherit' });
+
 const baseManifest = JSON.parse(fs.readFileSync(path.resolve(rootDir, 'manifest.base.json'), 'utf8'));
 const versionStr = baseManifest.version_name || baseManifest.version;
 
