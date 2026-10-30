@@ -53,7 +53,7 @@ export class YouTubeAdapter implements IPlatformAdapter {
 
   public destroy() {
     this.isDestroyed = true;
-    this.cleanupBackgroundLiveChatFrame();
+    this.resetForNewVideo();
     this.setStealthChatHidden(false);
 
     if (this.messageListener) {
@@ -126,18 +126,32 @@ export class YouTubeAdapter implements IPlatformAdapter {
   }
 
   public getVideoId(): string {
-    const id = this.commentFetcher.getVideoId();
-    if (id) return id;
     try {
       const url = new URL(window.location.href);
-      return (
-        url.searchParams.get('v') ||
-        url.pathname.match(/\/live\/([a-zA-Z0-9_-]+)/)?.[1] ||
-        ''
-      );
+      const v = url.searchParams.get('v');
+      if (v) return v;
+      const liveMatch = url.pathname.match(/\/live\/([a-zA-Z0-9_-]+)/);
+      if (liveMatch) return liveMatch[1];
+      const shortsMatch = url.pathname.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
+      if (shortsMatch) return shortsMatch[1];
+      const embedMatch = url.pathname.match(/\/embed\/([a-zA-Z0-9_-]+)/);
+      if (embedMatch) return embedMatch[1];
     } catch {
-      return '';
+      // ignore
     }
+    return this.commentFetcher.getCurrentVideoId();
+  }
+
+  /**
+   * 動画切り替え時の内部キャッシュおよびポーリングのリセット
+   */
+  public resetForNewVideo(): void {
+    this.stopLiveChatApiPolling();
+    this.seenLiveCommentIds.clear();
+    this.recentCommentSignatures.clear();
+    this.hasEmittedAnyForCurrentVideo = false;
+    this.cleanupBackgroundLiveChatFrame();
+    this.lastTrackedVideoId = '';
   }
 
   public isLiveStream(): boolean {
@@ -798,8 +812,15 @@ export class YouTubeAdapter implements IPlatformAdapter {
     if (this.isDestroyed || !this.onNewCommentsCallback) return;
     if (this.isLiveChatEnabledCallback && !this.isLiveChatEnabledCallback()) return;
 
+    const currentVid = this.getVideoId();
     const fresh: CommentData[] = [];
     for (const c of comments) {
+      if (currentVid && c.videoId && c.videoId !== currentVid) {
+        continue;
+      }
+      if (!c.videoId && currentVid) {
+        c.videoId = currentVid;
+      }
       if (!this.isDuplicateLiveComment(c)) {
         this.markCommentAsSeen(c);
         fresh.push(c);

@@ -29,4 +29,7 @@ export interface IPlatformAdapter {
 
   /** プレイヤーのコントロールバー要素を取得 (TimeBubbleボタン配置用) */
   getControlsBar(): HTMLElement | null;
+
+  /** 動画/配信切り替え時のアダプタ固有リセット (任意) */
+  resetForNewVideo?(): void;
 }

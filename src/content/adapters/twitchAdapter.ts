@@ -39,7 +39,7 @@ export class TwitchAdapter implements IPlatformAdapter {
 
   public destroy() {
     this.isDestroyed = true;
-    this.stopChatConnection();
+    this.resetForNewVideo();
     if (this.domObserver) {
       this.domObserver.disconnect();
       this.domObserver = null;
@@ -48,6 +48,10 @@ export class TwitchAdapter implements IPlatformAdapter {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+  }
+
+  public resetForNewVideo(): void {
+    this.stopChatConnection();
   }
 
   public setOnNewComments(callback: OnNewCommentCallback) {

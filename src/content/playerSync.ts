@@ -42,8 +42,11 @@ export class PlayerSync {
 
   public addComments(newComments: CommentData[]) {
     for (const comment of newComments) {
-      if (this.currentVideoId && comment.videoId && comment.videoId !== this.currentVideoId) {
-        continue;
+      const isTwitch = comment.platform === 'twitch' || comment.sourcePlatform === 'twitch' || comment.source === 'twitch_chat';
+      if (!isTwitch && this.currentVideoId) {
+        if (comment.videoId && comment.videoId !== this.currentVideoId) {
+          continue;
+        }
       }
 
       // リアルタイムチャット (Live / Twitch) または タイムスタンプなしコメントの場合: 即時ディスパッチ
@@ -86,6 +89,10 @@ export class PlayerSync {
     if (this.videoEl?.paused) return;
 
     const isTwitch = comment.platform === 'twitch' || comment.sourcePlatform === 'twitch' || comment.source === 'twitch_chat' || (typeof location !== 'undefined' && location.hostname.includes('twitch.tv'));
+    if (!isTwitch && this.currentVideoId && comment.videoId && comment.videoId !== this.currentVideoId) {
+      return;
+    }
+
     const liveEnabled = isTwitch
       ? (this.overlayUi.getSettings().twitchEnabled ?? true)
       : (this.overlayUi.getSettings().liveChatEnabled ?? true);

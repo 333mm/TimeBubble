@@ -96,8 +96,24 @@ if (LiveChatForwarder.isLiveChatFrame()) {
       }
 
       // 7. ページ遷移イベントの監視
+      // 遷移開始時に直ちに画面上の古いコメントを消去・同期解除
+      window.addEventListener('yt-navigate-start', () => {
+        console.log('[TimeBubble] yt-navigate-start: cleaning up current overlay');
+        this.cleanup();
+      });
       window.addEventListener('yt-navigate-finish', () => this.handlePageTransition());
+      window.addEventListener('yt-page-data-updated', () => this.handlePageTransition());
       window.addEventListener('popstate', () => this.handlePageTransition());
+
+      // URL変更の常時監視（YouTubeのイベントタイミングずれや自動再生切り替えへの追従）
+      window.setInterval(() => {
+        if (!this.currentAdapter) return;
+        const currentTarget = this.currentAdapter.getTargetId();
+        if (currentTarget && currentTarget !== this.currentTargetId) {
+          console.log(`[TimeBubble] URL mismatch detected: current="${this.currentTargetId}", new="${currentTarget}"`);
+          this.handlePageTransition();
+        }
+      }, 300);
 
       // 初回初期化
       this.handlePageTransition();
@@ -167,16 +183,17 @@ if (LiveChatForwarder.isLiveChatFrame()) {
 
     private handlePageTransition() {
       if (!this.currentAdapter) this.initAdapter();
-      const targetId = this.currentAdapter?.getTargetId();
+      const targetId = this.currentAdapter?.getTargetId() || '';
 
       if (targetId && targetId === this.currentTargetId && this.isInitialized) {
         return;
       }
 
+      console.log(`[TimeBubble] Target changed: "${this.currentTargetId}" -> "${targetId}"`);
+      this.cleanup();
       this.currentTargetId = targetId || 'current_video';
       this.playerSync.setVideoId(this.currentTargetId);
       this.commentFetcher.setVideoId(this.currentTargetId);
-      this.cleanup();
       this.initVideoPage();
     }
 
@@ -251,8 +268,8 @@ if (LiveChatForwarder.isLiveChatFrame()) {
       }
       this.isInitialized = false;
       this.playerSync.detach();
-      if (this.currentAdapter instanceof YouTubeAdapter) {
-        this.currentAdapter.cleanupBackgroundLiveChatFrame();
+      if (this.currentAdapter?.resetForNewVideo) {
+        this.currentAdapter.resetForNewVideo();
       }
       if (this.currentAdapter?.getPlatform() === 'youtube') {
         this.commentFetcher.stop();

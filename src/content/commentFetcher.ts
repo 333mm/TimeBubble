@@ -20,6 +20,8 @@ export class CommentFetcher {
   private currentVideoId = '';
   private commentFingerprints = new Map<string, string>(); // fingerprint -> commentId
 
+  private startTimers: number[] = [];
+
   constructor() {
     this.initMainWorldBridgeListener();
   }
@@ -41,6 +43,15 @@ export class CommentFetcher {
 
   private registerComment(commentData: CommentData, newItems: CommentData[]) {
     if (!commentData || commentData.timestamps.length === 0) return;
+
+    // 現在の対象動画IDとの不一致を排除
+    const activeVid = this.getVideoId();
+    if (activeVid && commentData.videoId && commentData.videoId !== activeVid) {
+      return;
+    }
+    if (!commentData.videoId && activeVid) {
+      commentData.videoId = activeVid;
+    }
 
     // 目次・チャプター・まとめコメントの自動除外（概要欄公式チャプター以外）
     if (!commentData.isDescription && isIndexOrSummaryComment(commentData.rawText, commentData.timestamps)) {
@@ -125,8 +136,11 @@ export class CommentFetcher {
     this.stop();
   }
 
+  public getCurrentVideoId(): string {
+    return this.currentVideoId;
+  }
+
   public getVideoId(): string {
-    if (this.currentVideoId) return this.currentVideoId;
     try {
       const url = new URL(window.location.href);
       const v = url.searchParams.get('v');
@@ -140,7 +154,7 @@ export class CommentFetcher {
     } catch {
       // ignore
     }
-    return '';
+    return this.currentVideoId;
   }
 
   private extractVideoIdFromInitialData(data: unknown): string | null {
@@ -310,24 +324,39 @@ export class CommentFetcher {
     this.observeComments();
 
     // 7. Bridge からのデータ到着を待ってリトライ（Bridge は非同期で応答するため）
-    setTimeout(() => {
+    const t1 = window.setTimeout(() => {
+      const activeVid = this.getVideoId();
+      if (this.currentVideoId && activeVid && activeVid !== this.currentVideoId) return;
       if (this.commentsMap.size === 0 && !this.isFetchingApi) {
         window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REQUEST_MAIN_DATA'));
         this.extractFromPageInitialData();
         this.fetchCommentsViaApi();
       }
     }, 800);
+    this.startTimers.push(t1);
 
-    setTimeout(() => {
+    const t2 = window.setTimeout(() => {
+      const activeVid = this.getVideoId();
+      if (this.currentVideoId && activeVid && activeVid !== this.currentVideoId) return;
       if (this.commentsMap.size === 0 && !this.isFetchingApi) {
         window.dispatchEvent(new CustomEvent('YT_COMMENT_OVERLAY_REQUEST_MAIN_DATA'));
         this.fetchCommentsViaApi();
       }
     }, 2000);
+    this.startTimers.push(t2);
 
     // 8. 定期ポーリングで遅延ロード・APIロード・アバター画像を確実にキャッチ
     let count = 0;
     this.scanInterval = window.setInterval(() => {
+      const activeVid = this.getVideoId();
+      if (this.currentVideoId && activeVid && activeVid !== this.currentVideoId) {
+        if (this.scanInterval) {
+          clearInterval(this.scanInterval);
+          this.scanInterval = null;
+        }
+        return;
+      }
+
       count++;
       this.scanDescriptionTimestamps();
       this.scanDomComments();
@@ -352,11 +381,16 @@ export class CommentFetcher {
 
   public stop() {
     this.restoreCommentsContainerStyle();
+    for (const t of this.startTimers) {
+      window.clearTimeout(t);
+    }
+    this.startTimers = [];
     if (this.apiAbortController) {
       this.apiAbortController.abort();
       this.apiAbortController = null;
     }
     this.isFetchingApi = false;
+    this.isScanning = false;
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
@@ -397,6 +431,11 @@ export class CommentFetcher {
     const watchFlexy = document.querySelector('ytd-watch-flexy');
     const flexyVideoId = watchFlexy?.getAttribute('video-id');
     if (flexyVideoId && activeVideoId && flexyVideoId !== activeVideoId) {
+      return;
+    }
+    const watchGrid = document.querySelector('ytd-watch-grid');
+    const gridVideoId = watchGrid?.getAttribute('video-id');
+    if (gridVideoId && activeVideoId && gridVideoId !== activeVideoId) {
       return;
     }
 
@@ -519,6 +558,11 @@ export class CommentFetcher {
     const watchFlexy = document.querySelector('ytd-watch-flexy');
     const flexyVideoId = watchFlexy?.getAttribute('video-id');
     if (flexyVideoId && activeVideoId && flexyVideoId !== activeVideoId) {
+      return;
+    }
+    const watchGrid = document.querySelector('ytd-watch-grid');
+    const gridVideoId = watchGrid?.getAttribute('video-id');
+    if (gridVideoId && activeVideoId && gridVideoId !== activeVideoId) {
       return;
     }
 
@@ -936,7 +980,14 @@ export class CommentFetcher {
 
               if (endIdx !== -1) {
                 const jsonStr = content.slice(braceIdx, endIdx + 1);
-                return JSON.parse(jsonStr);
+                const parsed = JSON.parse(jsonStr);
+                const scriptVid = this.extractVideoIdFromInitialData(parsed);
+                // HTMLスクリプトタグはSSR初期読み込み時のまま更新されないため、
+                // 現在の動画IDと異なる、または現在の動画IDが未確定の場合は旧動画のデータとみなし破棄
+                if (scriptVid && currentVideoId && scriptVid !== currentVideoId) {
+                  return null;
+                }
+                return parsed;
               }
             }
           }
@@ -1446,6 +1497,14 @@ export class CommentFetcher {
 
   private parseInitialDataJson(data: unknown) {
     if (!data || typeof data !== 'object') return;
+
+    // データ内の動画IDを検証（別動画のレスポンスが遅延到着した場合は破棄）
+    const activeVid = this.getVideoId();
+    const dataVid = this.extractVideoIdFromInitialData(data);
+    if (dataVid && activeVid && dataVid !== activeVid) {
+      return;
+    }
+
     const newItems: CommentData[] = [];
     const replyTokensMap = new Map<string, string>();
     const replyCountsMap = new Map<string, number>();
